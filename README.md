@@ -1,4 +1,3 @@
 netloc
 ======
 
-Snap Tutorial
