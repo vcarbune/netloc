@@ -1,11 +1,11 @@
 # Basic makefile build on top of snap
-TARGETS=simple
-
 include makefile.config
+
+TARGETS=generator simple
 
 all: $(TARGETS)
 
-simple: simple.cpp $(CSNAP)/Snap.o
+%: %.cpp $(CSNAP)/Snap.o
 	$(CC) $(CXXFLAGS) -o $@ $^ -I$(CGLIB) $(LDFLAGS) $(LIBS)
 
 $(CSNAP)/Snap.o:
