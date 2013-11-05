@@ -15,5 +15,8 @@ using namespace std;
  * Using the implicit STL pair structure for now, as it easily allows us to
  * store a priority queue with all the tests and pick the one that cuts the
  * most edges in EC2.
+ *
+ * TODO(vcarbune): Make this an explicit class for readability
+ * and extension purposes.
  */
 typedef pair<double, int> Test;
