@@ -22,7 +22,10 @@ class HypothesisCluster {
   public:
     HypothesisCluster(PUNGraph, int, int);
 
-    void ruleOutHypothesis(Test);
+    int countHypothesisConsistentWithTest (const Test&) const;
+    size_t countTotalHypothesis() const { return m_hypothesis.size(); }
+
+    void ruleOutHypothesis(Test, bool);
     Hypothesis getRandomHypothesis();
     int getSource() { return m_sourceId; }
 

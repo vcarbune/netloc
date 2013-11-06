@@ -16,13 +16,17 @@ HypothesisCluster::HypothesisCluster(PUNGraph network, int sourceId, int maxHypo
 
 void HypothesisCluster::printState()
 {
-  std::cout << "Cluster with source " << m_sourceId << std::endl;
+  std::cout << "Cluster with source " << m_sourceId << " has " <<
+    m_hypothesis.size() << " hypothesis left " << std::endl;
+
+  /*
   for (size_t i = 0; i < m_hypothesis.size(); ++i) {
     std::cout << "Cascade " << i << ": " <<
       (m_hypothesis[i].second.second->GetNodes()) << " (nodes) " <<
       (m_hypothesis[i].second.second->GetEdges()) << " (edges) " <<
       std::endl;
   }
+  */
 }
 
 /**
@@ -89,16 +93,29 @@ Hypothesis HypothesisCluster::generateHypothesis()
   return h;
 }
 
+int HypothesisCluster::countHypothesisConsistentWithTest (
+    const Test& test) const
+{
+  int total = 0;
+
+  for (Hypothesis h : m_hypothesis)
+    if (h.second.first.IsKey(test.second))
+      total++;
+
+  return total;
+}
+
+
 /**
  * Eliminates all the cascades that are not possible,
  * considering the outcome of Test t to be true.
  */
-void HypothesisCluster::ruleOutHypothesis(Test t)
+void HypothesisCluster::ruleOutHypothesis(Test t, bool outcome)
 {
   vector<Hypothesis>::iterator it;
   for (it = m_hypothesis.begin(); it != m_hypothesis.end();) {
     TIntH& nodeInfectionTime = (*it).second.first;
-    if (!nodeInfectionTime.IsKey(t.second))
+    if (nodeInfectionTime.IsKey(t.second) == outcome)
       ++it;
     else
       it = m_hypothesis.erase(it);
