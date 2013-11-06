@@ -1,8 +1,10 @@
 /**
  * Data structure used to represent a hypothesis cluster.
+ * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 
-#ifndef HYPOTHESIS_H
+#ifndef HYPOTHESIS_H_
+#define HYPOTHESIS_H_
 
 #include <map>
 #include <vector>
@@ -16,29 +18,40 @@ using namespace std;
  * One hypothesis is a pair of the form
  *    <weight, <infectionTimeHash, actualCascade>>
  */
-typedef pair<double, pair<TIntH, PNGraph>> Hypothesis;
-
-class HypothesisCluster {
+class GraphHypothesis {
   public:
-    HypothesisCluster(PUNGraph, int, int);
+    GraphHypothesis(PNGraph, TIntH, double);
 
-    int countHypothesisConsistentWithTest (const Test&) const;
-    size_t countTotalHypothesis() const { return m_hypothesis.size(); }
+    bool getTestOutcome(const GraphTest&) const;
+    void setWeight(double);
 
-    void ruleOutHypothesis(Test, bool);
-    Hypothesis getRandomHypothesis();
+  private:
+    double m_weight;
+    TIntH m_infectionTimeHash;
+    PNGraph m_cascade;
+};
+
+class GraphHypothesisCluster {
+  public:
+    GraphHypothesisCluster(PUNGraph, int, int);
+
+    int countHypothesisConsistentWithTest (const GraphTest&) const;
+    int countHypothesisAvailable() const { return m_hypothesis.size(); }
+
+    void removeHypothesisInconsistentWithTest(const GraphTest&);
+    GraphHypothesis getRandomHypothesis();
+
     int getSource() { return m_sourceId; }
-
-    void printState();
+    virtual void printState();
 
   private:
     void generateHypothesisCluster(int);
-    Hypothesis generateHypothesis();
+    GraphHypothesis generateHypothesis();
 
     PUNGraph m_network;
-    vector<Hypothesis> m_hypothesis;
+    vector<GraphHypothesis> m_hypothesis;
 
     int m_sourceId;
 };
 
-#endif // HYPOTHESIS_H
+#endif // HYPOTHESIS_H_

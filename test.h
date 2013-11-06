@@ -1,22 +1,36 @@
 /**
  * Data structure used to abstract away a test instance.
+ * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 
+#ifndef GRAPH_TEST_H_
+#define GRAPH_TEST_H_
+
 #include <utility>
+
+#include "ec2.h"
 
 using namespace std;
 
 /**
- * One test is a pair of (score, nodeId). The meaning of the two items is:
+ * One test is a simple container of score and nodeId. The meaning of the two items is:
  * Score  - the expected reduction in weight from the prior to the posterior
  *          distribution, given that the test runs.
  * Node   - the node tested (and further assumed to be infected)
- *
- * Using the implicit STL pair structure for now, as it easily allows us to
- * store a priority queue with all the tests and pick the one that cuts the
- * most edges in EC2.
- *
- * TODO(vcarbune): Make this an explicit class for readability
- * and extension purposes.
  */
-typedef pair<double, int> Test;
+
+class GraphTest : public Test {
+  public:
+    explicit GraphTest(int source) : Test()
+        , m_nodeId(source) {}
+
+    int getNodeId() const { return m_nodeId; }
+    bool operator==(const GraphTest& o) {
+      return m_nodeId == o.m_nodeId;
+    }
+
+  private:
+    int m_nodeId;
+};
+
+#endif // GRAPH_TEST_H_

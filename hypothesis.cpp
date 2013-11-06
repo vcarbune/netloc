@@ -1,20 +1,37 @@
 /**
  * Data structure implementation to represent a hypothesis cluster.
+ * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 
 #include <iostream>
 
 #include "hypothesis.h"
 
+GraphHypothesis::GraphHypothesis(PNGraph cascade, TIntH hash, double weight)
+  : m_weight(weight)
+  , m_infectionTimeHash(hash)
+  , m_cascade(cascade)
+{
+}
 
-HypothesisCluster::HypothesisCluster(PUNGraph network, int sourceId, int maxHypothesis)
+bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
+{
+  return m_infectionTimeHash.IsKey(test.getNodeId());
+}
+
+void GraphHypothesis::setWeight(double weight)
+{
+  m_weight = weight;
+}
+
+GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId, int maxHypothesis)
   : m_network(network)
   , m_sourceId(sourceId)
 {
   generateHypothesisCluster(maxHypothesis);
 }
 
-void HypothesisCluster::printState()
+void GraphHypothesisCluster::printState()
 {
   std::cout << "Cluster with source " << m_sourceId << " has " <<
     m_hypothesis.size() << " hypothesis left " << std::endl;
@@ -32,7 +49,7 @@ void HypothesisCluster::printState()
 /**
  * Internal generator for all the hypothesis in the cluster.
  */
-void HypothesisCluster::generateHypothesisCluster(int maxHypothesis)
+void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
 {
   for (int h = 0; h < maxHypothesis; ++h) {
     m_hypothesis.push_back(generateHypothesis());
@@ -46,7 +63,7 @@ void HypothesisCluster::generateHypothesisCluster(int maxHypothesis)
  *
  * TODO(vcarbune): Do we want to sample the cascade (e.g. removing nodes?)
  */
-Hypothesis HypothesisCluster::generateHypothesis()
+GraphHypothesis GraphHypothesisCluster::generateHypothesis()
 {
   PUNGraph weaklyConnectedComponents = TSnap::GetMxWcc(m_network);
 
@@ -55,11 +72,8 @@ Hypothesis HypothesisCluster::generateHypothesis()
   int cascadeSize = 0.4 * m_network->GetNodes();
   int runTimes = cascadeSize;
 
-  Hypothesis h;
-  h.second.second = TNGraph::New();
-
-  PNGraph casc = h.second.second;
-  TIntH& nodeInfectionTime = h.second.first;
+  PNGraph casc = TNGraph::New();
+  TIntH nodeInfectionTime;
 
   // Add the source node (fixed for this cluster).
   casc->AddNode(m_sourceId);
@@ -85,21 +99,21 @@ Hypothesis HypothesisCluster::generateHypothesis()
         casc->AddEdge(crtIt.GetId(), neighbourId);
 
         if (casc->GetNodes() == cascadeSize)
-          return h;
+          return GraphHypothesis(casc, nodeInfectionTime, 0);
       }
     }
   }
 
-  return h;
+  return GraphHypothesis(casc, nodeInfectionTime, 0);
 }
 
-int HypothesisCluster::countHypothesisConsistentWithTest (
-    const Test& test) const
+int GraphHypothesisCluster::countHypothesisConsistentWithTest (
+    const GraphTest& test) const
 {
   int total = 0;
 
-  for (Hypothesis h : m_hypothesis)
-    if (h.second.first.IsKey(test.second))
+  for (GraphHypothesis h : m_hypothesis)
+    if (h.getTestOutcome(test) == test.getOutcome())
       total++;
 
   return total;
@@ -110,19 +124,18 @@ int HypothesisCluster::countHypothesisConsistentWithTest (
  * Eliminates all the cascades that are not possible,
  * considering the outcome of Test t to be true.
  */
-void HypothesisCluster::ruleOutHypothesis(Test t, bool outcome)
+void GraphHypothesisCluster::removeHypothesisInconsistentWithTest(const GraphTest& t)
 {
-  vector<Hypothesis>::iterator it;
+  vector<GraphHypothesis>::iterator it;
   for (it = m_hypothesis.begin(); it != m_hypothesis.end();) {
-    TIntH& nodeInfectionTime = (*it).second.first;
-    if (nodeInfectionTime.IsKey(t.second) == outcome)
+    if (it->getTestOutcome(t) == t.getOutcome())
       ++it;
     else
       it = m_hypothesis.erase(it);
   }
 }
 
-Hypothesis HypothesisCluster::getRandomHypothesis()
+GraphHypothesis GraphHypothesisCluster::getRandomHypothesis()
 {
   return m_hypothesis[(long) (drand48() * m_hypothesis.size())];
 }
