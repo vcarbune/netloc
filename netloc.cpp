@@ -21,12 +21,12 @@ using namespace std;
 int main(int argc, char *argv[])
 {
   // Get underlying network.
-  PUNGraph network = TSnap::GenRndGnm<PUNGraph>(100, 100);
+  PUNGraph network = TSnap::GenRndGnm<PUNGraph>(100, 4800);
 
   // Get all possible hypothesis clusters that we want to search through.
   vector<GraphHypothesisCluster> clusters;
   for (int source = 0; source < network->GetNodes(); ++source)
-    clusters.push_back(GraphHypothesisCluster(network, source, 3));
+    clusters.push_back(GraphHypothesisCluster(network, source, 10));
 
   // Get true hypothesis.
   srand(time(NULL));
