@@ -22,7 +22,9 @@ class GraphHypothesis {
   public:
     GraphHypothesis(PNGraph, TIntH, double);
 
+    int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
+
     void setWeight(double);
 
   private:

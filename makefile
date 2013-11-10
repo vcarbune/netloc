@@ -5,7 +5,7 @@ TARGETS=generator simple netloc
 
 all: $(TARGETS)
 
-netloc: hypothesis.o netloc.cpp $(CSNAP)/Snap.o
+netloc: hypothesis.o ec2.h netloc.cpp $(CSNAP)/Snap.o
 	$(CC) $(CXXFLAGS) -o $@ $^ -I$(CGLIB) $(LDFLAGS) $(LIBS)
 
 %.o: %.cpp

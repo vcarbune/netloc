@@ -3,6 +3,7 @@
  * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 
+#include <cassert>
 #include <iostream>
 
 #include "hypothesis.h"
@@ -12,6 +13,14 @@ GraphHypothesis::GraphHypothesis(PNGraph cascade, TIntH hash, double weight)
   , m_infectionTimeHash(hash)
   , m_cascade(cascade)
 {
+}
+
+int GraphHypothesis::getInfectionTime(int nodeId) const
+{
+  if (m_infectionTimeHash.IsKey(nodeId))
+    return m_infectionTimeHash.GetDat(nodeId);
+
+  return -1;
 }
 
 bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
@@ -35,15 +44,6 @@ void GraphHypothesisCluster::printState()
 {
   std::cout << "Cluster with source " << m_sourceId << " has " <<
     m_hypothesis.size() << " hypothesis left " << std::endl;
-
-  /*
-  for (size_t i = 0; i < m_hypothesis.size(); ++i) {
-    std::cout << "Cascade " << i << ": " <<
-      (m_hypothesis[i].second.second->GetNodes()) << " (nodes) " <<
-      (m_hypothesis[i].second.second->GetEdges()) << " (edges) " <<
-      std::endl;
-  }
-  */
 }
 
 /**
@@ -69,7 +69,7 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis()
 
   // TODO(vcarbune): discuss about these values.
   double beta = 0.1;
-  int cascadeSize = 0.4 * m_network->GetNodes();
+  int cascadeSize = 0.5 * m_network->GetNodes();
   int runTimes = cascadeSize;
 
   PNGraph casc = TNGraph::New();
@@ -94,9 +94,12 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis()
         if (casc->IsNode(neighbourId) || TInt::Rnd.GetUniDev() > beta)
           continue;
 
+
         casc->AddNode(neighbourId);
-        nodeInfectionTime.AddDat(neighbourId, nodeInfectionTime.Len());
         casc->AddEdge(crtIt.GetId(), neighbourId);
+
+        assert(!nodeInfectionTime.IsKey(neighbourId));
+        nodeInfectionTime.AddDat(neighbourId, nodeInfectionTime.Len());
 
         if (casc->GetNodes() == cascadeSize)
           return GraphHypothesis(casc, nodeInfectionTime, 0);

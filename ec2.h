@@ -90,39 +90,53 @@ void rescoreTests(std::vector<TTest>& tests,
   }
 }
 
-// TODO(vcarbune): Maybe we want only a single step to run here.
 template <class TTest, class THypothesisCluster, class THypothesis>
-void runEC2(std::vector<TTest>& tests,
-            std::vector<THypothesisCluster>& clusters,
-            const THypothesis& realization)
+typename std::vector<TTest>::iterator
+runOneEC2Step(std::vector<TTest>& tests,
+              std::vector<THypothesisCluster>& clusters,
+              const THypothesis& realization)
 {
+  rescoreTests(tests, clusters);
+
+  std::priority_queue<TTest, std::vector<TTest>, TestCompareFunction> pq;
+  typename std::vector<TTest>::iterator it;
+  for (it = tests.begin(); it != tests.end(); ++it)
+    pq.push(*it);
+
+  it = find(tests.begin(), tests.end(), pq.top());
+  it->setOutcome(realization.getTestOutcome(*it));
+
+  for (std::size_t i = 0; i < clusters.size(); ++i)
+    clusters[i].removeHypothesisInconsistentWithTest(*it);
+
+  return it;
+}
+
+template <class TTest, class THypothesisCluster, class THypothesis>
+std::vector<TTest> runEC2(std::vector<TTest>& tests,
+                         std::vector<THypothesisCluster>& clusters,
+                         const THypothesis& realization)
+{
+  typename std::vector<TTest>::iterator it;
+  std::vector<TTest> testRunOrder;
+
   int clustersLeft = clusters.size();
-
   while (!tests.empty() && clustersLeft != 1) {
-    rescoreTests(tests, clusters);
-
-    std::priority_queue<TTest, std::vector<TTest>, TestCompareFunction> pq;
-    for (typename std::vector<TTest>::iterator it = tests.begin(); it != tests.end(); ++it)
-      pq.push(*it);
-
-    typename std::vector<TTest>::iterator it = find(tests.begin(), tests.end(), pq.top());
-    it->setOutcome(realization.getTestOutcome(*it));
-
-    for (std::size_t i = 0; i < clusters.size(); ++i)
-      clusters[i].removeHypothesisInconsistentWithTest(*it);
-
+    it = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
+        tests, clusters, realization);
+    testRunOrder.push_back(*it);
     tests.erase(it);
 
     clustersLeft = 0;
-    for (std::size_t i = 0; i < clusters.size(); ++i) {
-      if (clusters[i].countHypothesisAvailable()) {
+    for (std::size_t i = 0; i < clusters.size(); ++i)
+      if (clusters[i].countHypothesisAvailable())
         clustersLeft++;
-        clusters[i].printState();
-      }
-    }
 
-    std::cout << std::endl;
+        // clusters[i].printState();
   }
+
+  return testRunOrder;
 }
+
 
 #endif // EC2_H_
