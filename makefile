@@ -5,10 +5,10 @@ TARGETS=generator simple netloc
 
 all: $(TARGETS)
 
-netloc: hypothesis.o ec2.h netloc.cpp $(CSNAP)/Snap.o
+netloc: hypothesis.o utils.o ec2.h netloc.cpp $(CSNAP)/Snap.o
 	$(CC) $(CXXFLAGS) -o $@ $^ -I$(CGLIB) $(LDFLAGS) $(LIBS)
 
-%.o: %.cpp
+%.o: %.cpp %.h
 	$(CC) $(CXXFLAGS) -c -o $@ $^ -I$(CGLIB) $(LDFLAGS) $(LIBS)
 
 %: %.cpp $(CSNAP)/Snap.o
