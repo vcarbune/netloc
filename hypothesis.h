@@ -36,12 +36,13 @@ class GraphHypothesis {
 class GraphHypothesisCluster {
   public:
     GraphHypothesisCluster(PUNGraph, int, int);
+    GraphHypothesisCluster(PUNGraph, int, int, double, double);
 
     int countHypothesisConsistentWithTest (const GraphTest&) const;
     int countHypothesisAvailable() const { return m_hypothesis.size(); }
 
     void removeHypothesisInconsistentWithTest(const GraphTest&);
-    GraphHypothesis getRandomHypothesis();
+    GraphHypothesis getRandomHypothesis() const;
 
     int getSource() { return m_sourceId; }
     virtual void printState();
@@ -54,6 +55,8 @@ class GraphHypothesisCluster {
     vector<GraphHypothesis> m_hypothesis;
 
     int m_sourceId;
+    double m_beta;
+    double m_size;
 };
 
 #endif // HYPOTHESIS_H_

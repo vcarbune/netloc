@@ -113,9 +113,9 @@ runOneEC2Step(std::vector<TTest>& tests,
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
-std::vector<TTest> runEC2(std::vector<TTest>& tests,
-                         std::vector<THypothesisCluster>& clusters,
-                         const THypothesis& realization)
+size_t runEC2(std::vector<TTest>& tests,
+              std::vector<THypothesisCluster>& clusters,
+              const THypothesis& realization)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -135,7 +135,7 @@ std::vector<TTest> runEC2(std::vector<TTest>& tests,
         // clusters[i].printState();
   }
 
-  return testRunOrder;
+  return testRunOrder.size();
 }
 
 

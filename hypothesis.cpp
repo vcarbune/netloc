@@ -33,11 +33,22 @@ void GraphHypothesis::setWeight(double weight)
   m_weight = weight;
 }
 
-GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId, int maxHypothesis)
+GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
+                                               int maxHypothesis,
+                                               double beta,
+                                               double size)
   : m_network(network)
   , m_sourceId(sourceId)
+  , m_beta(beta)
+  , m_size(size)
 {
   generateHypothesisCluster(maxHypothesis);
+}
+
+GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
+                                               int maxHypothesis)
+  : GraphHypothesisCluster(network, sourceId, maxHypothesis, 0.1, 0.4)
+{
 }
 
 void GraphHypothesisCluster::printState()
@@ -68,8 +79,7 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis()
   PUNGraph weaklyConnectedComponents = TSnap::GetMxWcc(m_network);
 
   // TODO(vcarbune): discuss about these values.
-  double beta = 0.1;
-  int cascadeSize = 0.5 * m_network->GetNodes();
+  int cascadeSize = m_size * m_network->GetNodes();
   int runTimes = cascadeSize;
 
   PNGraph casc = TNGraph::New();
@@ -91,7 +101,7 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis()
 
         // If the node is already in the cascade, or random activation fails,
         // move to the next neighbour.
-        if (casc->IsNode(neighbourId) || TInt::Rnd.GetUniDev() > beta)
+        if (casc->IsNode(neighbourId) || TInt::Rnd.GetUniDev() > m_beta)
           continue;
 
 
@@ -138,7 +148,7 @@ void GraphHypothesisCluster::removeHypothesisInconsistentWithTest(const GraphTes
   }
 }
 
-GraphHypothesis GraphHypothesisCluster::getRandomHypothesis()
+GraphHypothesis GraphHypothesisCluster::getRandomHypothesis() const
 {
   return m_hypothesis[(long) (drand48() * m_hypothesis.size())];
 }
