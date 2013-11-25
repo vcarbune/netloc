@@ -76,12 +76,15 @@ inline PUNGraph generateNetwork(int nodes, int edges) {
 
 inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
-                             int clusterSize = 10)
+                             int clusterSize = 10,
+                             double beta = 0.1,
+                             double size = 0.4)
 {
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
   for (int source = 0; source < network->GetNodes(); ++source)
-    clusters->push_back(GraphHypothesisCluster(network, source, clusterSize));
+    clusters->push_back(
+        GraphHypothesisCluster(network, source, clusterSize, beta, size));
 }
 
 inline void generateTests(vector<GraphTest> *tests,
@@ -119,9 +122,48 @@ void generateSimulationStats(ParameterVariationType simulationParameter,
       }
       break;
     case EdgeVar:
+      for (int edges = 100; edges < 1001; edges += 50) {
+        network = generateNetwork((int) pow(edges, 1.1), edges);
+        generateClusters(&clusters, network);
+        generateTests(&tests, network);
+
+        runSimulation(network, clusters, tests, runStats);
+        runParams->push_back(static_cast<double>(edges));
+        cout << "Running with " << edges << " edges... " << endl;
+      }
+      break;
     case BetaVar:
+      for (double beta = 0.1; beta <= 0.5; beta += 0.05) {
+        network = generateNetwork(500, 1500);
+        generateClusters(&clusters, network, 10, beta, 0.4);
+        generateTests(&tests, network);
+
+        runSimulation(network, clusters, tests, runStats);
+        runParams->push_back(beta);
+        cout << "Running with " << beta << " beta... " << endl;
+      }
+      break;
     case HypothesisVar:
+      for (int clusterSize = 5; clusterSize <= 15; ++clusterSize) {
+        network = generateNetwork(500, 1500);
+        generateClusters(&clusters, network, clusterSize);
+        generateTests(&tests, network);
+
+        runSimulation(network, clusters, tests, runStats);
+        runParams->push_back(static_cast<double>(clusterSize));
+        cout << "Running with " << clusterSize << " cluster size... " << endl;
+      }
+      break;
     case CascBoundVar:
+      for (double bound = 0.4; bound <= 0.6; bound += 0.05) {
+        network = generateNetwork(500, 1500);
+        generateClusters(&clusters, network, 10, 0.1, bound);
+        generateTests(&tests, network);
+
+        runSimulation(network, clusters, tests, runStats);
+        runParams->push_back(bound);
+        cout << "Running with " << bound << " cascade size bound... " << endl;
+      }
       break;
   }
 
@@ -149,7 +191,7 @@ int main(int argc, char *argv[])
 
   srand(time(NULL));
 
-  generateSimulationStats(NodeVar, &runStats, &runParams);
+  generateSimulationStats(HypothesisVar, &runStats, &runParams);
   dumpSimulationStats(runParams, runStats, cout);
 
   return 0;
