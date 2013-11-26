@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <limits>
 #include <iostream>
+#include <fstream>
 #include <queue>
 
 #include <cassert>
@@ -56,9 +57,9 @@ void runSimulation(const PUNGraph& network,
   runStats->push_back(scoreList);
 }
 
-inline PUNGraph generateNetwork(const SimConfig& config) {
+inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   // To easily swap the generation model later.
-  return TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
+  *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
 }
 
 inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
@@ -87,7 +88,7 @@ inline void generateTests(vector<GraphTest> *tests,
 void generateSimulationStats(SimulationType simulationParameter,
                              vector<vector<double>> *runStats,
                              vector<double> *runParams,
-                             ostream *fout)
+                             ostream& fout)
 {
   PUNGraph network;
   vector<GraphHypothesisCluster> clusters;
@@ -100,12 +101,20 @@ void generateSimulationStats(SimulationType simulationParameter,
   for (int step = 0; step < 5; step++, ++config) {
     cout << "Running one simulation step ... " << config.getSimParamValue() << endl;
 
-    network = generateNetwork(config);
+    generateNetwork(&network, config);
     generateClusters(&clusters, network, config);
     generateTests(&tests, network);
 
     runSimulation(network, clusters, tests, runStats);
     runParams->push_back(static_cast<double>(config.getSimParamValue()));
+
+    // If provided, log each simulation step into an output stream.
+    if (fout) {
+      fout << config.getSimParamValue() << "\t";
+      for (size_t i = 0; i < (*runStats)[step].size(); ++i)
+        fout << (*runStats)[step][i] << "\t";
+      fout << endl;
+    }
   }
 
   cout << endl;
@@ -132,8 +141,12 @@ int main(int argc, char *argv[])
 
   srand(time(NULL));
 
-  generateSimulationStats(NodeVar, &runStats, &runParams, NULL);
+  ofstream dumpStream;
+  dumpStream.open("dump.log");
+
+  generateSimulationStats(NodeVar, &runStats, &runParams, dumpStream);
   dumpSimulationStats(runParams, runStats, cout);
 
+  dumpStream.close();
   return 0;
 }
