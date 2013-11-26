@@ -37,12 +37,6 @@ void runSimulation(const PUNGraph& network,
   double crtScore;
   vector<double> scoreList;
 
-  /*
-  scoreList[0] = 0;
-  scoreList[1] = numeric_limits<double>::max();
-  scoreList[2] = numeric_limits<double>::min();
-  */
-
   for (int trials = 0; trials < TRIALS; ++trials) {
     // Initialize temporary variables.
     vector<GraphHypothesisCluster> tempClusters = clusters;
@@ -57,15 +51,8 @@ void runSimulation(const PUNGraph& network,
         tempTests, tempClusters, realization);
 
     scoreList.push_back(crtScore);
-    /*
-    scoreList[0] += crtScore;
-    scoreList[1] = min(scoreList[1], crtScore);
-    scoreList[2] = max(scoreList[2], crtScore);
-    */
   }
-  /*
-  scoreList[0] /= TRIALS;
-  */
+
   runStats->push_back(scoreList);
 }
 

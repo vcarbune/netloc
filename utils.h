@@ -21,8 +21,8 @@ enum SimulationType {
   NodeVar,  // nodes: G(V, VlogV)
   EdgeVar,  // edge: G(sqrt(E), E)
   BetaVar,  // beta: [0.1, 0.5]
-  HypothesisVar, // hypothesis per cluster: [1, 15]
-  CascBoundVar // max cascade size: [0.4, 0.8]
+  HypothesisVar,  // hypothesis per cluster: [1, 15]
+  CascBoundVar    // max cascade size: [0.4, 0.8]
 };
 
 struct SimConfig {
