@@ -69,22 +69,21 @@ void runSimulation(const PUNGraph& network,
   runStats->push_back(scoreList);
 }
 
-inline PUNGraph generateNetwork(int nodes, int edges) {
+inline PUNGraph generateNetwork(const SimConfig& config) {
   // To easily swap the generation model later.
-  return TSnap::GenRndGnm<PUNGraph>(nodes, edges);
+  return TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
 }
 
 inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
-                             int clusterSize = 10,
-                             double beta = 0.1,
-                             double size = 0.4)
+                             const SimConfig& config)
 {
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
   for (int source = 0; source < network->GetNodes(); ++source)
     clusters->push_back(
-        GraphHypothesisCluster(network, source, clusterSize, beta, size));
+        GraphHypothesisCluster(network, source,
+              config.clusterSize, config.beta, config.cascadeBound));
 }
 
 inline void generateTests(vector<GraphTest> *tests,
@@ -98,9 +97,10 @@ inline void generateTests(vector<GraphTest> *tests,
   }
 }
 
-void generateSimulationStats(ParameterVariationType simulationParameter,
+void generateSimulationStats(SimulationType simulationParameter,
                              vector<vector<double>> *runStats,
-                             vector<double> *runParams)
+                             vector<double> *runParams,
+                             ostream *fout)
 {
   PUNGraph network;
   vector<GraphHypothesisCluster> clusters;
@@ -109,62 +109,16 @@ void generateSimulationStats(ParameterVariationType simulationParameter,
   runStats->clear();
   runParams->clear();
 
-  switch (simulationParameter) {
-    case NodeVar:
-      for (int nodes = 100; nodes < 1001; nodes += 50) {
-        network = generateNetwork(nodes, nodes * log(nodes));
-        generateClusters(&clusters, network);
-        generateTests(&tests, network);
+  SimConfig config(simulationParameter);
+  for (int step = 0; step < 5; step++, ++config) {
+    cout << "Running one simulation step ... " << config.getSimParamValue() << endl;
 
-        runSimulation(network, clusters, tests, runStats);
-        runParams->push_back(static_cast<double>(nodes));
-        cout << "Running with " << nodes << " nodes... " << endl;
-      }
-      break;
-    case EdgeVar:
-      for (int edges = 100; edges < 1001; edges += 50) {
-        network = generateNetwork((int) pow(edges, 1.1), edges);
-        generateClusters(&clusters, network);
-        generateTests(&tests, network);
+    network = generateNetwork(config);
+    generateClusters(&clusters, network, config);
+    generateTests(&tests, network);
 
-        runSimulation(network, clusters, tests, runStats);
-        runParams->push_back(static_cast<double>(edges));
-        cout << "Running with " << edges << " edges... " << endl;
-      }
-      break;
-    case BetaVar:
-      for (double beta = 0.1; beta <= 0.5; beta += 0.05) {
-        network = generateNetwork(500, 1500);
-        generateClusters(&clusters, network, 10, beta, 0.4);
-        generateTests(&tests, network);
-
-        runSimulation(network, clusters, tests, runStats);
-        runParams->push_back(beta);
-        cout << "Running with " << beta << " beta... " << endl;
-      }
-      break;
-    case HypothesisVar:
-      for (int clusterSize = 5; clusterSize <= 15; ++clusterSize) {
-        network = generateNetwork(500, 1500);
-        generateClusters(&clusters, network, clusterSize);
-        generateTests(&tests, network);
-
-        runSimulation(network, clusters, tests, runStats);
-        runParams->push_back(static_cast<double>(clusterSize));
-        cout << "Running with " << clusterSize << " cluster size... " << endl;
-      }
-      break;
-    case CascBoundVar:
-      for (double bound = 0.4; bound <= 0.6; bound += 0.05) {
-        network = generateNetwork(500, 1500);
-        generateClusters(&clusters, network, 10, 0.1, bound);
-        generateTests(&tests, network);
-
-        runSimulation(network, clusters, tests, runStats);
-        runParams->push_back(bound);
-        cout << "Running with " << bound << " cascade size bound... " << endl;
-      }
-      break;
+    runSimulation(network, clusters, tests, runStats);
+    runParams->push_back(static_cast<double>(config.getSimParamValue()));
   }
 
   cout << endl;
@@ -191,7 +145,7 @@ int main(int argc, char *argv[])
 
   srand(time(NULL));
 
-  generateSimulationStats(HypothesisVar, &runStats, &runParams);
+  generateSimulationStats(NodeVar, &runStats, &runParams, NULL);
   dumpSimulationStats(runParams, runStats, cout);
 
   return 0;
