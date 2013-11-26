@@ -34,7 +34,6 @@ void runSimulation(const PUNGraph& network,
                    const vector<GraphTest>& tests,
                    vector<vector<double>> *runStats)
 {
-
   double crtScore;
   vector<double> scoreList;
 
@@ -99,7 +98,9 @@ void generateSimulationStats(SimulationType simulationParameter,
 
   SimConfig config(simulationParameter);
   for (int step = 0; step < 5; step++, ++config) {
-    cout << "Running one simulation step ... " << config.getSimParamValue() << endl;
+    cout << "Running one simulation step ... " << config.getSimParamValue();
+
+    time_t start = time(NULL);
 
     generateNetwork(&network, config);
     generateClusters(&clusters, network, config);
@@ -115,6 +116,8 @@ void generateSimulationStats(SimulationType simulationParameter,
         fout << (*runStats)[step][i] << "\t";
       fout << endl;
     }
+
+    cout << " (" << difftime(time(NULL), start) << " sec)" << endl;
   }
 
   cout << endl;

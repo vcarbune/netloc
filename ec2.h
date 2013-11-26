@@ -120,6 +120,8 @@ size_t runEC2(std::vector<TTest>& tests,
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
+  rescoreTests(tests, clusters);
+
   int clustersLeft = clusters.size();
   while (!tests.empty() && clustersLeft != 1) {
     it = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
@@ -131,10 +133,9 @@ size_t runEC2(std::vector<TTest>& tests,
     for (std::size_t i = 0; i < clusters.size(); ++i)
       if (clusters[i].countHypothesisAvailable())
         clustersLeft++;
-
-        // clusters[i].printState();
   }
 
+  assert (clustersLeft == 1 || tests.empty());
   return testRunOrder.size();
 }
 
