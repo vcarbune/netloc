@@ -29,8 +29,8 @@ struct SimConfig {
   SimConfig(SimulationType type)
     : nodes(100)
     , edges(200)
-    , beta(0.1)
     , clusterSize(10)
+    , beta(0.1)
     , cascadeBound(0.4)
     , m_type(type)
   {
@@ -89,9 +89,9 @@ struct SimConfig {
 
   int nodes;
   int edges;
-  int beta;
-  int clusterSize;  // cluster size, number of hypothesis in a cluster
-  int cascadeBound; // cascade size, percentage of the network
+  int clusterSize;      // cluster size, number of hypothesis in a cluster
+  double beta;          // edge selection probability
+  double cascadeBound;  // cascade size, percentage of the network
 
 private:
   SimulationType m_type;

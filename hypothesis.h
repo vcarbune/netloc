@@ -26,6 +26,7 @@ class GraphHypothesis {
     bool getTestOutcome(const GraphTest&) const;
 
     void setWeight(double);
+    int getSize() const { return m_cascade->GetNodes(); }
 
   private:
     double m_weight;
