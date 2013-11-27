@@ -12,6 +12,7 @@
 #include <cassert>
 #include <ctime>
 #include <cmath>
+#include <thread>
 
 #include "ec2.h"
 #include "hypothesis.h"
@@ -20,41 +21,14 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define TRIALS 5
+#define TRIALS 10
 
-// Snap defines it's own macros of max(), min() and this doesn't allow the
+// Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
 #undef max
 #undef min
 
 using namespace std;
-
-void runSimulation(const PUNGraph& network,
-                   const vector<GraphHypothesisCluster>& clusters,
-                   const vector<GraphTest>& tests,
-                   vector<vector<double>> *runStats)
-{
-  double crtScore;
-  vector<double> scoreList;
-
-  for (int trials = 0; trials < TRIALS; ++trials) {
-    // Initialize temporary variables.
-    vector<GraphHypothesisCluster> tempClusters = clusters;
-    vector<GraphTest> tempTests = tests;
-
-    // Select a different realization at each run.
-    int index = rand() % tempClusters.size();
-    GraphHypothesis realization = tempClusters[index].getRandomHypothesis();
-
-    // Run the simulation with the current configuration.
-    crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization);
-
-    scoreList.push_back(crtScore);
-  }
-
-  runStats->push_back(scoreList);
-}
 
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   // To easily swap the generation model later.
@@ -84,53 +58,80 @@ inline void generateTests(vector<GraphTest> *tests,
   }
 }
 
-void generateSimulationStats(SimulationType simulationParameter,
-                             vector<vector<double>> *runStats,
-                             vector<double> *runParams,
-                             ostream& fout)
+void runSimulation(const SimConfig config,
+                   ostream& fout,
+                   vector<vector<double>> *runStats)
 {
+  double crtScore;
+  vector<double> scoreList;
+
   PUNGraph network;
   vector<GraphHypothesisCluster> clusters;
   vector<GraphTest> tests;
 
+  generateNetwork(&network, config);
+  generateClusters(&clusters, network, config);
+  generateTests(&tests, network);
+
+  time_t start = time(NULL);
+  scoreList.push_back(config.getSimParamValue());
+
+  for (int trials = 0; trials < TRIALS; ++trials) {
+    // Initialize temporary variables.
+    vector<GraphHypothesisCluster> tempClusters(clusters);
+    vector<GraphTest> tempTests(tests);
+
+    // Select a different realization at each run.
+    int index = rand() % tempClusters.size();
+    GraphHypothesis realization = tempClusters[index].getRandomHypothesis();
+
+    // Run the simulation with the current configuration.
+    crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
+        tempTests, tempClusters, realization);
+
+    scoreList.push_back(crtScore);
+  }
+
+  runStats->push_back(scoreList);
+
+  cout << "Thread with " << config.getSimParamValue() << " took "
+    << difftime(time(NULL), start) << " seconds, connected ("
+    << TSnap::GetMxWccSz(network) << ")" << endl;
+
+  // If provided, log each simulation step into an output stream.
+  if (fout) {
+    // fout << parameter << "\t";
+    for (size_t i = 0; i < scoreList.size(); ++i)
+      fout << scoreList[i] << "\t";
+    fout << endl;
+  }
+}
+
+void generateSimulationStats(SimulationType simulationParameter,
+                             vector<vector<double>> *runStats,
+                             ostream& fout)
+{
+
   runStats->clear();
-  runParams->clear();
 
   SimConfig config(simulationParameter);
-  for (int step = 0; step < 5; step++, ++config) {
-    cout << "Running one simulation step ... " << config.getSimParamValue();
+  vector<thread> threads;
 
-    time_t start = time(NULL);
-
-    generateNetwork(&network, config);
-    generateClusters(&clusters, network, config);
-    generateTests(&tests, network);
-
-    runSimulation(network, clusters, tests, runStats);
-    runParams->push_back(static_cast<double>(config.getSimParamValue()));
-
-    // If provided, log each simulation step into an output stream.
-    if (fout) {
-      fout << config.getSimParamValue() << "\t";
-      for (size_t i = 0; i < (*runStats)[step].size(); ++i)
-        fout << (*runStats)[step][i] << "\t";
-      fout << endl;
-    }
-
-    cout << " (" << difftime(time(NULL), start) << " sec)" << endl;
+  for (int step = 0; step < 10; step++, ++config) {
+    cout << " Starting thread with ... " << config.getSimParamValue() << endl;
+    threads.push_back(thread(runSimulation, config, ref(fout), runStats));
   }
+
+  for (size_t i = 0; i < threads.size(); ++i)
+    threads[i].join();
 
   cout << endl;
 }
 
-void dumpSimulationStats(const vector<double>& runParams,
-                         const vector<vector<double>>& runStats,
+void dumpSimulationStats(const vector<vector<double>>& runStats,
                          ostream& outstream)
 {
-  assert(runParams.size() == runStats.size());
-
   for (size_t trial = 0; trial < runStats.size(); ++trial) {
-    outstream << runParams[trial] << "\t";
     for (size_t i = 0; i < runStats[trial].size(); ++i)
       outstream << runStats[trial][i] << "\t";
     outstream << endl;
@@ -139,7 +140,6 @@ void dumpSimulationStats(const vector<double>& runParams,
 
 int main(int argc, char *argv[])
 {
-  vector<double> runParams;
   vector<vector<double>> runStats;
 
   srand(time(NULL));
@@ -147,8 +147,8 @@ int main(int argc, char *argv[])
   ofstream dumpStream;
   dumpStream.open("dump.log");
 
-  generateSimulationStats(NodeVar, &runStats, &runParams, dumpStream);
-  dumpSimulationStats(runParams, runStats, cout);
+  generateSimulationStats(NodeVar, &runStats, dumpStream);
+  dumpSimulationStats(runStats, cout);
 
   dumpStream.close();
   return 0;

@@ -70,7 +70,7 @@ struct SimConfig {
     return *this;
   }
 
-  double getSimParamValue() {
+  double getSimParamValue() const {
     switch (m_type) {
       case NodeVar:
         return static_cast<double>(nodes);

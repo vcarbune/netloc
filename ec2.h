@@ -75,16 +75,18 @@ void rescoreTests(std::vector<TTest>& tests,
 
     // Score if test outcome is True
     double positiveScore =
-      ((double) countConsistentHypothesis / countTotalHypothesis) *
-      ((double) 1 / countConsistentHypothesis);
+      ((double) countConsistentHypothesis / countTotalHypothesis);
+      // ((double) 1 / countConsistentHypothesis);
 
     // Score if test outcome is False
     double negativeScore =
-      ((double) (1 - countConsistentHypothesis) / countTotalHypothesis) *
+      ((double) (1 - countConsistentHypothesis)) *
       ((double) 1 / (countTotalHypothesis - countConsistentHypothesis));
 
-    double score = positiveScore + negativeScore -
-      ((double) 1 / countTotalHypothesis);
+    double score = positiveScore + negativeScore;// -
+      //((double) 1 / countTotalHypothesis);
+    score *= countTotalHypothesis;
+    score -= 1;
 
     t.setScore(score);
   }
@@ -98,12 +100,11 @@ runOneEC2Step(std::vector<TTest>& tests,
 {
   rescoreTests(tests, clusters);
 
-  std::priority_queue<TTest, std::vector<TTest>, TestCompareFunction> pq;
-  typename std::vector<TTest>::iterator it;
-  for (it = tests.begin(); it != tests.end(); ++it)
-    pq.push(*it);
+  std::priority_queue<TTest, std::vector<TTest>, TestCompareFunction>
+    pq(tests.begin(), tests.end());
 
-  it = find(tests.begin(), tests.end(), pq.top());
+  typename std::vector<TTest>::iterator it =
+    find(tests.begin(), tests.end(), pq.top());
   it->setOutcome(realization.getTestOutcome(*it));
 
   for (std::size_t i = 0; i < clusters.size(); ++i)
@@ -119,8 +120,6 @@ size_t runEC2(std::vector<TTest>& tests,
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
-
-  rescoreTests(tests, clusters);
 
   int clustersLeft = clusters.size();
   while (!tests.empty() && clustersLeft != 1) {
