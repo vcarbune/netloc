@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
   ofstream dumpStream;
   dumpStream.open("dump.log");
 
-  generateSimulationStats(NodeVar, &runStats, dumpStream);
+  generateSimulationStats(BetaVar, &runStats, dumpStream);
   dumpSimulationStats(runStats, cout);
 
   dumpStream.close();
