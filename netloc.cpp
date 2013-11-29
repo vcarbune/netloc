@@ -21,7 +21,7 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define TRIALS 10
+#define TRIALS 20
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -74,6 +74,7 @@ void runSimulation(const SimConfig config,
   generateTests(&tests, network);
 
   time_t start = time(NULL);
+  int fails = 0;
   scoreList.push_back(config.getSimParamValue());
 
   for (int trials = 0; trials < TRIALS; ++trials) {
@@ -89,9 +90,13 @@ void runSimulation(const SimConfig config,
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
         tempTests, tempClusters, realization);
 
+    if (crtScore == network->GetNodes())
+      fails++;
+
     scoreList.push_back(crtScore);
   }
 
+  scoreList.push_back((double) fails / TRIALS);
   runStats->push_back(scoreList);
 
   cout << "Thread with " << config.getSimParamValue() << " took "
@@ -107,18 +112,16 @@ void runSimulation(const SimConfig config,
   }
 }
 
-void generateSimulationStats(SimulationType simulationParameter,
-                             vector<vector<double>> *runStats,
+void generateSimulationStats(vector<vector<double>> *runStats,
+                             SimConfig& config,
                              ostream& fout)
 {
-
   runStats->clear();
-
-  SimConfig config(simulationParameter);
   vector<thread> threads;
 
-  for (int step = 0; step < 10; step++, ++config) {
-    cout << " Starting thread with ... " << config.getSimParamValue() << endl;
+  cout << "\nStarting simulation...\n";
+  for (int step = 0; step < config.steps; step++, ++config) {
+    cout << "Starting thread with ... " << config.getSimParamValue() << endl;
     threads.push_back(thread(runSimulation, config, ref(fout), runStats));
   }
 
@@ -141,13 +144,14 @@ void dumpSimulationStats(const vector<vector<double>>& runStats,
 int main(int argc, char *argv[])
 {
   vector<vector<double>> runStats;
+  SimConfig config = getSimConfigFromEnv(argc, argv);
 
   srand(time(NULL));
 
   ofstream dumpStream;
-  dumpStream.open("dump.log");
+  dumpStream.open(config.logfile.CStr());
 
-  generateSimulationStats(NodeVar, &runStats, dumpStream);
+  generateSimulationStats(&runStats, config, dumpStream);
   dumpSimulationStats(runStats, cout);
 
   dumpStream.close();

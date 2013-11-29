@@ -40,3 +40,42 @@ void plotGraphs(const PUNGraph& network, const vector<GraphTest>& tests,
   TSnap::DrawGViz(network, TGVizLayout(2), FNameDemo, "Infection", nodeInfectionLabels);
   printf("Drawing graph '%s'\n", FNameDemo.CStr());
 }
+
+SimConfig getSimConfigFromEnv(int argc, char *argv[])
+{
+  Env = TEnv(argc, argv, TNotify::StdNotify);
+  Env.PrepArgs(TStr::Fmt("InfMax. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
+
+  const TInt paramSimulation = Env.GetIfArgPrefixInt(
+      "-sim=", NodeVar, "Simulation Type"
+          "(NodeVar - 0, EdgeVar - 1, BetaVar - 2, HypothesisVar - 3, CascBoundVar - 4)");
+  const TInt paramNodes = Env.GetIfArgPrefixInt(
+      "-n=", 0, "Network Size (number of nodes)");
+  const TInt paramClusterSize = Env.GetIfArgPrefixInt(
+      "-c=", 10, "Cluster Size");
+  const double paramCascadeSize = Env.GetIfArgPrefixFlt(
+      "-s=", 0.4, "Cascade Size (percentage of network size)");
+  const double paramBeta = Env.GetIfArgPrefixFlt(
+      "-b=", 0.1, "Beta (activation probability on edges)");
+  const TInt paramSteps = Env.GetIfArgPrefixInt(
+      "-steps=", 5, "Number of simulation steps.");
+  const TInt paramStartStep = Env.GetIfArgPrefixInt(
+      "-start=", 0, "Simulation step (could be used for resuming)");
+  const TStr dumpFile = Env.GetIfArgPrefixStr(
+      "-dump=", "dump.log", "File where to dump the output");
+
+  SimConfig config(static_cast<SimulationType>(paramSimulation.Val));
+
+  if (paramNodes.Val)
+    config.nodes = paramNodes.Val;
+
+  config.clusterSize = paramClusterSize.Val;
+  config.steps = paramSteps.Val;
+  config.cascadeBound = paramCascadeSize;
+  config.beta = paramBeta;
+  config.logfile = dumpFile;
+
+  config += paramStartStep.Val;
+
+  return config;
+}

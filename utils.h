@@ -18,7 +18,7 @@ void plotGraphs(const PUNGraph& network, const std::vector<GraphTest>& tests,
                 const GraphHypothesis& realization);
 
 enum SimulationType {
-  NodeVar,  // nodes: G(V, VlogV)
+  NodeVar = 0,  // nodes: G(V, VlogV)
   EdgeVar,  // edge: G(sqrt(E), E)
   BetaVar,  // beta: [0.1, 0.5]
   HypothesisVar,  // hypothesis per cluster: [1, 15]
@@ -32,6 +32,7 @@ struct SimConfig {
     , clusterSize(10)
     , beta(0.1)
     , cascadeBound(0.4)
+    , steps(5)
     , m_type(type)
   {
     if (type == BetaVar || type == HypothesisVar || type == CascBoundVar) {
@@ -44,6 +45,13 @@ struct SimConfig {
     if (type == HypothesisVar) {
       clusterSize = 5;
     }
+  }
+
+  SimConfig& operator+=(int inc) {
+    while (inc)
+      ++(*this), inc--;
+
+    return *this;
   }
 
   SimConfig& operator++() {
@@ -92,9 +100,13 @@ struct SimConfig {
   int clusterSize;      // cluster size, number of hypothesis in a cluster
   double beta;          // edge selection probability
   double cascadeBound;  // cascade size, percentage of the network
+  int steps;
+  TStr logfile;
 
 private:
   SimulationType m_type;
 };
+
+SimConfig getSimConfigFromEnv(int argc, char *argv[]);
 
 #endif // UTILS_H_
