@@ -64,13 +64,8 @@ void GraphHypothesisCluster::printState()
  */
 void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
 {
-  for (int h = 0; h < maxHypothesis; ++h) {
+  for (int h = 0; h < maxHypothesis; ++h)
     m_hypothesis.push_back(generateHypothesis());
-    /*
-    cout << TInt::Rnd.GetUniDev() << " ";
-    cout << (double) m_hypothesis[h].getSize() / m_network->GetNodes() << endl;
-    */
-  }
 }
 
 
