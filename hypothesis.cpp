@@ -74,7 +74,7 @@ void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
  *
  * TODO(vcarbune): Do we want to sample the cascade (e.g. removing nodes?)
  */
-GraphHypothesis GraphHypothesisCluster::generateHypothesis()
+GraphHypothesis GraphHypothesisCluster::generateHypothesis() const
 {
   PUNGraph weaklyConnectedComponents = TSnap::GetMxWcc(m_network);
 

@@ -44,13 +44,13 @@ class GraphHypothesisCluster {
 
     void removeHypothesisInconsistentWithTest(const GraphTest&);
     GraphHypothesis getRandomHypothesis() const;
+    GraphHypothesis generateHypothesis() const;
 
     int getSource() { return m_sourceId; }
     virtual void printState();
 
   private:
     void generateHypothesisCluster(int);
-    GraphHypothesis generateHypothesis();
 
     PUNGraph m_network;
     vector<GraphHypothesis> m_hypothesis;
