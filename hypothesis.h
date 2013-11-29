@@ -44,7 +44,7 @@ class GraphHypothesisCluster {
 
     void removeHypothesisInconsistentWithTest(const GraphTest&);
     GraphHypothesis getRandomHypothesis() const;
-    GraphHypothesis generateHypothesis() const;
+    GraphHypothesis generateHypothesis(bool = false) const;
 
     int getSource() { return m_sourceId; }
     virtual void printState();

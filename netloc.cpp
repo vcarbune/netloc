@@ -84,7 +84,7 @@ void runSimulation(const SimConfig config,
 
     // Select a different realization at each run.
     int index = rand() % tempClusters.size();
-    GraphHypothesis realization = tempClusters[index].generateHypothesis();
+    GraphHypothesis realization = tempClusters[index].generateHypothesis(true);
 
     // Run the simulation with the current configuration.
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(

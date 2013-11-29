@@ -8,6 +8,8 @@
 
 #include "hypothesis.h"
 
+#define INFECTION_RUNS 10
+
 GraphHypothesis::GraphHypothesis(PNGraph cascade, TIntH hash, double weight)
   : m_weight(weight)
   , m_infectionTimeHash(hash)
@@ -64,6 +66,10 @@ void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
 {
   for (int h = 0; h < maxHypothesis; ++h) {
     m_hypothesis.push_back(generateHypothesis());
+    /*
+    cout << TInt::Rnd.GetUniDev() << " ";
+    cout << (double) m_hypothesis[h].getSize() / m_network->GetNodes() << endl;
+    */
   }
 }
 
@@ -74,13 +80,14 @@ void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
  *
  * TODO(vcarbune): Do we want to sample the cascade (e.g. removing nodes?)
  */
-GraphHypothesis GraphHypothesisCluster::generateHypothesis() const
+GraphHypothesis GraphHypothesisCluster::generateHypothesis(
+    bool isTrueHypothesis) const
 {
   PUNGraph weaklyConnectedComponents = TSnap::GetMxWcc(m_network);
 
   // TODO(vcarbune): discuss about these values.
   int cascadeSize = m_size * m_network->GetNodes();
-  int runTimes = cascadeSize;
+  int runTimes = isTrueHypothesis ? cascadeSize : INFECTION_RUNS;
 
   PNGraph casc = TNGraph::New();
   TIntH nodeInfectionTime;
