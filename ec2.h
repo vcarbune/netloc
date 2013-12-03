@@ -9,6 +9,7 @@
 #define EC2_H_
 
 #include <iostream>
+#include <limits>
 
 #include <queue>
 #include <vector>
@@ -59,58 +60,73 @@ class TestCompareFunction {
 // Actual EC2 template implementation.
 
 template <class TTest, class THypothesisCluster>
+inline void rescoreTest(TTest& test,
+                 const std::vector<THypothesisCluster>& clusters,
+                 int countTotalHypothesis)
+{
+  int countConsistentHypothesis = 0;
+
+  // Count hypothesis matching test.
+  for (const THypothesisCluster& cluster : clusters)
+    countConsistentHypothesis +=
+      cluster.countHypothesisConsistentWithTest(test);
+
+  // Score if test outcome is True
+  double positiveScore =
+    ((double) countConsistentHypothesis / countTotalHypothesis) *
+    ((double) 1 / countConsistentHypothesis);
+
+  // Score if test outcome is False
+  double negativeScore =
+    ((double) (1 - countConsistentHypothesis)) *
+    ((double) 1 / (countTotalHypothesis - countConsistentHypothesis));
+
+  double score = positiveScore + negativeScore -
+    ((double) 1 / countTotalHypothesis);
+
+  test.setScore(score);
+}
+
+template <class TTest, class THypothesisCluster>
 void rescoreTests(std::vector<TTest>& tests,
                   const std::vector<THypothesisCluster>& clusters)
 {
-  for (TTest& t : tests) {
-    int countConsistentHypothesis = 0;
-    int countTotalHypothesis = 0;
-
-    // Count hypothesis matching test.
-    for (const THypothesisCluster& cluster : clusters) {
-      countConsistentHypothesis +=
-        cluster.countHypothesisConsistentWithTest(t);
+  int countTotalHypothesis = 0;
+  for (const THypothesisCluster& cluster : clusters)
       countTotalHypothesis += cluster.countHypothesisAvailable();
-    }
 
-    // Score if test outcome is True
-    double positiveScore =
-      ((double) countConsistentHypothesis / countTotalHypothesis);
-      // ((double) 1 / countConsistentHypothesis);
-
-    // Score if test outcome is False
-    double negativeScore =
-      ((double) (1 - countConsistentHypothesis)) *
-      ((double) 1 / (countTotalHypothesis - countConsistentHypothesis));
-
-    double score = positiveScore + negativeScore;// -
-      //((double) 1 / countTotalHypothesis);
-    score *= countTotalHypothesis;
-    score -= 1;
-
-    t.setScore(score);
+  double prevScore = tests.front().getScore();
+  rescoreTest(tests.front(), clusters, countTotalHypothesis);
+  if (prevScore <= tests.front().getScore()) {
+    tests.front().setScore(prevScore);
+    return;
   }
+
+  for (TTest& t : tests)
+    rescoreTest(t, clusters, countTotalHypothesis);
+
+  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
-typename std::vector<TTest>::iterator
-runOneEC2Step(std::vector<TTest>& tests,
-              std::vector<THypothesisCluster>& clusters,
-              const THypothesis& realization)
+TTest runOneEC2Step(std::vector<TTest>& tests,
+                    std::vector<THypothesisCluster>& clusters,
+                    const THypothesis& realization)
 {
   rescoreTests(tests, clusters);
 
-  std::priority_queue<TTest, std::vector<TTest>, TestCompareFunction>
-    pq(tests.begin(), tests.end());
-
-  typename std::vector<TTest>::iterator it =
-    find(tests.begin(), tests.end(), pq.top());
-  it->setOutcome(realization.getTestOutcome(*it));
+  TTest& test = tests.front();
+  test.setOutcome(realization.getTestOutcome(test));
 
   for (std::size_t i = 0; i < clusters.size(); ++i)
-    clusters[i].removeHypothesisInconsistentWithTest(*it);
+    clusters[i].removeHypothesisInconsistentWithTest(test);
 
-  return it;
+  std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
+  tests.pop_back();
+
+  return test;
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
@@ -121,12 +137,13 @@ size_t runEC2(std::vector<TTest>& tests,
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
+  rescoreTests(tests, clusters);
+
   int clustersLeft = clusters.size();
   while (!tests.empty() && clustersLeft != 1) {
-    it = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
+    TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization);
-    testRunOrder.push_back(*it);
-    tests.erase(it);
+    testRunOrder.push_back(t);
 
     clustersLeft = 0;
     for (std::size_t i = 0; i < clusters.size(); ++i)

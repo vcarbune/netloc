@@ -49,7 +49,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
 
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
                                                int maxHypothesis)
-  : GraphHypothesisCluster(network, sourceId, maxHypothesis, 0.1, 0.4)
+  : GraphHypothesisCluster(network, sourceId, maxHypothesis, 0.05, 0.4)
 {
 }
 
