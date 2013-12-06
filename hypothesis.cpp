@@ -65,7 +65,8 @@ void GraphHypothesisCluster::printState()
  */
 void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
 {
-  for (int h = 0; h < maxHypothesis; ++h)
+  // TODO(vcarbune): threadify
+  for (int h = 0; h < maxHypothesis; h += 4)
     m_hypothesis.push_back(generateHypothesis());
 }
 

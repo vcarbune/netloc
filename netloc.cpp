@@ -39,6 +39,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
                              const SimConfig& config)
 {
+  // TODO(vcarbune): threadify
+
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
   for (int source = 0; source < network->GetNodes(); ++source)
@@ -50,6 +52,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
 inline void generateTests(vector<GraphTest> *tests,
                           const PUNGraph& network)
 {
+  // TODO(vcarbune): threadify
+
   // Generate all tests that are enough to differentiate between hypothesis.
   tests->clear();
   for (int node = 0; node < network->GetNodes(); ++node) {
