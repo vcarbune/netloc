@@ -53,6 +53,7 @@ class GraphHypothesisCluster {
     void generateHypothesisCluster(int);
 
     PUNGraph m_network;
+    PUNGraph m_networkWcc;
     vector<GraphHypothesis> m_hypothesis;
 
     int m_sourceId;

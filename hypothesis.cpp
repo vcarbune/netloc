@@ -44,6 +44,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
   , m_beta(beta)
   , m_size(size)
 {
+  m_networkWcc = TSnap::GetMxWcc(m_network);
   generateHypothesisCluster(maxHypothesis);
 }
 
@@ -78,8 +79,6 @@ void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
 GraphHypothesis GraphHypothesisCluster::generateHypothesis(
     bool isTrueHypothesis) const
 {
-  PUNGraph weaklyConnectedComponents = TSnap::GetMxWcc(m_network);
-
   // TODO(vcarbune): discuss about these values.
   int cascadeSize = m_size * m_network->GetNodes();
   int runTimes = isTrueHypothesis ? cascadeSize : INFECTION_RUNS;
@@ -91,21 +90,21 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
   casc->AddNode(m_sourceId);
   nodeInfectionTime.AddDat(m_sourceId, nodeInfectionTime.Len());
 
+  TIntV cascade;
   for (int run = 0; run < runTimes; run++) {
-    TIntV cascade;
     casc->GetNIdV(cascade);
 
     for (int node = 0; node < cascade.Len(); ++node) {
-      const TUNGraph::TNodeI crtIt = m_network->GetNI(cascade[node]);
+      const TUNGraph::TNodeI& crtIt = m_network->GetNI(cascade[node]);
 
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
+        // Flip a coin.
+        if (TInt::Rnd.GetUniDev() > m_beta)
+            continue;
+
         int neighbourId = crtIt.GetOutNId(neighbour);
-
-        // If the node is already in the cascade, or random activation fails,
-        // move to the next neighbour.
-        if (casc->IsNode(neighbourId) || TInt::Rnd.GetUniDev() > m_beta)
-          continue;
-
+        if (casc->IsNode(neighbourId))
+            continue;
 
         casc->AddNode(neighbourId);
         casc->AddEdge(crtIt.GetId(), neighbourId);
@@ -127,7 +126,7 @@ int GraphHypothesisCluster::countHypothesisConsistentWithTest (
 {
   int total = 0;
 
-  for (GraphHypothesis h : m_hypothesis)
+  for (const GraphHypothesis& h : m_hypothesis)
     if (h.getTestOutcome(test) == test.getOutcome())
       total++;
 
@@ -141,13 +140,11 @@ int GraphHypothesisCluster::countHypothesisConsistentWithTest (
  */
 void GraphHypothesisCluster::removeHypothesisInconsistentWithTest(const GraphTest& t)
 {
-  vector<GraphHypothesis>::iterator it;
-  for (it = m_hypothesis.begin(); it != m_hypothesis.end();) {
-    if (it->getTestOutcome(t) == t.getOutcome())
-      ++it;
-    else
-      it = m_hypothesis.erase(it);
-  }
+  vector<GraphHypothesis> tmp;
+  tmp.swap(m_hypothesis);
+  for (size_t i = 0; i < tmp.size(); ++i)
+    if (tmp[i].getTestOutcome(t) == t.getOutcome())
+      m_hypothesis.push_back(tmp[i]);
 }
 
 GraphHypothesis GraphHypothesisCluster::getRandomHypothesis() const

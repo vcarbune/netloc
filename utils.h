@@ -30,7 +30,7 @@ struct SimConfig {
     : nodes(100)
     , edges(200)
     , clusterSize(10)
-    , beta(0.1)
+    , beta(0.05)
     , cascadeBound(0.4)
     , steps(5)
     , m_type(type)
@@ -57,12 +57,8 @@ struct SimConfig {
   SimConfig& operator++() {
     switch (m_type) {
       case NodeVar:
-        nodes += 50;
+        nodes += 500;
         edges = nodes * log(nodes);
-        break;
-      case EdgeVar:
-        edges += 50;
-        nodes = pow(edges, 1.1);
         break;
       case BetaVar:
         beta += 0.05;

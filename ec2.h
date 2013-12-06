@@ -13,6 +13,9 @@
 
 #include <queue>
 #include <vector>
+#include <thread>
+
+#define CLEANUP_THREADS 8
 
 // Abstract classes that can be implemented in order to use runEC2.
 
@@ -102,11 +105,30 @@ void rescoreTests(std::vector<TTest>& tests,
     return;
   }
 
-  for (TTest& t : tests)
-    rescoreTest(t, clusters, countTotalHypothesis);
+  size_t test = 0;
+  for (; test < tests.size(); test += CLEANUP_THREADS) {
+    std::vector<std::thread> threads;
+
+    for (int t = 0; t < CLEANUP_THREADS && test + t < tests.size(); ++t)
+      threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
+            std::ref(tests[test + t]), std::ref(clusters), countTotalHypothesis));
+
+    for (std::thread& t : threads)
+      t.join();
+  }
+
+  for (; test < tests.size(); test++)
+    rescoreTest(tests[test], clusters, countTotalHypothesis);
 
   std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
+}
+
+template<class THypothesisCluster, class TTest>
+void threadWrapperClusterCleanup(THypothesisCluster& cluster,
+    const TTest& test)
+{
+  cluster.removeHypothesisInconsistentWithTest(test);
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
@@ -119,7 +141,20 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
   TTest& test = tests.front();
   test.setOutcome(realization.getTestOutcome(test));
 
-  for (std::size_t i = 0; i < clusters.size(); ++i)
+  std::size_t i = 0;
+  for (; i < clusters.size(); i += CLEANUP_THREADS) {
+    std::vector<std::thread> threads;
+
+    for (int t = 0; t < CLEANUP_THREADS && i + t < clusters.size(); ++t)
+      threads.push_back(
+          std::thread(threadWrapperClusterCleanup<THypothesisCluster, TTest>,
+            std::ref(clusters[i+t]), std::ref(test)));
+
+    for (std::thread& t : threads)
+      t.join();
+  }
+
+  for (; i < clusters.size(); i++)
     clusters[i].removeHypothesisInconsistentWithTest(test);
 
   std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(

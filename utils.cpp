@@ -44,7 +44,7 @@ void plotGraphs(const PUNGraph& network, const vector<GraphTest>& tests,
 SimConfig getSimConfigFromEnv(int argc, char *argv[])
 {
   Env = TEnv(argc, argv, TNotify::StdNotify);
-  Env.PrepArgs(TStr::Fmt("InfMax. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
+  Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
 
   const TInt paramSimulation = Env.GetIfArgPrefixInt(
       "-sim=", NodeVar, "Simulation Type"
