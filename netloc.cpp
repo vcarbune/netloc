@@ -103,13 +103,10 @@ void runSimulation(const SimConfig config,
   scoreList.push_back((double) fails / TRIALS);
   runStats->push_back(scoreList);
 
-  cout << "Thread with " << config.getSimParamValue() << " took "
-    << difftime(time(NULL), start) << " seconds, connected ("
-    << TSnap::GetMxWccSz(network) << ")" << endl;
+  cout << "Runtime: " << difftime(time(NULL), start) << endl;
 
   // If provided, log each simulation step into an output stream.
   if (fout) {
-    // fout << parameter << "\t";
     for (size_t i = 0; i < scoreList.size(); ++i)
       fout << scoreList[i] << "\t";
     fout << endl;
@@ -123,10 +120,9 @@ void generateSimulationStats(vector<vector<double>> *runStats,
   runStats->clear();
   vector<thread> threads;
 
-  cout << "\nStarting simulation...\n";
   for (int step = 0; step < config.steps; step++, ++config) {
-    cout << "Starting thread with ... " << config.getSimParamValue() << endl;
-    threads.push_back(thread(runSimulation, config, ref(fout), runStats));
+    cout << endl << "Current configuration: " << config.getSimParamValue() << endl;
+    runSimulation(config, fout, runStats);
   }
 
   for (size_t i = 0; i < threads.size(); ++i)

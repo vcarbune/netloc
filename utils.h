@@ -27,8 +27,8 @@ enum SimulationType {
 
 struct SimConfig {
   SimConfig(SimulationType type)
-    : nodes(100)
-    , edges(200)
+    : nodes(500)
+    , edges(500 * log(500))
     , clusterSize(10)
     , beta(0.05)
     , cascadeBound(0.4)
