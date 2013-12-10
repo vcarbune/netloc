@@ -41,7 +41,7 @@ inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
 }
 
-inline void generateClusters(vector<PGraphHypothesisCluster> *clusters,
+inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
                              const SimConfig& config)
 {
@@ -110,7 +110,7 @@ void runSimulation(const SimConfig config,
   scoreList.push_back((double) fails / TRIALS);
   runStats->push_back(scoreList);
 
-  cout << "Runtime: " << difftime(time(NULL), start) << endl;
+  cout << "Runtime: " << difftime(time(NULL), start) << " seconds " << endl;
 
   // If provided, log each simulation step into an output stream.
   if (fout) {
