@@ -19,7 +19,6 @@ void plotGraphs(const PUNGraph& network, const std::vector<GraphTest>& tests,
 
 enum SimulationType {
   NodeVar = 0,  // nodes: G(V, VlogV)
-  EdgeVar,  // edge: G(sqrt(E), E)
   BetaVar,  // beta: [0.1, 0.5]
   HypothesisVar,  // hypothesis per cluster: [1, 15]
   CascBoundVar    // max cascade size: [0.4, 0.8]
@@ -78,8 +77,6 @@ struct SimConfig {
     switch (m_type) {
       case NodeVar:
         return static_cast<double>(nodes);
-      case EdgeVar:
-        return static_cast<double>(edges);
       case BetaVar:
         return beta;
       case HypothesisVar:

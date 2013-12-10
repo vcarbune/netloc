@@ -21,12 +21,18 @@
 
 #include "snap/snap-core/Snap.h"
 
+// Needs to be included after Snap..
+#include <future>
+
 #define TRIALS 20
+#define THREADS 8
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
 #undef max
 #undef min
+
+typedef unique_ptr<GraphHypothesisCluster> PGraphHypothesisCluster;
 
 using namespace std;
 
@@ -35,7 +41,7 @@ inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
 }
 
-inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
+inline void generateClusters(vector<PGraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
                              const SimConfig& config)
 {
@@ -43,10 +49,11 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
 
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
-  for (int source = 0; source < network->GetNodes(); ++source)
+  for (int source = 0; source < network->GetNodes(); source++) {
     clusters->push_back(
         GraphHypothesisCluster(network, source,
               config.clusterSize, config.beta, config.cascadeBound));
+  }
 }
 
 inline void generateTests(vector<GraphTest> *tests,
