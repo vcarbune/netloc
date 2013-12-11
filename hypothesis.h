@@ -53,13 +53,12 @@ class GraphHypothesisCluster {
     bool operator< (const GraphHypothesisCluster& o) const {
       return countHypothesisAvailable() < o.countHypothesisAvailable();
     }
+
   private:
     void generateHypothesisCluster(int);
 
     PUNGraph m_network;
-    PUNGraph m_networkWcc;
     vector<GraphHypothesis> m_hypothesis;
-
     int m_sourceId;
     double m_beta;
     double m_size;

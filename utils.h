@@ -28,10 +28,10 @@ struct SimConfig {
   SimConfig(SimulationType type)
     : nodes(500)
     , edges(500 * log(500))
-    , clusterSize(10)
+    , clusterSize(100)
     , beta(0.05)
-    , cascadeBound(0.4)
-    , steps(5)
+    , cascadeBound(0.3)
+    , steps(1)
     , m_type(type)
   {
     if (type == BetaVar || type == HypothesisVar || type == CascBoundVar) {

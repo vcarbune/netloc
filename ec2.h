@@ -177,7 +177,7 @@ size_t runEC2(std::vector<TTest>& tests,
   rescoreTests(tests, clusters);
 
   int clustersLeft = clusters.size();
-  while (!tests.empty() && clustersLeft != 1) {
+  while (!tests.empty() && clustersLeft > 1) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization);
     testRunOrder.push_back(t);

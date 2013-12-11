@@ -50,17 +50,17 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
       "-sim=", NodeVar, "Simulation Type"
           "(NodeVar - 0, BetaVar - 1, HypothesisVar - 2, CascBoundVar - 3)");
   const TInt paramNodes = Env.GetIfArgPrefixInt(
-      "-n=", 0, "Network Size (number of nodes)");
+      "-n=", 0, "Network size");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
-      "-c=", 10, "Cluster Size");
+      "-c=", 100, "Cluster size");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
-      "-s=", 0.4, "Cascade Size (percentage of network size)");
+      "-s=", 0.3, "True cascade size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
-      "-b=", 0.05, "Beta (activation probability on edges)");
+      "-b=", 0.05, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
-      "-steps=", 5, "Number of simulation steps.");
+      "-steps=", 1, "Number of simulation steps.");
   const TInt paramStartStep = Env.GetIfArgPrefixInt(
-      "-start=", 0, "Simulation step (could be used for resuming)");
+      "-start=", 0, "Simulation step");
   const TStr dumpFile = Env.GetIfArgPrefixStr(
       "-dump=", "dump.log", "File where to dump the output");
 

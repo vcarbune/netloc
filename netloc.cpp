@@ -45,26 +45,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
                              const SimConfig& config)
 {
-  clusters->clear();
-
-  // TODO(vcarbune): figure out why the code below breaks..
-  /*
-  vector<future<GraphHypothesisCluster>> futures;
-  for (int source = 0; source < network->GetNodes(); ++source) {
-    futures.push_back(async(launch::async,
-          [](const PUNGraph& net, const SimConfig& cfg, int src) {
-              return GraphHypothesisCluster(net, src, cfg.clusterSize,
-                cfg.beta, cfg.cascadeBound);
-          }, ref(network), ref(config), source));
-  }
-
-  for (future<GraphHypothesisCluster>& ftr : futures) {
-    ftr.wait();
-    clusters->push_back(move(ftr.get()));
-  }
-  */
-
   // Generate all possible hypothesis clusters that we want to search through.
+  clusters->clear();
   for (int source = 0; source < network->GetNodes(); source++)
     clusters->push_back(
         GraphHypothesisCluster(network, source,
@@ -146,7 +128,7 @@ void runSimulation(const SimConfig config,
     scoreList.push_back(crtScore);
   }
 
-  scoreList.push_back((double) fails / TRIALS);
+  scoreList.push_back(1 - (double) fails / TRIALS);
   runStats->push_back(scoreList);
 
   cout << "Runtime: " << difftime(time(NULL), start) << " seconds " << endl;

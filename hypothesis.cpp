@@ -18,7 +18,7 @@ GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
   if (test.getInfectionTime() == -1)
-    return this->getTestOutcome(test);
+    return this->getTestOutcome(test) == test.getOutcome();
 
   return m_infectionTimeHash.Len() < test.getInfectionTime() ||
     test.getOutcome() == this->getTestOutcome(test);
@@ -42,7 +42,8 @@ void GraphHypothesis::setWeight(double weight)
   m_weight = weight;
 }
 
-GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
+GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
+                                               int sourceId,
                                                int maxHypothesis,
                                                double beta,
                                                double size)
@@ -51,14 +52,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
   , m_beta(beta)
   , m_size(size)
 {
-  m_networkWcc = TSnap::GetMxWcc(m_network);
   generateHypothesisCluster(maxHypothesis);
-}
-
-GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network, int sourceId,
-                                               int maxHypothesis)
-  : GraphHypothesisCluster(network, sourceId, maxHypothesis, 0.05, 0.4)
-{
 }
 
 void GraphHypothesisCluster::printState()
@@ -124,9 +118,8 @@ int GraphHypothesisCluster::countHypothesisConsistentWithTest (
     const GraphTest& test) const
 {
   int total = 0;
-
   for (const GraphHypothesis& h : m_hypothesis)
-    if (h.isConsistentWithTest(test));
+    if (h.isConsistentWithTest(test))
       total++;
 
   return total;
