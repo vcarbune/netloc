@@ -18,7 +18,7 @@ GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
   if (test.getInfectionTime() == -1)
-    return test.getOutcome() == this->getTestOutcome(test);
+    return this->getTestOutcome(test);
 
   return m_infectionTimeHash.Len() < test.getInfectionTime() ||
     test.getOutcome() == this->getTestOutcome(test);

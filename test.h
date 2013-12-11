@@ -23,7 +23,10 @@ class GraphTest : public Test {
   public:
     explicit GraphTest(int source) : Test()
         , m_nodeId(source)
-        , m_infectionTime(-1) {}
+        , m_infectionTime(-1)
+    {
+      setOutcome(true);
+    }
 
     int getNodeId() const { return m_nodeId; }
     int getInfectionTime() const { return m_infectionTime; }

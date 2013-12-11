@@ -1,5 +1,5 @@
 /**
- * 
+ * Various utility functions.
  */
 
 #include "utils.h"

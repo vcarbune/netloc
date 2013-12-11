@@ -169,7 +169,7 @@ template <class TTest, class THypothesisCluster, class THypothesis>
 size_t runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization,
-              int *solution)
+              std::vector<THypothesisCluster>& topClusters)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -189,12 +189,10 @@ size_t runEC2(std::vector<TTest>& tests,
   }
 
   for (std::size_t i = 0; i < clusters.size(); ++i)
-    if (clusters[i].countHypothesisAvailable()) {
-      *solution = clusters[i].getSource();
-      break;
-    }
+    if (clusters[i].countHypothesisAvailable())
+      topClusters.push_back(clusters[i]);
 
-  assert (clustersLeft == 1 || tests.empty());
+  sort(topClusters.begin(), topClusters.end());
   return testRunOrder.size();
 }
 

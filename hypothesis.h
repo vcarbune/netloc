@@ -33,7 +33,6 @@ class GraphHypothesis {
   private:
     double m_weight;
     TIntH m_infectionTimeHash;
-    // PNGraph m_cascade;
 };
 
 class GraphHypothesisCluster {
@@ -48,7 +47,7 @@ class GraphHypothesisCluster {
     GraphHypothesis getRandomHypothesis() const;
     GraphHypothesis generateHypothesis(bool = false) const;
 
-    int getSource() { return m_sourceId; }
+    int getSource() const { return m_sourceId; }
     virtual void printState();
 
     bool operator< (const GraphHypothesisCluster& o) const {
