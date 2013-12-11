@@ -20,18 +20,20 @@ using namespace std;
  */
 class GraphHypothesis {
   public:
-    GraphHypothesis(PNGraph, TIntH, double);
+    GraphHypothesis(TIntH, double);
+
+    bool isConsistentWithTest(const GraphTest& test) const;
 
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
 
     void setWeight(double);
-    int getSize() const { return m_cascade->GetNodes(); }
+    int getSize() const { return m_infectionTimeHash.Len(); }
 
   private:
     double m_weight;
     TIntH m_infectionTimeHash;
-    PNGraph m_cascade;
+    // PNGraph m_cascade;
 };
 
 class GraphHypothesisCluster {
@@ -49,6 +51,9 @@ class GraphHypothesisCluster {
     int getSource() { return m_sourceId; }
     virtual void printState();
 
+    bool operator< (const GraphHypothesisCluster& o) const {
+      return countHypothesisAvailable() < o.countHypothesisAvailable();
+    }
   private:
     void generateHypothesisCluster(int);
 

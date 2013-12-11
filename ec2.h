@@ -140,6 +140,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
 
   TTest& test = tests.front();
   test.setOutcome(realization.getTestOutcome(test));
+  test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
   std::size_t i = 0;
   for (; i < clusters.size(); i += CLEANUP_THREADS) {
@@ -167,7 +168,8 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
 template <class TTest, class THypothesisCluster, class THypothesis>
 size_t runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
-              const THypothesis& realization)
+              const THypothesis& realization,
+              int *solution)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -185,6 +187,12 @@ size_t runEC2(std::vector<TTest>& tests,
       if (clusters[i].countHypothesisAvailable())
         clustersLeft++;
   }
+
+  for (std::size_t i = 0; i < clusters.size(); ++i)
+    if (clusters[i].countHypothesisAvailable()) {
+      *solution = clusters[i].getSource();
+      break;
+    }
 
   assert (clustersLeft == 1 || tests.empty());
   return testRunOrder.size();

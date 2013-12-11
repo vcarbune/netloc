@@ -24,7 +24,7 @@
 // Needs to be included after Snap..
 #include <future>
 
-#define TRIALS 20
+#define TRIALS 5
 #define THREADS 8
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
@@ -45,15 +45,30 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
                              const PUNGraph& network,
                              const SimConfig& config)
 {
-  // TODO(vcarbune): threadify
+  clusters->clear();
+
+  // TODO(vcarbune): figure out why the code below breaks..
+  /*
+  vector<future<GraphHypothesisCluster>> futures;
+  for (int source = 0; source < network->GetNodes(); ++source) {
+    futures.push_back(async(launch::async,
+          [](const PUNGraph& net, const SimConfig& cfg, int src) {
+              return GraphHypothesisCluster(net, src, cfg.clusterSize,
+                cfg.beta, cfg.cascadeBound);
+          }, ref(network), ref(config), source));
+  }
+
+  for (future<GraphHypothesisCluster>& ftr : futures) {
+    ftr.wait();
+    clusters->push_back(move(ftr.get()));
+  }
+  */
 
   // Generate all possible hypothesis clusters that we want to search through.
-  clusters->clear();
-  for (int source = 0; source < network->GetNodes(); source++) {
+  for (int source = 0; source < network->GetNodes(); source++)
     clusters->push_back(
         GraphHypothesisCluster(network, source,
               config.clusterSize, config.beta, config.cascadeBound));
-  }
 }
 
 inline void generateTests(vector<GraphTest> *tests,
@@ -73,6 +88,8 @@ void runSimulation(const SimConfig config,
                    ostream& fout,
                    vector<vector<double>> *runStats)
 {
+  time_t start = time(NULL);
+
   double crtScore;
   vector<double> scoreList;
 
@@ -84,7 +101,9 @@ void runSimulation(const SimConfig config,
   generateClusters(&clusters, network, config);
   generateTests(&tests, network);
 
-  time_t start = time(NULL);
+  cout << "Initialization: " << difftime(time(NULL), start) <<
+    " seconds " << endl;
+
   int fails = 0;
   scoreList.push_back(config.getSimParamValue());
 
@@ -98,11 +117,19 @@ void runSimulation(const SimConfig config,
     GraphHypothesis realization = tempClusters[index].generateHypothesis(true);
 
     // Run the simulation with the current configuration.
+    int solution = -1;
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization);
+        tempTests, tempClusters, realization, &solution);
 
-    if (crtScore == network->GetNodes())
+    if (crtScore == network->GetNodes() ||
+        solution != tempClusters[index].getSource())
       fails++;
+
+    cout << "Correct: " << tempClusters[index].getSource() << "\t";
+    cout << "Identified: " << solution << "\t";
+    cout << "Distance: " << TSnap::GetShortPath(network,
+        tempClusters[index].getSource(), solution) << "\t";
+    cout << "Tests: " << crtScore << endl;
 
     scoreList.push_back(crtScore);
   }

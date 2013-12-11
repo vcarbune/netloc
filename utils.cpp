@@ -48,7 +48,7 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
 
   const TInt paramSimulation = Env.GetIfArgPrefixInt(
       "-sim=", NodeVar, "Simulation Type"
-          "(NodeVar - 0, EdgeVar - 1, BetaVar - 2, HypothesisVar - 3, CascBoundVar - 4)");
+          "(NodeVar - 0, BetaVar - 1, HypothesisVar - 2, CascBoundVar - 3)");
   const TInt paramNodes = Env.GetIfArgPrefixInt(
       "-n=", 0, "Network Size (number of nodes)");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(

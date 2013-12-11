@@ -22,15 +22,23 @@ using namespace std;
 class GraphTest : public Test {
   public:
     explicit GraphTest(int source) : Test()
-        , m_nodeId(source) {}
+        , m_nodeId(source)
+        , m_infectionTime(-1) {}
 
     int getNodeId() const { return m_nodeId; }
+    int getInfectionTime() const { return m_infectionTime; }
+
+    void setInfectionTime(int infectionTime) {
+      m_infectionTime = infectionTime;
+    }
+
     bool operator==(const GraphTest& o) {
       return m_nodeId == o.m_nodeId;
     }
 
   private:
     int m_nodeId;
+    int m_infectionTime;
 };
 
 #endif // GRAPH_TEST_H_

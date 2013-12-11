@@ -8,13 +8,20 @@
 
 #include "hypothesis.h"
 
-#define INFECTION_RUNS 10
+#define INITIAL_RUNS 10
 
-GraphHypothesis::GraphHypothesis(PNGraph cascade, TIntH hash, double weight)
+GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
   : m_weight(weight)
   , m_infectionTimeHash(hash)
-  , m_cascade(cascade)
 {
+}
+
+bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
+  if (test.getInfectionTime() == -1)
+    return test.getOutcome() == this->getTestOutcome(test);
+
+  return m_infectionTimeHash.Len() < test.getInfectionTime() ||
+    test.getOutcome() == this->getTestOutcome(test);
 }
 
 int GraphHypothesis::getInfectionTime(int nodeId) const
@@ -66,7 +73,7 @@ void GraphHypothesisCluster::printState()
 void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
 {
   // TODO(vcarbune): threadify
-  for (int h = 0; h < maxHypothesis; h += 4)
+  for (int h = 0; h < maxHypothesis; h++)
     m_hypothesis.push_back(generateHypothesis());
 }
 
@@ -82,44 +89,35 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
 {
   // TODO(vcarbune): discuss about these values.
   int cascadeSize = m_size * m_network->GetNodes();
-  int runTimes = isTrueHypothesis ? cascadeSize : INFECTION_RUNS;
+  int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
 
-  PNGraph casc = TNGraph::New();
   TIntH nodeInfectionTime;
 
   // Add the source node (fixed for this cluster).
-  casc->AddNode(m_sourceId);
   nodeInfectionTime.AddDat(m_sourceId, nodeInfectionTime.Len());
 
-  TIntV cascade;
   for (int run = 0; run < runTimes; run++) {
-    casc->GetNIdV(cascade);
-
-    for (int node = 0; node < cascade.Len(); ++node) {
-      const TUNGraph::TNodeI& crtIt = m_network->GetNI(cascade[node]);
-
+    for (TIntH::TIter I = nodeInfectionTime.BegI();
+         I < nodeInfectionTime.EndI();
+         I++) {
+      const TUNGraph::TNodeI& crtIt = m_network->GetNI(I->Key());
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
-        // Flip a coin.
-        if (TInt::Rnd.GetUniDev() > m_beta)
+        if (TInt::Rnd.GetUniDev() > m_beta) // Flip a coin!
             continue;
 
         int neighbourId = crtIt.GetOutNId(neighbour);
-        if (casc->IsNode(neighbourId))
+        if (nodeInfectionTime.IsKey((neighbourId)))
             continue;
 
-        casc->AddNode(neighbourId);
-        casc->AddEdge(crtIt.GetId(), neighbourId);
-
-        assert(!nodeInfectionTime.IsKey(neighbourId));
         nodeInfectionTime.AddDat(neighbourId, nodeInfectionTime.Len());
-
-        if (casc->GetNodes() == cascadeSize)
-          return GraphHypothesis(casc, nodeInfectionTime, 0);
+        if (nodeInfectionTime.Len() == cascadeSize)
+          return GraphHypothesis(nodeInfectionTime, 0);
       }
     }
   }
 
-  return GraphHypothesis(casc, nodeInfectionTime, 0);
+  // cout << (double) nodeInfectionTime.Len() / m_network->GetNodes() << endl;
+  return GraphHypothesis(nodeInfectionTime, 0);
 }
 
 int GraphHypothesisCluster::countHypothesisConsistentWithTest (
@@ -128,7 +126,7 @@ int GraphHypothesisCluster::countHypothesisConsistentWithTest (
   int total = 0;
 
   for (const GraphHypothesis& h : m_hypothesis)
-    if (h.getTestOutcome(test) == test.getOutcome())
+    if (h.isConsistentWithTest(test));
       total++;
 
   return total;
@@ -143,8 +141,9 @@ void GraphHypothesisCluster::removeHypothesisInconsistentWithTest(const GraphTes
 {
   vector<GraphHypothesis> tmp;
   tmp.swap(m_hypothesis);
+
   for (size_t i = 0; i < tmp.size(); ++i)
-    if (tmp[i].getTestOutcome(t) == t.getOutcome())
+    if (tmp[i].isConsistentWithTest(t))
       m_hypothesis.push_back(tmp[i]);
 }
 
