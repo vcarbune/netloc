@@ -61,6 +61,8 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
       "-steps=", 1, "Number of simulation steps.");
   const TInt paramStartStep = Env.GetIfArgPrefixInt(
       "-start=", 0, "Simulation step");
+  const TInt paramKeepTopN = Env.GetIfArgPrefixInt(
+      "-topN=", 1, "Keep topN solutions");
   const TStr dumpFile = Env.GetIfArgPrefixStr(
       "-dump=", "dump.log", "File where to dump the output");
 
@@ -76,6 +78,7 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   config.cascadeBound = paramCascadeSize;
   config.beta = paramBeta;
   config.logfile = dumpFile;
+  config.topN = paramKeepTopN;
 
   config += paramStartStep.Val;
 

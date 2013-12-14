@@ -6,11 +6,7 @@ DIR=./data/batches/$1
 
 mkdir $DIR
 
-for nodes in $(seq 0 500 499)
+for cluster_size in $(seq 100 100 2500)
 do
-	$CMD -n=$((nodes+100)) -steps=2 -dump=$DIR/nodes_${nodes}.log
+	$CMD -c=${cluster_size} -dump=${DIR}/c${cluster_size}.log
 done
-
-$CMD -sim=2 -steps=10 -dump=$DIR/beta.log
-$CMD -sim=3 -steps=10 -c=5 -dump=$DIR/hypothesis.log
-$CMD -sim=4 -steps=10 -dump=$DIR/bounds.log

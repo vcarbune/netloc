@@ -169,6 +169,7 @@ template <class TTest, class THypothesisCluster, class THypothesis>
 size_t runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization,
+              int topN,
               std::vector<THypothesisCluster>& topClusters)
 {
   typename std::vector<TTest>::iterator it;
@@ -177,7 +178,7 @@ size_t runEC2(std::vector<TTest>& tests,
   rescoreTests(tests, clusters);
 
   int clustersLeft = clusters.size();
-  while (!tests.empty() && clustersLeft > 1) {
+  while (!tests.empty() && clustersLeft > topN) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization);
     testRunOrder.push_back(t);

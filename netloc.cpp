@@ -24,8 +24,7 @@
 // Needs to be included after Snap..
 #include <future>
 
-#define TRIALS 5
-#define THREADS 8
+#define TRIALS 20
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -101,17 +100,13 @@ void runSimulation(const SimConfig config,
 
     // Run the simulation with the current configuration.
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization, remainingClusters);
-
-    if (!remainingClusters.size()) {
-      scoreList.push_back(crtScore);
-      fails++;
-      continue;
-    }
+        tempTests, tempClusters, realization, config.topN, remainingClusters);
 
     bool found = false;
     cout << "Correct: " << tempClusters[index].getSource() << "\t";
+    cout << "Tests: " << crtScore << "\t";
     cout << "Candidates: ";
+    sort(remainingClusters.begin(), remainingClusters.end());
     for (const GraphHypothesisCluster& cluster : remainingClusters) {
       if (cluster.getSource() == tempClusters[index].getSource())
         found = true;
@@ -120,11 +115,12 @@ void runSimulation(const SimConfig config,
         TSnap::GetShortPath(network, tempClusters[index].getSource(), cluster.getSource()) <<
         " hops)\t";
     }
-    cout << "Tests: " << crtScore << endl;
-
+    if (remainingClusters.size() == 0)
+      cout << "None";
     if (!found)
       fails++;
 
+    cout << endl;
     scoreList.push_back(crtScore);
   }
 

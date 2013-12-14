@@ -8,7 +8,7 @@
 
 #include "hypothesis.h"
 
-#define INITIAL_RUNS 10
+#define INITIAL_RUNS 5
 
 GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
   : m_weight(weight)

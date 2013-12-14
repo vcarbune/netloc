@@ -94,6 +94,7 @@ struct SimConfig {
   double beta;          // edge selection probability
   double cascadeBound;  // cascade size, percentage of the network
   int steps;
+  int topN;             // keep topN possible solutions
   TStr logfile;
 
 private:
