@@ -15,7 +15,7 @@
 #include <vector>
 #include <thread>
 
-#define CLEANUP_THREADS 8
+#define CLEANUP_THREADS 16
 
 // Abstract classes that can be implemented in order to use runEC2.
 
