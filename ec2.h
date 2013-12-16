@@ -126,14 +126,21 @@ void rescoreTests(std::vector<TTest>& tests,
 
 template<class THypothesisCluster, class TTest>
 void threadWrapperClusterCleanup(THypothesisCluster& cluster,
-    const TTest& test)
+    const TTest& test, bool* isNewlyEmptied)
 {
+  *isNewlyEmptied = false;
+  if (!cluster.countHypothesisAvailable())
+    return;
+
   cluster.removeHypothesisInconsistentWithTest(test);
+  if (!cluster.countHypothesisAvailable())
+    *isNewlyEmptied = true;
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
 TTest runOneEC2Step(std::vector<TTest>& tests,
                     std::vector<THypothesisCluster>& clusters,
+                    std::vector<int>& removedClusters,
                     const THypothesis& realization)
 {
   rescoreTests(tests, clusters);
@@ -142,6 +149,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
+  bool emptiedClusters[clusters.size()];
   std::size_t i = 0;
   for (; i < clusters.size(); i += CLEANUP_THREADS) {
     std::vector<std::thread> threads;
@@ -149,14 +157,21 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
     for (int t = 0; t < CLEANUP_THREADS && i + t < clusters.size(); ++t)
       threads.push_back(
           std::thread(threadWrapperClusterCleanup<THypothesisCluster, TTest>,
-            std::ref(clusters[i+t]), std::ref(test)));
+            std::ref(clusters[i+t]), std::ref(test), &emptiedClusters[i+t]));
 
     for (std::thread& t : threads)
       t.join();
   }
 
-  for (; i < clusters.size(); i++)
-    clusters[i].removeHypothesisInconsistentWithTest(test);
+  for (; i < clusters.size(); i++) {
+    threadWrapperClusterCleanup<THypothesisCluster, TTest>(clusters[i], test,
+        &emptiedClusters[i]);
+  }
+
+  for (i = 0; i < clusters.size(); i++) {
+    if (emptiedClusters[i])
+      removedClusters.push_back(clusters[i].getSource());
+  }
 
   std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
@@ -170,32 +185,29 @@ size_t runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization,
               int topN,
-              std::vector<THypothesisCluster>& topClusters)
+              std::vector<int>& topClusters)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
   rescoreTests(tests, clusters);
 
-  int clustersLeft = clusters.size();
-  while (!tests.empty() && clustersLeft > topN) {
+  // int clustersLeft = clusters.size();
+  while (!tests.empty() && topClusters.size() < clusters.size()) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
-        tests, clusters, realization);
+        tests, clusters, topClusters, realization);
+
     testRunOrder.push_back(t);
 
+    /*
     clustersLeft = 0;
     for (std::size_t i = 0; i < clusters.size(); ++i)
       if (clusters[i].countHypothesisAvailable())
         clustersLeft++;
+    */
   }
 
-  for (std::size_t i = 0; i < clusters.size(); ++i)
-    if (clusters[i].countHypothesisAvailable())
-      topClusters.push_back(clusters[i]);
-
-  sort(topClusters.begin(), topClusters.end());
   return testRunOrder.size();
 }
-
 
 #endif // EC2_H_

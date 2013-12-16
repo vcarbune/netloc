@@ -50,10 +50,12 @@ class GraphHypothesisCluster {
     int getSource() const { return m_sourceId; }
     virtual void printState();
 
+    void setHopsFromSource(int);
+    int getHopsFromSource() const { return m_hops; }
+
     bool operator< (const GraphHypothesisCluster& o) const {
       return countHypothesisAvailable() < o.countHypothesisAvailable();
     }
-
   private:
     void generateHypothesisCluster(int);
 
@@ -62,6 +64,7 @@ class GraphHypothesisCluster {
     int m_sourceId;
     double m_beta;
     double m_size;
+    int m_hops;
 };
 
 #endif // HYPOTHESIS_H_

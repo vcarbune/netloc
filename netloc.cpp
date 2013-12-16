@@ -90,7 +90,7 @@ void runSimulation(const SimConfig config,
 
   for (int trials = 0; trials < TRIALS; ++trials) {
     // Initialize temporary variables.
-    vector<GraphHypothesisCluster> remainingClusters;
+    vector<int> removedClusters;
     vector<GraphHypothesisCluster> tempClusters(clusters);
     vector<GraphTest> tempTests(tests);
 
@@ -100,23 +100,24 @@ void runSimulation(const SimConfig config,
 
     // Run the simulation with the current configuration.
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization, config.topN, remainingClusters);
+        tempTests, tempClusters, realization, config.topN, removedClusters);
 
     bool found = false;
     cout << "Correct: " << tempClusters[index].getSource() << "\t";
     cout << "Tests: " << crtScore << "\t";
     cout << "Candidates: ";
-    sort(remainingClusters.begin(), remainingClusters.end());
-    for (const GraphHypothesisCluster& cluster : remainingClusters) {
-      if (cluster.getSource() == tempClusters[index].getSource())
+    for (int i = removedClusters.size() - 1;
+         i >= std::max(0, (int) removedClusters.size() - config.topN);
+         i--) {
+
+      if (removedClusters[i] == tempClusters[index].getSource())
         found = true;
 
-      cout << cluster.getSource() << "(" <<
-        TSnap::GetShortPath(network, tempClusters[index].getSource(), cluster.getSource()) <<
+      cout << removedClusters[i] << "(" <<
+        TSnap::GetShortPath(network, tempClusters[index].getSource(), removedClusters[i]) <<
         " hops)\t";
     }
-    if (remainingClusters.size() == 0)
-      cout << "None";
+
     if (!found)
       fails++;
 

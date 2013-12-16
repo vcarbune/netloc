@@ -51,8 +51,14 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_sourceId(sourceId)
   , m_beta(beta)
   , m_size(size)
+  , m_hops(0)
 {
   generateHypothesisCluster(maxHypothesis);
+}
+
+void GraphHypothesisCluster::setHopsFromSource(int hops)
+{
+  m_hops = hops;
 }
 
 void GraphHypothesisCluster::printState()
