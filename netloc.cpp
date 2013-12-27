@@ -37,7 +37,8 @@ using namespace std;
 
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   // To easily swap the generation model later.
-  *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
+  // *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
+  *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
 }
 
 inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
