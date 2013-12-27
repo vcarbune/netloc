@@ -10,12 +10,13 @@
 
 #include <iostream>
 #include <limits>
+#include <cmath>
 
 #include <queue>
 #include <vector>
 #include <thread>
 
-#define CLEANUP_THREADS 16
+#define CLEANUP_THREADS 8
 
 // Abstract classes that can be implemented in order to use runEC2.
 
@@ -76,16 +77,17 @@ inline void rescoreTest(TTest& test,
 
   // Score if test outcome is True
   double positiveScore =
-    ((double) countConsistentHypothesis / countTotalHypothesis) *
-    ((double) 1 / countConsistentHypothesis);
+    ((double) countConsistentHypothesis / countTotalHypothesis);
+    // * ((double) 1 / countConsistentHypothesis);
 
   // Score if test outcome is False
-  double negativeScore =
-    ((double) (1 - countConsistentHypothesis)) *
-    ((double) 1 / (countTotalHypothesis - countConsistentHypothesis));
-
-  double score = positiveScore + negativeScore -
-    ((double) 1 / countTotalHypothesis);
+  double negativeScore = 0;
+  if (countTotalHypothesis != countConsistentHypothesis) {
+    negativeScore = ((double) (1 - countConsistentHypothesis)) *
+        ((double) countTotalHypothesis / (countTotalHypothesis - countConsistentHypothesis));
+  }
+  double score = positiveScore + negativeScore - 1;
+    // - ((double) 1 / countTotalHypothesis);
 
   test.setScore(score);
 }
@@ -98,12 +100,14 @@ void rescoreTests(std::vector<TTest>& tests,
   for (const THypothesisCluster& cluster : clusters)
       countTotalHypothesis += cluster.countHypothesisAvailable();
 
+  /*
   double prevScore = tests.front().getScore();
   rescoreTest(tests.front(), clusters, countTotalHypothesis);
   if (prevScore <= tests.front().getScore()) {
     tests.front().setScore(prevScore);
     return;
   }
+  */
 
   size_t test = 0;
   for (; test < tests.size(); test += CLEANUP_THREADS) {
@@ -173,6 +177,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
       removedClusters.push_back(clusters[i].getSource());
   }
 
+  // std::cout << tests.front().getScore() << std::endl;
   std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
   tests.pop_back();
@@ -191,20 +196,11 @@ size_t runEC2(std::vector<TTest>& tests,
   std::vector<TTest> testRunOrder;
 
   rescoreTests(tests, clusters);
-
-  // int clustersLeft = clusters.size();
   while (!tests.empty() && topClusters.size() < clusters.size()) {
+    // std::cout << testRunOrder.size() << "\t";
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, topClusters, realization);
-
     testRunOrder.push_back(t);
-
-    /*
-    clustersLeft = 0;
-    for (std::size_t i = 0; i < clusters.size(); ++i)
-      if (clusters[i].countHypothesisAvailable())
-        clustersLeft++;
-    */
   }
 
   return testRunOrder.size();
