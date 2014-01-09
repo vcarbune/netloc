@@ -41,7 +41,6 @@ class Test {
 class Hypothesis {
   public:
     virtual bool getTestOutcome(const Test&) const = 0;
-    virtual void setWeight(double) = 0;
 };
 
 class HypothesisCluster {
@@ -51,6 +50,7 @@ class HypothesisCluster {
 
     virtual void removeHypothesisInconsistentWithTest(const Test&) = 0;
     virtual void printState() const = 0;
+    virtual void setWeight(double) = 0;
 };
 
 class TestCompareFunction {
@@ -100,14 +100,12 @@ void rescoreTests(std::vector<TTest>& tests,
   for (const THypothesisCluster& cluster : clusters)
       countTotalHypothesis += cluster.countHypothesisAvailable();
 
-  /*
   double prevScore = tests.front().getScore();
   rescoreTest(tests.front(), clusters, countTotalHypothesis);
   if (prevScore <= tests.front().getScore()) {
     tests.front().setScore(prevScore);
     return;
   }
-  */
 
   size_t test = 0;
   for (; test < tests.size(); test += CLEANUP_THREADS) {

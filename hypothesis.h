@@ -27,11 +27,9 @@ class GraphHypothesis {
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
 
-    void setWeight(double);
     int getSize() const { return m_infectionTimeHash.Len(); }
 
   private:
-    double m_weight;
     TIntH m_infectionTimeHash;
 };
 
@@ -50,6 +48,9 @@ class GraphHypothesisCluster {
     int getSource() const { return m_sourceId; }
     virtual void printState();
 
+    void setWeight(double);
+
+    // Not used yet.
     void setHopsFromSource(int);
     int getHopsFromSource() const { return m_hops; }
 
@@ -65,6 +66,7 @@ class GraphHypothesisCluster {
     double m_beta;
     double m_size;
     int m_hops;
+    double m_weight;
 };
 
 #endif // HYPOTHESIS_H_

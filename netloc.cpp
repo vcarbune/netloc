@@ -31,8 +31,6 @@
 #undef max
 #undef min
 
-typedef unique_ptr<GraphHypothesisCluster> PGraphHypothesisCluster;
-
 using namespace std;
 
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
@@ -117,6 +115,12 @@ void runSimulation(const SimConfig config,
       cout << removedClusters[i] << "(" <<
         TSnap::GetShortPath(network, tempClusters[index].getSource(), removedClusters[i]) <<
         " hops)\t";
+    }
+
+    for (int i = 0; i < 3; ++i) {
+      cout << TSnap::GetShortPath(network,
+          tempClusters[index].getSource(),
+          rand() % tempClusters.size()) << " ";
     }
 
     if (!found)

@@ -11,8 +11,7 @@
 #define INITIAL_RUNS 5
 
 GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
-  : m_weight(weight)
-  , m_infectionTimeHash(hash)
+  : m_infectionTimeHash(hash)
 {
 }
 
@@ -37,11 +36,6 @@ bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
   return m_infectionTimeHash.IsKey(test.getNodeId());
 }
 
-void GraphHypothesis::setWeight(double weight)
-{
-  m_weight = weight;
-}
-
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
                                                int sourceId,
                                                int maxHypothesis,
@@ -52,6 +46,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_beta(beta)
   , m_size(size)
   , m_hops(0)
+  , m_weight(0)
 {
   generateHypothesisCluster(maxHypothesis);
 }
@@ -59,6 +54,11 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
 void GraphHypothesisCluster::setHopsFromSource(int hops)
 {
   m_hops = hops;
+}
+
+void GraphHypothesisCluster::setWeight(double weight)
+{
+  m_weight = weight;
 }
 
 void GraphHypothesisCluster::printState()
