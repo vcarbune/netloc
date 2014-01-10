@@ -11,6 +11,7 @@
 #include <iostream>
 #include <limits>
 #include <cmath>
+#include <cstdio>
 
 #include <queue>
 #include <vector>
@@ -45,11 +46,10 @@ class Hypothesis {
 
 class HypothesisCluster {
   public:
-    virtual int countHypothesisConsistentWithTest(const Test&) const = 0;
-    virtual int countHypothesisAvailable() const = 0;
+    virtual int countConsistentHypothesis() const = 0;
+    virtual void countConsistentHypothesis(const Test&, int*, int*) const = 0;
 
-    virtual void removeHypothesisInconsistentWithTest(const Test&) = 0;
-    virtual void printState() const = 0;
+    virtual void markInconsistentHypothesis(const Test&) = 0;
     virtual void setWeight(double) = 0;
 };
 
@@ -65,30 +65,23 @@ class TestCompareFunction {
 
 template <class TTest, class THypothesisCluster>
 inline void rescoreTest(TTest& test,
-                 const std::vector<THypothesisCluster>& clusters,
-                 int countTotalHypothesis)
+                 const std::vector<THypothesisCluster>& clusters)
 {
-  int countConsistentHypothesis = 0;
-
-  // Count hypothesis matching test.
-  for (const THypothesisCluster& cluster : clusters)
-    countConsistentHypothesis +=
-      cluster.countHypothesisConsistentWithTest(test);
-
-  // Score if test outcome is True
-  double positiveScore =
-    ((double) countConsistentHypothesis / countTotalHypothesis);
-    // * ((double) 1 / countConsistentHypothesis);
-
-  // Score if test outcome is False
-  double negativeScore = 0;
-  if (countTotalHypothesis != countConsistentHypothesis) {
-    negativeScore = ((double) (1 - countConsistentHypothesis)) *
-        ((double) countTotalHypothesis / (countTotalHypothesis - countConsistentHypothesis));
+  int prevConsistentHypothesis = 0;
+  int testConsistentHypothesis = 0;
+  for (const THypothesisCluster& cluster : clusters) {
+    cluster.countConsistentHypothesis(test,
+        &testConsistentHypothesis, &prevConsistentHypothesis);
   }
-  double score = positiveScore + negativeScore - 1;
-    // - ((double) 1 / countTotalHypothesis);
+  int testInconsistentHypothesis =
+      prevConsistentHypothesis - testConsistentHypothesis;
 
+  // TODO(vcarbune): Deal with 1 + ... ?
+  double positive = 1.0 / (1 + testConsistentHypothesis);
+  double negative = 1.0 / (1 + testInconsistentHypothesis);
+  double previous = 1.0 / (1 + prevConsistentHypothesis);
+
+  double score = positive + negative - previous;
   test.setScore(score);
 }
 
@@ -96,13 +89,9 @@ template <class TTest, class THypothesisCluster>
 void rescoreTests(std::vector<TTest>& tests,
                   const std::vector<THypothesisCluster>& clusters)
 {
-  int countTotalHypothesis = 0;
-  for (const THypothesisCluster& cluster : clusters)
-      countTotalHypothesis += cluster.countHypothesisAvailable();
-
   double prevScore = tests.front().getScore();
-  rescoreTest(tests.front(), clusters, countTotalHypothesis);
-  if (prevScore <= tests.front().getScore()) {
+  rescoreTest(tests.front(), clusters);
+  if (prevScore < tests.front().getScore()) {
     tests.front().setScore(prevScore);
     return;
   }
@@ -113,14 +102,15 @@ void rescoreTests(std::vector<TTest>& tests,
 
     for (int t = 0; t < CLEANUP_THREADS && test + t < tests.size(); ++t)
       threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
-            std::ref(tests[test + t]), std::ref(clusters), countTotalHypothesis));
+            std::ref(tests[test + t]), std::ref(clusters)));
 
     for (std::thread& t : threads)
       t.join();
   }
 
+  test -= CLEANUP_THREADS;
   for (; test < tests.size(); test++)
-    rescoreTest(tests[test], clusters, countTotalHypothesis);
+    rescoreTest(tests[test], clusters);
 
   std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
@@ -131,11 +121,12 @@ void threadWrapperClusterCleanup(THypothesisCluster& cluster,
     const TTest& test, bool* isNewlyEmptied)
 {
   *isNewlyEmptied = false;
-  if (!cluster.countHypothesisAvailable())
+  if (!cluster.countConsistentHypothesis())
     return;
 
-  cluster.removeHypothesisInconsistentWithTest(test);
-  if (!cluster.countHypothesisAvailable())
+  cluster.markInconsistentHypothesis(test);
+
+  if (!cluster.countConsistentHypothesis())
     *isNewlyEmptied = true;
 }
 
@@ -151,6 +142,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
+  /* Original: remove inconsistent hypothesis from all clusters. */
   bool emptiedClusters[clusters.size()];
   std::size_t i = 0;
   for (; i < clusters.size(); i += CLEANUP_THREADS) {
@@ -175,7 +167,6 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
       removedClusters.push_back(clusters[i].getSource());
   }
 
-  // std::cout << tests.front().getScore() << std::endl;
   std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
   tests.pop_back();
@@ -193,13 +184,35 @@ size_t runEC2(std::vector<TTest>& tests,
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
-  rescoreTests(tests, clusters);
   while (!tests.empty() && topClusters.size() < clusters.size()) {
-    // std::cout << testRunOrder.size() << "\t";
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, topClusters, realization);
     testRunOrder.push_back(t);
+
+    if (t.getScore() == 0)
+      break;
+
+    // std::cout << testRunOrder.size() << ". " << t.getScore() << std::endl;
+
+    /* Current: re-scale weight of clusters according to test consistency. */
+    /*
+    for (THypothesisCluster& cluster : clusters)
+      cluster.updateWeight(testRunOrder);
+    */
   }
+
+  /*
+  sort(clusters.begin(), clusters.end());
+  for (THypothesisCluster& cluster : clusters) {
+    std::cout << cluster.getSource() << " --> " << cluster.getWeight() <<
+      std::endl;
+  }
+
+  for (int i = 0; i < topN; ++i) {
+    topClusters.push_back(clusters[i].getSource());
+    std::cout << clusters[i].getSource() << ", " << clusters[i].getWeight() << " " << std::endl;
+  }
+  */
 
   return testRunOrder.size();
 }

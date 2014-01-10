@@ -8,10 +8,11 @@
 
 #include "hypothesis.h"
 
-#define INITIAL_RUNS 5
+#define INITIAL_RUNS 10
 
 GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
   : m_infectionTimeHash(hash)
+  , m_isMarkedAsInconsistent(false)
 {
 }
 
@@ -49,6 +50,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_weight(0)
 {
   generateHypothesisCluster(maxHypothesis);
+  updateConsistentHypothesisCount();
 }
 
 void GraphHypothesisCluster::setHopsFromSource(int hops)
@@ -56,15 +58,22 @@ void GraphHypothesisCluster::setHopsFromSource(int hops)
   m_hops = hops;
 }
 
+void GraphHypothesisCluster::updateWeight(const vector<GraphTest>& A)
+{
+  int inconsistent = 0;
+  for (const GraphTest& t : A) {
+    for (const GraphHypothesis& h : m_hypothesis) {
+      if (!h.isConsistentWithTest(t))
+        inconsistent++;
+    }
+  }
+
+  m_weight = pow((double) 0.25/0.75, inconsistent);
+}
+
 void GraphHypothesisCluster::setWeight(double weight)
 {
   m_weight = weight;
-}
-
-void GraphHypothesisCluster::printState()
-{
-  std::cout << "Cluster with source " << m_sourceId << " has " <<
-    m_hypothesis.size() << " hypothesis left " << std::endl;
 }
 
 /**
@@ -77,6 +86,15 @@ void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
     m_hypothesis.push_back(generateHypothesis());
 }
 
+void GraphHypothesisCluster::updateConsistentHypothesisCount()
+{
+  m_crtConsistentHypothesis = 0;
+  for (const GraphHypothesis &h : m_hypothesis)
+    if (!h.isMarkedAsInconsistent())
+      m_crtConsistentHypothesis++;
+
+  // cout << "Consistency percentage: " << (double) m_crtConsistentHypothesis / m_hypothesis.size() << endl;
+}
 
 /**
  * Generates one cascade, on top of the underlying network structure.
@@ -116,34 +134,29 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
     }
   }
 
-  // cout << (double) nodeInfectionTime.Len() / m_network->GetNodes() << endl;
   return GraphHypothesis(nodeInfectionTime, 0);
 }
 
-int GraphHypothesisCluster::countHypothesisConsistentWithTest (
-    const GraphTest& test) const
+void GraphHypothesisCluster::countConsistentHypothesis (
+    const GraphTest& test, int *withTest, int *withPrevTests) const
 {
-  int total = 0;
-  for (const GraphHypothesis& h : m_hypothesis)
-    if (h.isConsistentWithTest(test))
-      total++;
+  for (const GraphHypothesis& h : m_hypothesis) {
+    if (h.isMarkedAsInconsistent())
+      continue;
 
-  return total;
+    (*withPrevTests)++;
+    if (h.isConsistentWithTest(test))
+      (*withTest)++;
+  }
 }
 
-
-/**
- * Eliminates all the cascades that are not possible,
- * considering the outcome of Test t to be true.
- */
-void GraphHypothesisCluster::removeHypothesisInconsistentWithTest(const GraphTest& t)
+void GraphHypothesisCluster::markInconsistentHypothesis(const GraphTest& t)
 {
-  vector<GraphHypothesis> tmp;
-  tmp.swap(m_hypothesis);
+  for (GraphHypothesis& h : m_hypothesis)
+    if (!h.isConsistentWithTest(t))
+      h.markAsInconsistent();
 
-  for (size_t i = 0; i < tmp.size(); ++i)
-    if (tmp[i].isConsistentWithTest(t))
-      m_hypothesis.push_back(tmp[i]);
+  updateConsistentHypothesisCount();
 }
 
 GraphHypothesis GraphHypothesisCluster::getRandomHypothesis() const

@@ -14,15 +14,14 @@
 
 using namespace std;
 
-/**
- * One hypothesis is a pair of the form
- *    <weight, <infectionTimeHash, actualCascade>>
- */
 class GraphHypothesis {
   public:
     GraphHypothesis(TIntH, double);
 
     bool isConsistentWithTest(const GraphTest& test) const;
+
+    bool isMarkedAsInconsistent() const { return m_isMarkedAsInconsistent; }
+    void markAsInconsistent() { m_isMarkedAsInconsistent = true; }
 
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
@@ -31,6 +30,7 @@ class GraphHypothesis {
 
   private:
     TIntH m_infectionTimeHash;
+    bool m_isMarkedAsInconsistent;
 };
 
 class GraphHypothesisCluster {
@@ -38,16 +38,18 @@ class GraphHypothesisCluster {
     GraphHypothesisCluster(PUNGraph, int, int);
     GraphHypothesisCluster(PUNGraph, int, int, double, double);
 
-    int countHypothesisConsistentWithTest (const GraphTest&) const;
-    int countHypothesisAvailable() const { return m_hypothesis.size(); }
+    void markInconsistentHypothesis(const GraphTest&);
+    int countConsistentHypothesis() const { return m_crtConsistentHypothesis; }
+    void countConsistentHypothesis(const GraphTest&, int*, int*) const;
 
     void removeHypothesisInconsistentWithTest(const GraphTest&);
     GraphHypothesis getRandomHypothesis() const;
     GraphHypothesis generateHypothesis(bool = false) const;
 
     int getSource() const { return m_sourceId; }
-    virtual void printState();
 
+    void updateWeight(const vector<GraphTest>&);
+    double getWeight() { return m_weight; }
     void setWeight(double);
 
     // Not used yet.
@@ -55,10 +57,12 @@ class GraphHypothesisCluster {
     int getHopsFromSource() const { return m_hops; }
 
     bool operator< (const GraphHypothesisCluster& o) const {
-      return countHypothesisAvailable() < o.countHypothesisAvailable();
+      return m_weight > o.m_weight;
+      // return countHypothesisAvailable() < o.countHypothesisAvailable();
     }
   private:
     void generateHypothesisCluster(int);
+    void updateConsistentHypothesisCount();
 
     PUNGraph m_network;
     vector<GraphHypothesis> m_hypothesis;
@@ -67,6 +71,8 @@ class GraphHypothesisCluster {
     double m_size;
     int m_hops;
     double m_weight;
+
+    int m_crtConsistentHypothesis;
 };
 
 #endif // HYPOTHESIS_H_
