@@ -69,22 +69,36 @@ inline void rescoreTest(TTest& test,
 {
   int prevConsistentHypothesis = 0;
   int testConsistentHypothesis = 0;
+
+  double positiveMass = 0.0;
+  double positiveDiagonalMass = 0.0;
+  double negativeMass = 0.0;
+  double negativeDiagonalMass = 0.0;
+
   for (const THypothesisCluster& cluster : clusters) {
     cluster.countConsistentHypothesis(test,
         &testConsistentHypothesis, &prevConsistentHypothesis);
+
+    test.setOutcome(true);
+    double positiveClusterMass = cluster.computeMassWithTest(test);
+
+    test.setOutcome(false);
+    double negativeClusterMass = cluster.computeMassWithTest(test);
+
+    positiveMass += positiveClusterMass;
+    negativeMass += negativeClusterMass;
+
+    positiveDiagonalMass -= positiveClusterMass * positiveClusterMass;
+    negativeDiagonalMass -= negativeClusterMass * negativeClusterMass;
   }
-  int testInconsistentHypothesis =
-      prevConsistentHypothesis - testConsistentHypothesis;
 
-  double positive = (double) prevConsistentHypothesis / (1 + testConsistentHypothesis);
-  double negative = (double) prevConsistentHypothesis / (1 + testInconsistentHypothesis);
-  /* wrong version below..
-  double positive = 1.0 / (1 + testConsistentHypothesis);
-  double negative = 1.0 / (1 + testInconsistentHypothesis);
-  double previous = 1.0 / (1 + prevConsistentHypothesis);
-  */
+  positiveMass = positiveMass * positiveMass - positiveDiagonalMass;
+  negativeMass = negativeMass * negativeMass - negativeDiagonalMass;
 
-  double score = positive + negative - 1;
+  double testPositivePb = (double) testConsistentHypothesis / prevConsistentHypothesis;
+  double score = testPositivePb * positiveMass +
+    (1 - testPositivePb) * negativeMass;
+
   test.setScore(score);
 }
 
@@ -92,12 +106,14 @@ template <class TTest, class THypothesisCluster>
 void rescoreTests(std::vector<TTest>& tests,
                   const std::vector<THypothesisCluster>& clusters)
 {
+  /*
   double prevScore = tests.front().getScore();
   rescoreTest(tests.front(), clusters);
   if (prevScore < tests.front().getScore()) {
     tests.front().setScore(prevScore);
     return;
   }
+  */
 
   size_t test = 0;
   for (; test < tests.size(); test += WORK_THREADS) {
@@ -123,12 +139,14 @@ template<class THypothesisCluster, class TTest>
 void threadWrapperClusterCleanup(THypothesisCluster& cluster,
     const TTest& test, bool* isNewlyEmptied)
 {
+  // TODO(vcarbune): remove this, hypothesis will never dissapear.
   *isNewlyEmptied = false;
   if (!cluster.countConsistentHypothesis())
     return;
 
-  cluster.markInconsistentHypothesis(test);
+  cluster.updateMassWithTest(test);
 
+  // TODO(vcarbune): remove this, hypothesis will never dissapear.
   if (!cluster.countConsistentHypothesis())
     *isNewlyEmptied = true;
 }
@@ -191,21 +209,7 @@ size_t runEC2(std::vector<TTest>& tests,
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, topClusters, realization);
     testRunOrder.push_back(t);
-
-    if (t.getScore() == 0)
-      break;
-
     std::cout << testRunOrder.size() << ". " << t.getScore() << std::endl;
-    /* Current: re-scale weight of clusters according to test consistency. */
-    double sum = 0.0;
-    for (THypothesisCluster& cluster : clusters) {
-      cluster.updateWeight(testRunOrder);
-      sum += cluster.getWeight();
-    }
-
-    // std::cout << sum << std::endl;
-    for (THypothesisCluster& cluster : clusters)
-      cluster.setWeight(cluster.getWeight() / sum);
   }
 
   /*

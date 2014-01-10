@@ -20,24 +20,24 @@ class GraphHypothesis {
 
     bool isConsistentWithTest(const GraphTest& test) const;
 
-    bool isMarkedAsInconsistent() const { return m_isMarkedAsInconsistent; }
-    void markAsInconsistent() { m_isMarkedAsInconsistent = true; }
-
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
 
     int getSize() const { return m_infectionTimeHash.Len(); }
 
+    double weight;
+
   private:
     TIntH m_infectionTimeHash;
-    bool m_isMarkedAsInconsistent;
 };
 
 class GraphHypothesisCluster {
   public:
     GraphHypothesisCluster(PUNGraph, int, int, double, double, double);
 
-    void markInconsistentHypothesis(const GraphTest&);
+    void updateMassWithTest(const GraphTest&);
+    double computeMassWithTest(const GraphTest&) const;
+
     int countConsistentHypothesis() const { return m_crtConsistentHypothesis; }
     void countConsistentHypothesis(const GraphTest&, int*, int*) const;
 
@@ -47,7 +47,6 @@ class GraphHypothesisCluster {
 
     int getSource() const { return m_sourceId; }
 
-    void updateWeight(const vector<GraphTest>&);
     double getWeight() { return m_weight; }
     void setWeight(double);
 
