@@ -9,6 +9,7 @@
 #include "hypothesis.h"
 
 #define INITIAL_RUNS 10
+#define EPS 0.25
 
 GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
   : m_infectionTimeHash(hash)
@@ -41,13 +42,14 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
                                                int sourceId,
                                                int maxHypothesis,
                                                double beta,
-                                               double size)
+                                               double size,
+                                               double weight)
   : m_network(network)
   , m_sourceId(sourceId)
   , m_beta(beta)
   , m_size(size)
   , m_hops(0)
-  , m_weight(0)
+  , m_weight(weight)
 {
   generateHypothesisCluster(maxHypothesis);
   updateConsistentHypothesisCount();
@@ -61,14 +63,15 @@ void GraphHypothesisCluster::setHopsFromSource(int hops)
 void GraphHypothesisCluster::updateWeight(const vector<GraphTest>& A)
 {
   int inconsistent = 0;
-  for (const GraphTest& t : A) {
-    for (const GraphHypothesis& h : m_hypothesis) {
-      if (!h.isConsistentWithTest(t))
-        inconsistent++;
-    }
-  }
+  for (const GraphHypothesis& h : m_hypothesis)
+    if (h.isMarkedAsInconsistent())
+      inconsistent++;
 
-  m_weight = pow((double) 0.25/0.75, inconsistent);
+  if (!inconsistent)
+    return;
+
+  // cout << getSource() << " " << inconsistent << endl;
+  m_weight = pow((double) EPS/(1-EPS), inconsistent);
 }
 
 void GraphHypothesisCluster::setWeight(double weight)

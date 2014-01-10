@@ -48,7 +48,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
   for (int source = 0; source < network->GetNodes(); source++)
     clusters->push_back(
         GraphHypothesisCluster(network, source,
-              config.clusterSize, config.beta, config.cascadeBound));
+              config.clusterSize, config.beta, config.cascadeBound,
+              1.0/network->GetNodes()));
 }
 
 inline void generateTests(vector<GraphTest> *tests,
@@ -117,11 +118,13 @@ void runSimulation(const SimConfig config,
         " hops)\t";
     }
 
-    for (int i = 0; i < 3; ++i) {
-      cout << TSnap::GetShortPath(network,
-          tempClusters[index].getSource(),
-          rand() % tempClusters.size()) << " ";
+    /*
+    cout << endl;
+    for (unsigned int i = 0; i < tempClusters.size(); ++i) {
+      cout << i << ". " << tempClusters[i].getSource() << " " <<
+        tempClusters[i].getWeight() << endl;
     }
+    */
 
     if (!found)
       fails++;

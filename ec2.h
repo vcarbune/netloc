@@ -17,7 +17,7 @@
 #include <vector>
 #include <thread>
 
-#define CLEANUP_THREADS 8
+#define WORK_THREADS 8
 
 // Abstract classes that can be implemented in order to use runEC2.
 
@@ -65,7 +65,7 @@ class TestCompareFunction {
 
 template <class TTest, class THypothesisCluster>
 inline void rescoreTest(TTest& test,
-                 const std::vector<THypothesisCluster>& clusters)
+    const std::vector<THypothesisCluster>& clusters)
 {
   int prevConsistentHypothesis = 0;
   int testConsistentHypothesis = 0;
@@ -76,12 +76,15 @@ inline void rescoreTest(TTest& test,
   int testInconsistentHypothesis =
       prevConsistentHypothesis - testConsistentHypothesis;
 
-  // TODO(vcarbune): Deal with 1 + ... ?
+  double positive = (double) prevConsistentHypothesis / (1 + testConsistentHypothesis);
+  double negative = (double) prevConsistentHypothesis / (1 + testInconsistentHypothesis);
+  /* wrong version below..
   double positive = 1.0 / (1 + testConsistentHypothesis);
   double negative = 1.0 / (1 + testInconsistentHypothesis);
   double previous = 1.0 / (1 + prevConsistentHypothesis);
+  */
 
-  double score = positive + negative - previous;
+  double score = positive + negative - 1;
   test.setScore(score);
 }
 
@@ -97,10 +100,10 @@ void rescoreTests(std::vector<TTest>& tests,
   }
 
   size_t test = 0;
-  for (; test < tests.size(); test += CLEANUP_THREADS) {
+  for (; test < tests.size(); test += WORK_THREADS) {
     std::vector<std::thread> threads;
 
-    for (int t = 0; t < CLEANUP_THREADS && test + t < tests.size(); ++t)
+    for (int t = 0; t < WORK_THREADS && test + t < tests.size(); ++t)
       threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
             std::ref(tests[test + t]), std::ref(clusters)));
 
@@ -108,7 +111,7 @@ void rescoreTests(std::vector<TTest>& tests,
       t.join();
   }
 
-  test -= CLEANUP_THREADS;
+  test -= WORK_THREADS;
   for (; test < tests.size(); test++)
     rescoreTest(tests[test], clusters);
 
@@ -145,10 +148,10 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
   /* Original: remove inconsistent hypothesis from all clusters. */
   bool emptiedClusters[clusters.size()];
   std::size_t i = 0;
-  for (; i < clusters.size(); i += CLEANUP_THREADS) {
+  for (; i < clusters.size(); i += WORK_THREADS) {
     std::vector<std::thread> threads;
 
-    for (int t = 0; t < CLEANUP_THREADS && i + t < clusters.size(); ++t)
+    for (int t = 0; t < WORK_THREADS && i + t < clusters.size(); ++t)
       threads.push_back(
           std::thread(threadWrapperClusterCleanup<THypothesisCluster, TTest>,
             std::ref(clusters[i+t]), std::ref(test), &emptiedClusters[i+t]));
@@ -192,13 +195,17 @@ size_t runEC2(std::vector<TTest>& tests,
     if (t.getScore() == 0)
       break;
 
-    // std::cout << testRunOrder.size() << ". " << t.getScore() << std::endl;
-
+    std::cout << testRunOrder.size() << ". " << t.getScore() << std::endl;
     /* Current: re-scale weight of clusters according to test consistency. */
-    /*
-    for (THypothesisCluster& cluster : clusters)
+    double sum = 0.0;
+    for (THypothesisCluster& cluster : clusters) {
       cluster.updateWeight(testRunOrder);
-    */
+      sum += cluster.getWeight();
+    }
+
+    // std::cout << sum << std::endl;
+    for (THypothesisCluster& cluster : clusters)
+      cluster.setWeight(cluster.getWeight() / sum);
   }
 
   /*

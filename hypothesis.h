@@ -35,8 +35,7 @@ class GraphHypothesis {
 
 class GraphHypothesisCluster {
   public:
-    GraphHypothesisCluster(PUNGraph, int, int);
-    GraphHypothesisCluster(PUNGraph, int, int, double, double);
+    GraphHypothesisCluster(PUNGraph, int, int, double, double, double);
 
     void markInconsistentHypothesis(const GraphTest&);
     int countConsistentHypothesis() const { return m_crtConsistentHypothesis; }
