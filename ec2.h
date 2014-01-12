@@ -106,13 +106,20 @@ template <class TTest, class THypothesisCluster>
 void rescoreTests(std::vector<TTest>& tests,
                   const std::vector<THypothesisCluster>& clusters)
 {
-  /*
   double prevScore = tests.front().getScore();
   rescoreTest(tests.front(), clusters);
-  if (prevScore < tests.front().getScore()) {
-    tests.front().setScore(prevScore);
-    return;
+
+  double relativeChange = prevScore - tests.front().getScore();
+  relativeChange /= prevScore;
+
+  if (relativeChange < 10 * 1E-2) {
+      tests.front().setScore(prevScore);
+      return;
   }
+
+  /*
+  std::cout << prevScore << " now is " << tests.front().getScore() <<
+    " " << tests.front().getNodeId() << std::endl;
   */
 
   size_t test = 0;
@@ -159,7 +166,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
 {
   rescoreTests(tests, clusters);
 
-  TTest& test = tests.front();
+  TTest test = tests.front();
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
@@ -209,7 +216,14 @@ size_t runEC2(std::vector<TTest>& tests,
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, topClusters, realization);
     testRunOrder.push_back(t);
-    std::cout << testRunOrder.size() << ". " << t.getScore() << std::endl;
+
+    /*
+    std::cout << testRunOrder.size() << ". " << t.getScore() << " - id:" <<
+      t.getNodeId() << std::endl;
+    */
+
+    if (t.getScore() == 0)
+      break;
   }
 
   /*
