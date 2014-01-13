@@ -46,8 +46,8 @@ class Hypothesis {
 
 class HypothesisCluster {
   public:
-    virtual int countConsistentHypothesis() const = 0;
-    virtual void countConsistentHypothesis(const Test&, int*, int*) const = 0;
+    // virtual int countConsistentHypothesis() const = 0;
+    // virtual void countConsistentHypothesis(const Test&, int*, int*) const = 0;
 
     virtual void markInconsistentHypothesis(const Test&) = 0;
     virtual void setWeight(double) = 0;
@@ -112,7 +112,7 @@ void rescoreTests(std::vector<TTest>& tests,
   double relativeChange = prevScore - tests.front().getScore();
   relativeChange /= prevScore;
 
-  if (relativeChange < 10 * 1E-2) {
+  if (relativeChange < 0.1) {
       tests.front().setScore(prevScore);
       return;
   }
@@ -142,58 +142,34 @@ void rescoreTests(std::vector<TTest>& tests,
       tests.begin(), tests.end(), TestCompareFunction());
 }
 
-template<class THypothesisCluster, class TTest>
-void threadWrapperClusterCleanup(THypothesisCluster& cluster,
-    const TTest& test, bool* isNewlyEmptied)
-{
-  // TODO(vcarbune): remove this, hypothesis will never dissapear.
-  *isNewlyEmptied = false;
-  if (!cluster.countConsistentHypothesis())
-    return;
-
-  cluster.updateMassWithTest(test);
-
-  // TODO(vcarbune): remove this, hypothesis will never dissapear.
-  if (!cluster.countConsistentHypothesis())
-    *isNewlyEmptied = true;
-}
-
 template <class TTest, class THypothesisCluster, class THypothesis>
 TTest runOneEC2Step(std::vector<TTest>& tests,
                     std::vector<THypothesisCluster>& clusters,
-                    std::vector<int>& removedClusters,
                     const THypothesis& realization)
 {
   rescoreTests(tests, clusters);
 
   TTest test = tests.front();
   test.setOutcome(realization.getTestOutcome(test));
-  test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
+  // test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
   /* Original: remove inconsistent hypothesis from all clusters. */
-  bool emptiedClusters[clusters.size()];
   std::size_t i = 0;
   for (; i < clusters.size(); i += WORK_THREADS) {
     std::vector<std::thread> threads;
 
     for (int t = 0; t < WORK_THREADS && i + t < clusters.size(); ++t)
       threads.push_back(
-          std::thread(threadWrapperClusterCleanup<THypothesisCluster, TTest>,
-            std::ref(clusters[i+t]), std::ref(test), &emptiedClusters[i+t]));
+          std::thread(&THypothesisCluster::updateMassWithTest,
+              &clusters[i+t], std::ref(test)));
 
     for (std::thread& t : threads)
       t.join();
   }
 
-  for (; i < clusters.size(); i++) {
-    threadWrapperClusterCleanup<THypothesisCluster, TTest>(clusters[i], test,
-        &emptiedClusters[i]);
-  }
-
-  for (i = 0; i < clusters.size(); i++) {
-    if (emptiedClusters[i])
-      removedClusters.push_back(clusters[i].getSource());
-  }
+  i -= WORK_THREADS;
+  for (; i < clusters.size(); i++)
+    clusters[i].updateMassWithTest(test);
 
   std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
@@ -212,32 +188,33 @@ size_t runEC2(std::vector<TTest>& tests,
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
-  while (!tests.empty() && topClusters.size() < clusters.size()) {
+  double mass = 0.0;
+  bool shouldStop = false;
+
+  while (!tests.empty() && !shouldStop) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
-        tests, clusters, topClusters, realization);
+        tests, clusters, realization);
     testRunOrder.push_back(t);
 
-    /*
-    std::cout << testRunOrder.size() << ". " << t.getScore() << " - id:" <<
-      t.getNodeId() << std::endl;
-    */
+    mass = 0.0;
+    for (unsigned i = 0; i < clusters.size(); ++i)
+      mass += clusters[i].getMass();
 
-    if (t.getScore() == 0)
-      break;
+    for (THypothesisCluster& cluster : clusters)
+      if (cluster.getWeight() / mass > 0.05)
+        shouldStop = true;
   }
 
-  /*
+  // Normalize weights and probabilities
   sort(clusters.begin(), clusters.end());
   for (THypothesisCluster& cluster : clusters) {
-    std::cout << cluster.getSource() << " --> " << cluster.getWeight() <<
-      std::endl;
+    std::cout << cluster.getSource() <<
+        "\t" << cluster.getWeight() / mass <<
+        std::endl;
   }
 
-  for (int i = 0; i < topN; ++i) {
+  for (int i = 0; i < topN; ++i)
     topClusters.push_back(clusters[i].getSource());
-    std::cout << clusters[i].getSource() << ", " << clusters[i].getWeight() << " " << std::endl;
-  }
-  */
 
   return testRunOrder.size();
 }

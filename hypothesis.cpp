@@ -8,12 +8,11 @@
 
 #include "hypothesis.h"
 
-#define INITIAL_RUNS 10
-#define EPS 1
+#define INITIAL_RUNS 5
+#define EPS 0.90
 
-GraphHypothesis::GraphHypothesis(TIntH hash, double weight)
-  : weight(weight)
-  , m_infectionTimeHash(hash)
+GraphHypothesis::GraphHypothesis(TIntH hash)
+  : m_infectionTimeHash(hash)
 {
 }
 
@@ -52,17 +51,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_weight(weight)
 {
   generateHypothesisCluster(maxHypothesis);
-  updateConsistentHypothesisCount();
-}
-
-void GraphHypothesisCluster::setHopsFromSource(int hops)
-{
-  m_hops = hops;
-}
-
-void GraphHypothesisCluster::setWeight(double weight)
-{
-  m_weight = weight;
+  // updateConsistentHypothesisCount();
 }
 
 /**
@@ -77,6 +66,7 @@ void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
   }
 }
 
+/*
 void GraphHypothesisCluster::updateConsistentHypothesisCount()
 {
   m_crtConsistentHypothesis = 0;
@@ -86,6 +76,7 @@ void GraphHypothesisCluster::updateConsistentHypothesisCount()
 
   // cout << "Consistency percentage: " << (double) m_crtConsistentHypothesis / m_hypothesis.size() << endl;
 }
+*/
 
 /**
  * Generates one cascade, on top of the underlying network structure.
@@ -120,20 +111,23 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
 
         nodeInfectionTime.AddDat(neighbourId, nodeInfectionTime.Len());
         if (nodeInfectionTime.Len() == cascadeSize)
-          return GraphHypothesis(nodeInfectionTime, 0);
+          return GraphHypothesis(nodeInfectionTime);
       }
     }
   }
 
-  return GraphHypothesis(nodeInfectionTime, 0);
+  return GraphHypothesis(nodeInfectionTime);
 }
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
 {
-  for (GraphHypothesis& h : m_hypothesis)
-    h.weight *= h.isConsistentWithTest(test) ? EPS : (1-EPS);
+  m_weight = 0;
+  for (GraphHypothesis& h : m_hypothesis) {
+    h.weight *= (h.isConsistentWithTest(test) ? EPS : (1-EPS));
+    m_weight += h.weight;
+  }
 
-  updateConsistentHypothesisCount();
+  // updateConsistentHypothesisCount();
 }
 
 double GraphHypothesisCluster::computeMassWithTest(const GraphTest& test) const
@@ -148,14 +142,10 @@ double GraphHypothesisCluster::computeMassWithTest(const GraphTest& test) const
 void GraphHypothesisCluster::countConsistentHypothesis (
     const GraphTest& test, int *withTest, int *withPrevTests) const
 {
-  for (const GraphHypothesis& h : m_hypothesis) {
-    if (!h.weight)
-      continue;
-
-    (*withPrevTests)++;
+  (*withPrevTests) += m_hypothesis.size();
+  for (const GraphHypothesis& h : m_hypothesis)
     if (h.isConsistentWithTest(test))
       (*withTest)++;
-  }
 }
 
 GraphHypothesis GraphHypothesisCluster::getRandomHypothesis() const

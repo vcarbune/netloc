@@ -16,7 +16,7 @@ using namespace std;
 
 class GraphHypothesis {
   public:
-    GraphHypothesis(TIntH, double);
+    GraphHypothesis(TIntH);
 
     bool isConsistentWithTest(const GraphTest& test) const;
 
@@ -37,8 +37,9 @@ class GraphHypothesisCluster {
 
     void updateMassWithTest(const GraphTest&);
     double computeMassWithTest(const GraphTest&) const;
+    double getMass() const { return m_weight; }
 
-    int countConsistentHypothesis() const { return m_crtConsistentHypothesis; }
+    // int countConsistentHypothesis() const { return m_crtConsistentHypothesis; }
     void countConsistentHypothesis(const GraphTest&, int*, int*) const;
 
     void removeHypothesisInconsistentWithTest(const GraphTest&);
@@ -46,21 +47,14 @@ class GraphHypothesisCluster {
     GraphHypothesis generateHypothesis(bool = false) const;
 
     int getSource() const { return m_sourceId; }
-
     double getWeight() { return m_weight; }
-    void setWeight(double);
-
-    // Not used yet.
-    void setHopsFromSource(int);
-    int getHopsFromSource() const { return m_hops; }
 
     bool operator< (const GraphHypothesisCluster& o) const {
       return m_weight > o.m_weight;
-      // return countHypothesisAvailable() < o.countHypothesisAvailable();
     }
   private:
     void generateHypothesisCluster(int);
-    void updateConsistentHypothesisCount();
+    // void updateConsistentHypothesisCount();
 
     PUNGraph m_network;
     vector<GraphHypothesis> m_hypothesis;
