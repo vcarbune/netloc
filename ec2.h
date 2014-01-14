@@ -18,6 +18,7 @@
 #include <thread>
 
 #define WORK_THREADS 8
+#define MASS_THRESHOLD 0.07
 
 // Abstract classes that can be implemented in order to use runEC2.
 
@@ -112,15 +113,10 @@ void rescoreTests(std::vector<TTest>& tests,
   double relativeChange = prevScore - tests.front().getScore();
   relativeChange /= prevScore;
 
-  if (relativeChange < 0.5) {
+  if (relativeChange < 0.3) {
       tests.front().setScore(prevScore);
       return;
   }
-
-  /*
-  std::cout << prevScore << " now is " << tests.front().getScore() <<
-    " " << tests.front().getNodeId() << std::endl;
-  */
 
   std::vector<std::thread> threads;
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
@@ -131,6 +127,9 @@ void rescoreTests(std::vector<TTest>& tests,
       t.join();
     threads.clear();
   }
+
+  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
@@ -139,9 +138,6 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
                     const THypothesis& realization)
 {
   rescoreTests(tests, clusters);
-
-  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
 
   TTest test = tests.front();
   test.setOutcome(realization.getTestOutcome(test));
@@ -167,9 +163,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
 template <class TTest, class THypothesisCluster, class THypothesis>
 size_t runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
-              const THypothesis& realization,
-              int topN,
-              std::vector<int>& topClusters)
+              const THypothesis& realization)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -187,21 +181,15 @@ size_t runEC2(std::vector<TTest>& tests,
       mass += clusters[i].getMass();
 
     for (THypothesisCluster& cluster : clusters)
-      if (cluster.getWeight() / mass > 0.05)
+      if (cluster.getWeight() / mass > MASS_THRESHOLD)
         shouldStop = true;
   }
 
   // Normalize weights and probabilities
-  sort(clusters.begin(), clusters.end());
-  for (THypothesisCluster& cluster : clusters) {
-    std::cout << cluster.getSource() <<
-        "\t" << cluster.getWeight() / mass <<
-        std::endl;
-  }
+  for (THypothesisCluster& cluster : clusters)
+    cluster.normalizeWeight(mass);
 
-  for (int i = 0; i < topN; ++i)
-    topClusters.push_back(clusters[i].getSource());
-
+  // The score is the number of tests used.
   return testRunOrder.size();
 }
 

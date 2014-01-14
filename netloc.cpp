@@ -54,8 +54,6 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
 inline void generateTests(vector<GraphTest> *tests,
                           const PUNGraph& network)
 {
-  // TODO(vcarbune): threadify
-
   // Generate all tests that are enough to differentiate between hypothesis.
   tests->clear();
   for (int node = 0; node < network->GetNodes(); ++node)
@@ -93,24 +91,29 @@ void runSimulation(const SimConfig config,
 
     // Select a different realization at each run.
     int index = rand() % tempClusters.size();
-    GraphHypothesis realization = tempClusters[index].generateHypothesis();
+    GraphHypothesis realization = tempClusters[index].generateHypothesis(
+        config.cascadeBound, config.beta, true);
     int trueSource = tempClusters[index].getSource();
 
     // Run the simulation with the current configuration.
+    time_t startTime = time(NULL);
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization, config.topN, topClusters);
+        tempTests, tempClusters, realization);
 
     bool found = false;
     cout << "Correct: " << trueSource << "\t";
     cout << "Tests: " << crtScore << "\t";
+    cout << "Time: " << difftime(time(NULL), startTime) << "s\t";
     cout << "Candidates: ";
-    for (size_t i = 0; i < topClusters.size(); ++i) {
-      if (topClusters[i] == trueSource)
+    sort(tempClusters.begin(), tempClusters.end());
+    for (int i = 0; i < config.topN; ++i) {
+      int foundSource = tempClusters[i].getSource();
+      if (foundSource == trueSource)
         found = true;
 
-      cout << topClusters[i] << "(" <<
-        TSnap::GetShortPath(network, trueSource, topClusters[i]) <<
-        " hops)\t";
+      cout << tempClusters[i].getSource() << "(" <<
+          TSnap::GetShortPath(network, trueSource, foundSource) << " hops, " <<
+          tempClusters[i].getWeight() << ")\t";
     }
 
     if (!found)

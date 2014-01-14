@@ -39,44 +39,29 @@ bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
 
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
                                                int sourceId,
-                                               int maxHypothesis,
+                                               int clusterSize,
                                                double beta,
                                                double size,
                                                double weight)
   : m_network(network)
   , m_sourceId(sourceId)
-  , m_beta(beta)
-  , m_size(size)
-  , m_hops(0)
   , m_weight(weight)
 {
-  generateHypothesisCluster(maxHypothesis);
-  // updateConsistentHypothesisCount();
+  generateHypothesisCluster(size, beta, clusterSize);
 }
 
 /**
  * Internal generator for all the hypothesis in the cluster.
  */
-void GraphHypothesisCluster::generateHypothesisCluster(int maxHypothesis)
+void GraphHypothesisCluster::generateHypothesisCluster(
+    double size, double beta, int clusterSize)
 {
   // TODO(vcarbune): threadify
-  for (int h = 0; h < maxHypothesis; h++) {
-    m_hypothesis.push_back(generateHypothesis());
-    m_hypothesis[h].weight = m_weight / maxHypothesis;
+  for (int h = 0; h < clusterSize; h++) {
+    m_hypothesis.push_back(generateHypothesis(size, beta));
+    m_hypothesis[h].weight = m_weight / clusterSize;
   }
 }
-
-/*
-void GraphHypothesisCluster::updateConsistentHypothesisCount()
-{
-  m_crtConsistentHypothesis = 0;
-  for (const GraphHypothesis &h : m_hypothesis)
-    if (h.weight)
-      m_crtConsistentHypothesis++;
-
-  // cout << "Consistency percentage: " << (double) m_crtConsistentHypothesis / m_hypothesis.size() << endl;
-}
-*/
 
 /**
  * Generates one cascade, on top of the underlying network structure.
@@ -85,10 +70,9 @@ void GraphHypothesisCluster::updateConsistentHypothesisCount()
  * TODO(vcarbune): Do we want to sample the cascade (e.g. removing nodes?)
  */
 GraphHypothesis GraphHypothesisCluster::generateHypothesis(
-    bool isTrueHypothesis) const
+    double size, double beta, bool isTrueHypothesis) const
 {
-  // TODO(vcarbune): discuss about these values.
-  int cascadeSize = m_size * m_network->GetNodes();
+  int cascadeSize = size * m_network->GetNodes();
   int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
 
   TIntH nodeInfectionTime;
@@ -102,7 +86,7 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
          I++) {
       const TUNGraph::TNodeI& crtIt = m_network->GetNI(I->Key());
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
-        if (TInt::Rnd.GetUniDev() > m_beta) // Flip a coin!
+        if (TInt::Rnd.GetUniDev() > beta) // Flip a coin!
             continue;
 
         int neighbourId = crtIt.GetOutNId(neighbour);
@@ -126,8 +110,6 @@ void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
     h.weight *= (h.isConsistentWithTest(test) ? EPS : (1-EPS));
     m_weight += h.weight;
   }
-
-  // updateConsistentHypothesisCount();
 }
 
 double GraphHypothesisCluster::computeMassWithTest(const GraphTest& test) const
