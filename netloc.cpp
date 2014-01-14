@@ -7,9 +7,7 @@
 #include <limits>
 #include <iostream>
 #include <fstream>
-#include <queue>
 
-#include <cassert>
 #include <ctime>
 #include <cmath>
 #include <thread>
@@ -24,7 +22,7 @@
 // Needs to be included after Snap..
 #include <future>
 
-#define TRIALS 20
+#define TRIALS 7
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -46,9 +44,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
   for (int source = 0; source < network->GetNodes(); source++)
-    clusters->push_back(
-        GraphHypothesisCluster(network, source,
-              config.clusterSize, config.beta, config.cascadeBound, 1));
+    clusters->push_back(GraphHypothesisCluster(network, source,
+        config.clusterSize, config.beta, config.cascadeBound, 1));
 }
 
 inline void generateTests(vector<GraphTest> *tests,
@@ -92,7 +89,7 @@ void runSimulation(const SimConfig config,
     // Select a different realization at each run.
     int index = rand() % tempClusters.size();
     GraphHypothesis realization = tempClusters[index].generateHypothesis(
-        config.cascadeBound, config.beta, true);
+        config.cascadeBound, config.beta);
     int trueSource = tempClusters[index].getSource();
 
     // Run the simulation with the current configuration.

@@ -46,12 +46,7 @@ class Hypothesis {
 };
 
 class HypothesisCluster {
-  public:
-    // virtual int countConsistentHypothesis() const = 0;
-    // virtual void countConsistentHypothesis(const Test&, int*, int*) const = 0;
-
-    virtual void markInconsistentHypothesis(const Test&) = 0;
-    virtual void setWeight(double) = 0;
+  // TODO(vcarbune): Redefine interface...
 };
 
 class TestCompareFunction {
@@ -68,7 +63,7 @@ template <class TTest, class THypothesisCluster>
 inline void rescoreTest(TTest& test,
     const std::vector<THypothesisCluster>& clusters)
 {
-  int prevConsistentHypothesis = 0;
+  int totalHypothesis = 0;
   int testConsistentHypothesis = 0;
 
   double positiveMass = 0.0;
@@ -77,8 +72,8 @@ inline void rescoreTest(TTest& test,
   double negativeDiagonalMass = 0.0;
 
   for (const THypothesisCluster& cluster : clusters) {
-    cluster.countConsistentHypothesis(test,
-        &testConsistentHypothesis, &prevConsistentHypothesis);
+    testConsistentHypothesis += cluster.getNodeCount(test.getNodeId());
+    totalHypothesis += cluster.getTotalHypothesis();
 
     test.setOutcome(true);
     double positiveClusterMass = cluster.computeMassWithTest(test);
@@ -96,11 +91,8 @@ inline void rescoreTest(TTest& test,
   positiveMass = positiveMass * positiveMass - positiveDiagonalMass;
   negativeMass = negativeMass * negativeMass - negativeDiagonalMass;
 
-  double testPositivePb = (double) testConsistentHypothesis / prevConsistentHypothesis;
-  double score = testPositivePb * positiveMass +
-    (1 - testPositivePb) * negativeMass;
-
-  test.setScore(score);
+  double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
+  test.setScore(testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
 }
 
 template <class TTest, class THypothesisCluster>
@@ -113,7 +105,7 @@ void rescoreTests(std::vector<TTest>& tests,
   double relativeChange = prevScore - tests.front().getScore();
   relativeChange /= prevScore;
 
-  if (relativeChange < 0.3) {
+  if (relativeChange < 0.7) {
       tests.front().setScore(prevScore);
       return;
   }
