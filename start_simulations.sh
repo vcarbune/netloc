@@ -16,5 +16,5 @@ mkdir $DIR
 
 for cluster_size in $(seq 300 300 9000)
 do
-	bsub -W 12:00 -n 32 $CMD -c=${cluster_size} -dump=${DIR}/c${cluster_size}.log -topN=5
+	bsub -W 12:00 -n 32 $CMD -c=${cluster_size} -dump=${DIR}/c${cluster_size}.log -topN=5 -sim=2
 done
