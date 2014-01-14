@@ -14,57 +14,51 @@
 
 using namespace std;
 
-/**
- * One hypothesis is a pair of the form
- *    <weight, <infectionTimeHash, actualCascade>>
- */
 class GraphHypothesis {
   public:
-    GraphHypothesis(TIntH, double);
+    GraphHypothesis(TIntH);
 
     bool isConsistentWithTest(const GraphTest& test) const;
 
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
 
-    void setWeight(double);
     int getSize() const { return m_infectionTimeHash.Len(); }
 
+    double weight;
+
   private:
-    double m_weight;
     TIntH m_infectionTimeHash;
 };
 
 class GraphHypothesisCluster {
   public:
-    GraphHypothesisCluster(PUNGraph, int, int);
-    GraphHypothesisCluster(PUNGraph, int, int, double, double);
+    GraphHypothesisCluster(PUNGraph, int, int, double, double, double);
 
-    int countHypothesisConsistentWithTest (const GraphTest&) const;
-    int countHypothesisAvailable() const { return m_hypothesis.size(); }
+    void updateMassWithTest(const GraphTest&);
+    double computeMassWithTest(const GraphTest&) const;
+    double getMass() const { return m_weight; }
+
+    void countConsistentHypothesis(const GraphTest&, int*, int*) const;
 
     void removeHypothesisInconsistentWithTest(const GraphTest&);
     GraphHypothesis getRandomHypothesis() const;
-    GraphHypothesis generateHypothesis(bool = false) const;
+    GraphHypothesis generateHypothesis(double, double, bool = false) const;
 
     int getSource() const { return m_sourceId; }
-    virtual void printState();
-
-    void setHopsFromSource(int);
-    int getHopsFromSource() const { return m_hops; }
+    double getWeight() { return m_weight; }
+    void normalizeWeight(double mass) { m_weight /= mass; }
 
     bool operator< (const GraphHypothesisCluster& o) const {
-      return countHypothesisAvailable() < o.countHypothesisAvailable();
+      return m_weight > o.m_weight;
     }
   private:
-    void generateHypothesisCluster(int);
+    void generateHypothesisCluster(double, double, int);
 
     PUNGraph m_network;
     vector<GraphHypothesis> m_hypothesis;
     int m_sourceId;
-    double m_beta;
-    double m_size;
-    int m_hops;
+    double m_weight;
 };
 
 #endif // HYPOTHESIS_H_

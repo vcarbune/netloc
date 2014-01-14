@@ -31,8 +31,6 @@
 #undef max
 #undef min
 
-typedef unique_ptr<GraphHypothesisCluster> PGraphHypothesisCluster;
-
 using namespace std;
 
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
@@ -50,20 +48,16 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
   for (int source = 0; source < network->GetNodes(); source++)
     clusters->push_back(
         GraphHypothesisCluster(network, source,
-              config.clusterSize, config.beta, config.cascadeBound));
+              config.clusterSize, config.beta, config.cascadeBound, 1));
 }
 
 inline void generateTests(vector<GraphTest> *tests,
                           const PUNGraph& network)
 {
-  // TODO(vcarbune): threadify
-
   // Generate all tests that are enough to differentiate between hypothesis.
   tests->clear();
-  for (int node = 0; node < network->GetNodes(); ++node) {
-    assert(network->IsNode(node));
+  for (int node = 0; node < network->GetNodes(); ++node)
     tests->push_back(GraphTest(node));
-  }
 }
 
 void runSimulation(const SimConfig config,
@@ -91,32 +85,35 @@ void runSimulation(const SimConfig config,
 
   for (int trials = 0; trials < TRIALS; ++trials) {
     // Initialize temporary variables.
-    vector<int> removedClusters;
+    vector<int> topClusters;
     vector<GraphHypothesisCluster> tempClusters(clusters);
     vector<GraphTest> tempTests(tests);
 
     // Select a different realization at each run.
     int index = rand() % tempClusters.size();
-    GraphHypothesis realization = tempClusters[index].generateHypothesis(true);
+    GraphHypothesis realization = tempClusters[index].generateHypothesis(
+        config.cascadeBound, config.beta, true);
+    int trueSource = tempClusters[index].getSource();
 
     // Run the simulation with the current configuration.
+    time_t startTime = time(NULL);
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization, config.topN, removedClusters);
+        tempTests, tempClusters, realization);
 
     bool found = false;
-    cout << "Correct: " << tempClusters[index].getSource() << "\t";
+    cout << "Correct: " << trueSource << "\t";
     cout << "Tests: " << crtScore << "\t";
+    cout << "Time: " << difftime(time(NULL), startTime) << "s\t";
     cout << "Candidates: ";
-    for (int i = removedClusters.size() - 1;
-         i >= std::max(0, (int) removedClusters.size() - config.topN);
-         i--) {
-
-      if (removedClusters[i] == tempClusters[index].getSource())
+    sort(tempClusters.begin(), tempClusters.end());
+    for (int i = 0; i < config.topN; ++i) {
+      int foundSource = tempClusters[i].getSource();
+      if (foundSource == trueSource)
         found = true;
 
-      cout << removedClusters[i] << "(" <<
-        TSnap::GetShortPath(network, tempClusters[index].getSource(), removedClusters[i]) <<
-        " hops)\t";
+      cout << tempClusters[i].getSource() << "(" <<
+          TSnap::GetShortPath(network, trueSource, foundSource) << " hops, " <<
+          tempClusters[i].getWeight() << ")\t";
     }
 
     if (!found)

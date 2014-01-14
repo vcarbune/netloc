@@ -1,7 +1,7 @@
 # Basic makefile build on top of snap
 include makefile.config
 
-TARGETS=generator simple netloc
+TARGETS=netloc
 
 all: $(TARGETS)
 
