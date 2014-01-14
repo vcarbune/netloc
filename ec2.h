@@ -112,7 +112,7 @@ void rescoreTests(std::vector<TTest>& tests,
   double relativeChange = prevScore - tests.front().getScore();
   relativeChange /= prevScore;
 
-  if (relativeChange < 0.1) {
+  if (relativeChange < 0.5) {
       tests.front().setScore(prevScore);
       return;
   }
@@ -122,24 +122,15 @@ void rescoreTests(std::vector<TTest>& tests,
     " " << tests.front().getNodeId() << std::endl;
   */
 
-  size_t test = 0;
-  for (; test < tests.size(); test += WORK_THREADS) {
-    std::vector<std::thread> threads;
-
+  std::vector<std::thread> threads;
+  for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
     for (int t = 0; t < WORK_THREADS && test + t < tests.size(); ++t)
       threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
             std::ref(tests[test + t]), std::ref(clusters)));
-
     for (std::thread& t : threads)
       t.join();
+    threads.clear();
   }
-
-  test -= WORK_THREADS;
-  for (; test < tests.size(); test++)
-    rescoreTest(tests[test], clusters);
-
-  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
@@ -149,27 +140,22 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
 {
   rescoreTests(tests, clusters);
 
+  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
+
   TTest test = tests.front();
   test.setOutcome(realization.getTestOutcome(test));
-  // test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
+  test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
-  /* Original: remove inconsistent hypothesis from all clusters. */
-  std::size_t i = 0;
-  for (; i < clusters.size(); i += WORK_THREADS) {
-    std::vector<std::thread> threads;
-
+  std::vector<std::thread> threads;
+  for (std::size_t i = 0; i < clusters.size(); i += WORK_THREADS) {
     for (int t = 0; t < WORK_THREADS && i + t < clusters.size(); ++t)
-      threads.push_back(
-          std::thread(&THypothesisCluster::updateMassWithTest,
-              &clusters[i+t], std::ref(test)));
-
+      threads.push_back(std::thread(&THypothesisCluster::updateMassWithTest,
+          &clusters[i+t], std::ref(test)));
     for (std::thread& t : threads)
       t.join();
+    threads.clear();
   }
-
-  i -= WORK_THREADS;
-  for (; i < clusters.size(); i++)
-    clusters[i].updateMassWithTest(test);
 
   std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
