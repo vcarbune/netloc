@@ -11,31 +11,30 @@
 #define INITIAL_RUNS 5
 #define EPS 0.05
 
-GraphHypothesis::GraphHypothesis(TIntH hash)
-  : m_infectionTimeHash(hash)
+GraphHypothesis::GraphHypothesis(const unordered_map<int, int>& infectionTime)
+  : m_infectionHash(infectionTime)
 {
 }
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
   bool outcome = test.getOutcome() == this->getTestOutcome(test);
-
   if (test.getInfectionTime() == -1)
     return outcome;
 
-  return outcome || m_infectionTimeHash.Len() < test.getInfectionTime();
+  return outcome || (int) m_infectionHash.size() < test.getInfectionTime();
 }
 
 int GraphHypothesis::getInfectionTime(int nodeId) const
 {
-  if (m_infectionTimeHash.IsKey(nodeId))
-    return m_infectionTimeHash.GetDat(nodeId);
+  if (m_infectionHash.find(nodeId) != m_infectionHash.end())
+    return m_infectionHash.at(nodeId);
 
   return -1;
 }
 
 bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
 {
-  return m_infectionTimeHash.IsKey(test.getNodeId());
+  return m_infectionHash.find(test.getNodeId()) != m_infectionHash.end();
 }
 
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
@@ -81,34 +80,32 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
   int cascadeSize = size * m_network->GetNodes();
   int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
 
-  TIntH nodeInfectionTime;
-
   // Add the source node (fixed for this cluster).
-  nodeInfectionTime.AddDat(m_sourceId, nodeInfectionTime.Len());
+  unordered_map<int, int> infectionTime;
+  infectionTime[m_sourceId] = 0;
+
   for (int run = 0; run < runTimes; run++) {
-    for (TIntH::TIter I = nodeInfectionTime.BegI();
-         I < nodeInfectionTime.EndI();
-         I++) {
-      const TUNGraph::TNodeI& crtIt = m_network->GetNI(I->Key());
+    for (auto& p : infectionTime) {
+      const TUNGraph::TNodeI& crtIt = m_network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
         if (TInt::Rnd.GetUniDev() > beta) // Flip a coin!
             continue;
 
         unsigned int neighbourId = crtIt.GetOutNId(neighbour);
-        if (nodeInfectionTime.IsKey((neighbourId)))
-            continue;
+        if (infectionTime.find(neighbourId) != infectionTime.end())
+          continue;
 
         if (nodeCount)
           (*nodeCount)[neighbourId]++;
 
-        nodeInfectionTime.AddDat(neighbourId, nodeInfectionTime.Len());
-        if (nodeInfectionTime.Len() == cascadeSize)
-          return GraphHypothesis(nodeInfectionTime);
+        infectionTime[neighbourId] = infectionTime.size();
+        if (infectionTime.size() == cascadeSize)
+          return GraphHypothesis(infectionTime);
       }
     }
   }
 
-  return GraphHypothesis(nodeInfectionTime);
+  return GraphHypothesis(infectionTime);
 }
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)

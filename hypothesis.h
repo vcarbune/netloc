@@ -8,6 +8,7 @@
 
 #include <map>
 #include <vector>
+#include <unordered_map>
 
 #include "test.h"
 #include "snap/snap-core/Snap.h"
@@ -16,19 +17,19 @@ using namespace std;
 
 class GraphHypothesis {
   public:
-    GraphHypothesis(TIntH);
+    GraphHypothesis(const unordered_map<int, int>&);
 
     bool isConsistentWithTest(const GraphTest& test) const;
 
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
 
-    int getSize() const { return m_infectionTimeHash.Len(); }
+    int getSize() const { return m_infectionHash.size(); }
 
     double weight;
 
   private:
-    TIntH m_infectionTimeHash;
+    unordered_map<int, int> m_infectionHash;
 };
 
 class GraphHypothesisCluster {
