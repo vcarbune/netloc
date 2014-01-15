@@ -16,6 +16,7 @@
 #include <queue>
 #include <vector>
 #include <thread>
+#include <utility>
 
 #define WORK_THREADS 8
 #define MASS_THRESHOLD 0.07
@@ -46,12 +47,7 @@ class Hypothesis {
 };
 
 class HypothesisCluster {
-  public:
-    // virtual int countConsistentHypothesis() const = 0;
-    // virtual void countConsistentHypothesis(const Test&, int*, int*) const = 0;
-
-    virtual void markInconsistentHypothesis(const Test&) = 0;
-    virtual void setWeight(double) = 0;
+  // TODO(vcarbune): Redefine interface...
 };
 
 class TestCompareFunction {
@@ -68,7 +64,7 @@ template <class TTest, class THypothesisCluster>
 inline void rescoreTest(TTest& test,
     const std::vector<THypothesisCluster>& clusters)
 {
-  int prevConsistentHypothesis = 0;
+  int totalHypothesis = 0;
   int testConsistentHypothesis = 0;
 
   double positiveMass = 0.0;
@@ -77,30 +73,23 @@ inline void rescoreTest(TTest& test,
   double negativeDiagonalMass = 0.0;
 
   for (const THypothesisCluster& cluster : clusters) {
-    cluster.countConsistentHypothesis(test,
-        &testConsistentHypothesis, &prevConsistentHypothesis);
+    testConsistentHypothesis += cluster.getNodeCount(test.getNodeId());
+    totalHypothesis += cluster.getTotalHypothesis();
 
-    test.setOutcome(true);
-    double positiveClusterMass = cluster.computeMassWithTest(test);
+    std::pair<double, double> mass = cluster.computeMassWithTest(test);
 
-    test.setOutcome(false);
-    double negativeClusterMass = cluster.computeMassWithTest(test);
+    positiveMass += mass.first;
+    negativeMass += mass.second;
 
-    positiveMass += positiveClusterMass;
-    negativeMass += negativeClusterMass;
-
-    positiveDiagonalMass -= positiveClusterMass * positiveClusterMass;
-    negativeDiagonalMass -= negativeClusterMass * negativeClusterMass;
+    positiveDiagonalMass -= mass.first * mass.first;
+    negativeDiagonalMass -= mass.second * mass.second;
   }
 
   positiveMass = positiveMass * positiveMass - positiveDiagonalMass;
   negativeMass = negativeMass * negativeMass - negativeDiagonalMass;
 
-  double testPositivePb = (double) testConsistentHypothesis / prevConsistentHypothesis;
-  double score = testPositivePb * positiveMass +
-    (1 - testPositivePb) * negativeMass;
-
-  test.setScore(score);
+  double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
+  test.setScore(testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
 }
 
 template <class TTest, class THypothesisCluster>

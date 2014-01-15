@@ -8,6 +8,7 @@
 
 #include <map>
 #include <vector>
+#include <unordered_map>
 
 #include "test.h"
 #include "snap/snap-core/Snap.h"
@@ -16,19 +17,18 @@ using namespace std;
 
 class GraphHypothesis {
   public:
-    GraphHypothesis(TIntH);
+    explicit GraphHypothesis(unordered_map<int, int>&);
 
     bool isConsistentWithTest(const GraphTest& test) const;
 
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
-
-    int getSize() const { return m_infectionTimeHash.Len(); }
+    int getSize() const { return m_infectionHash.size(); }
 
     double weight;
 
   private:
-    TIntH m_infectionTimeHash;
+    unordered_map<int, int> m_infectionHash;
 };
 
 class GraphHypothesisCluster {
@@ -36,14 +36,14 @@ class GraphHypothesisCluster {
     GraphHypothesisCluster(PUNGraph, int, int, double, double, double);
 
     void updateMassWithTest(const GraphTest&);
-    double computeMassWithTest(const GraphTest&) const;
+    pair<double, double> computeMassWithTest(const GraphTest&) const;
     double getMass() const { return m_weight; }
 
-    void countConsistentHypothesis(const GraphTest&, int*, int*) const;
+    int getTotalHypothesis() const { return m_hypothesis.size(); }
+    int getNodeCount(int nodeId) const { return m_nodeCount[nodeId]; }
 
-    void removeHypothesisInconsistentWithTest(const GraphTest&);
     GraphHypothesis getRandomHypothesis() const;
-    GraphHypothesis generateHypothesis(double, double, bool = false) const;
+    GraphHypothesis generateHypothesis(double, double, vector<int>* = NULL) const;
 
     int getSource() const { return m_sourceId; }
     double getWeight() { return m_weight; }
@@ -59,6 +59,11 @@ class GraphHypothesisCluster {
     vector<GraphHypothesis> m_hypothesis;
     int m_sourceId;
     double m_weight;
+
+    // Counts the number of times a particular node appears in all the generated
+    // hypothesis. This can be used to speed up the computation of the probability
+    // of a test outcome to be positive.
+    vector<int> m_nodeCount;
 };
 
 #endif // HYPOTHESIS_H_

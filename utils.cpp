@@ -54,7 +54,7 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
       "-c=", 100, "Cluster size");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
-      "-s=", 0.3, "True cascade size");
+      "-s=", 0.4, "True cascade size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
       "-b=", 0.05, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
