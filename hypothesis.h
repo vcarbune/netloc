@@ -17,13 +17,12 @@ using namespace std;
 
 class GraphHypothesis {
   public:
-    GraphHypothesis(const unordered_map<int, int>&);
+    explicit GraphHypothesis(unordered_map<int, int>&);
 
     bool isConsistentWithTest(const GraphTest& test) const;
 
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
-
     int getSize() const { return m_infectionHash.size(); }
 
     double weight;
@@ -37,7 +36,7 @@ class GraphHypothesisCluster {
     GraphHypothesisCluster(PUNGraph, int, int, double, double, double);
 
     void updateMassWithTest(const GraphTest&);
-    double computeMassWithTest(const GraphTest&) const;
+    pair<double, double> computeMassWithTest(const GraphTest&) const;
     double getMass() const { return m_weight; }
 
     int getTotalHypothesis() const { return m_hypothesis.size(); }

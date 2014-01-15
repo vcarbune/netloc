@@ -11,17 +11,14 @@
 #define INITIAL_RUNS 5
 #define EPS 0.05
 
-GraphHypothesis::GraphHypothesis(const unordered_map<int, int>& infectionTime)
-  : m_infectionHash(infectionTime)
+GraphHypothesis::GraphHypothesis(unordered_map<int, int>& infectionTime)
 {
+  m_infectionHash.swap(infectionTime);
 }
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
-  bool outcome = test.getOutcome() == this->getTestOutcome(test);
-  if (test.getInfectionTime() == -1)
-    return outcome;
-
-  return outcome || (int) m_infectionHash.size() < test.getInfectionTime();
+  return test.getOutcome() == this->getTestOutcome(test) ||
+      (int) m_infectionHash.size() < test.getInfectionTime();
 }
 
 int GraphHypothesis::getInfectionTime(int nodeId) const
@@ -85,7 +82,7 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
   infectionTime[m_sourceId] = 0;
 
   for (int run = 0; run < runTimes; run++) {
-    for (auto& p : infectionTime) {
+    for (const auto& p : infectionTime) {
       const TUNGraph::TNodeI& crtIt = m_network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
         if (TInt::Rnd.GetUniDev() > beta) // Flip a coin!
@@ -117,13 +114,16 @@ void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
   }
 }
 
-double GraphHypothesisCluster::computeMassWithTest(const GraphTest& test) const
+pair<double, double> GraphHypothesisCluster::computeMassWithTest(const GraphTest& test) const
 {
-  double mass = 0.0;
-  for (const GraphHypothesis& h : m_hypothesis)
-    mass += h.weight * (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
-
-  return mass;
+  double positiveMass = 0.0;
+  double negativeMass = 0.0;
+  for (const GraphHypothesis& h : m_hypothesis) {
+    bool consistent = h.isConsistentWithTest(test);
+    positiveMass += h.weight * consistent ? (1-EPS) : EPS;
+    negativeMass += h.weight * consistent ? EPS : (1-EPS);
+  }
+  return pair<double, double>(positiveMass, negativeMass);
 }
 
 GraphHypothesis GraphHypothesisCluster::getRandomHypothesis() const

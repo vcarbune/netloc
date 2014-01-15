@@ -16,6 +16,7 @@
 #include <queue>
 #include <vector>
 #include <thread>
+#include <utility>
 
 #define WORK_THREADS 8
 #define MASS_THRESHOLD 0.07
@@ -75,17 +76,13 @@ inline void rescoreTest(TTest& test,
     testConsistentHypothesis += cluster.getNodeCount(test.getNodeId());
     totalHypothesis += cluster.getTotalHypothesis();
 
-    test.setOutcome(true);
-    double positiveClusterMass = cluster.computeMassWithTest(test);
+    std::pair<double, double> mass = cluster.computeMassWithTest(test);
 
-    test.setOutcome(false);
-    double negativeClusterMass = cluster.computeMassWithTest(test);
+    positiveMass += mass.first;
+    negativeMass += mass.second;
 
-    positiveMass += positiveClusterMass;
-    negativeMass += negativeClusterMass;
-
-    positiveDiagonalMass -= positiveClusterMass * positiveClusterMass;
-    negativeDiagonalMass -= negativeClusterMass * negativeClusterMass;
+    positiveDiagonalMass -= mass.first * mass.first;
+    negativeDiagonalMass -= mass.second * mass.second;
   }
 
   positiveMass = positiveMass * positiveMass - positiveDiagonalMass;
@@ -105,7 +102,7 @@ void rescoreTests(std::vector<TTest>& tests,
   double relativeChange = prevScore - tests.front().getScore();
   relativeChange /= prevScore;
 
-  if (relativeChange < 0.7) {
+  if (relativeChange < 0.3) {
       tests.front().setScore(prevScore);
       return;
   }
