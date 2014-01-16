@@ -63,7 +63,7 @@ struct SimConfig {
         beta += 0.05;
         break;
       case HypothesisVar:
-        clusterSize += 5;
+        clusterSize += 10;
         break;
       case CascBoundVar:
         cascadeBound += 0.05;

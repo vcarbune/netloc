@@ -44,9 +44,9 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_sourceId(sourceId)
   , m_weight(weight)
 {
+  cout << "Cluster " << sourceId << " weight is... " << m_weight << endl;
   for (int i = 0; i < network->GetNodes(); ++i)
     m_nodeCount.push_back(0);
-
   generateHypothesisCluster(size, beta, clusterSize);
 }
 
@@ -74,7 +74,7 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
 {
   bool isTrueHypothesis = nodeCount == NULL;
 
-  int cascadeSize = size * m_network->GetNodes();
+  unsigned int cascadeSize = size * m_network->GetNodes();
   int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
 
   // Add the source node (fixed for this cluster).
@@ -124,9 +124,4 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(const GraphTest
     negativeMass += h.weight * consistent ? EPS : (1-EPS);
   }
   return pair<double, double>(positiveMass, negativeMass);
-}
-
-GraphHypothesis GraphHypothesisCluster::getRandomHypothesis() const
-{
-  return m_hypothesis[(long) (drand48() * m_hypothesis.size())];
 }

@@ -42,7 +42,6 @@ class GraphHypothesisCluster {
     int getTotalHypothesis() const { return m_hypothesis.size(); }
     int getNodeCount(int nodeId) const { return m_nodeCount[nodeId]; }
 
-    GraphHypothesis getRandomHypothesis() const;
     GraphHypothesis generateHypothesis(double, double, vector<int>* = NULL) const;
 
     int getSource() const { return m_sourceId; }

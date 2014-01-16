@@ -4,7 +4,6 @@
  */
 
 #include <algorithm>
-#include <limits>
 #include <iostream>
 #include <fstream>
 
@@ -22,7 +21,7 @@
 // Needs to be included after Snap..
 #include <future>
 
-#define TRIALS 7
+#define TRIALS 20
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -45,7 +44,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
   clusters->clear();
   for (int source = 0; source < network->GetNodes(); source++)
     clusters->push_back(GraphHypothesisCluster(network, source,
-        config.clusterSize, config.beta, config.cascadeBound, 1));
+        config.clusterSize, config.beta, config.cascadeBound,
+        0));//network->GetNI(source).GetOutDeg()));
 }
 
 inline void generateTests(vector<GraphTest> *tests,

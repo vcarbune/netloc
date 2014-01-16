@@ -93,19 +93,24 @@ inline void rescoreTest(TTest& test,
 }
 
 template <class TTest, class THypothesisCluster>
-void rescoreTests(std::vector<TTest>& tests,
+TTest rescoreTests(std::vector<TTest>& tests,
                   const std::vector<THypothesisCluster>& clusters)
 {
+  /*
+  TTest crtTop = tests.front();
   double prevScore = tests.front().getScore();
-  rescoreTest(tests.front(), clusters);
+  std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
+  tests.pop_back();
 
-  double relativeChange = prevScore - tests.front().getScore();
-  relativeChange /= prevScore;
-
-  if (relativeChange < 0.3) {
-      tests.front().setScore(prevScore);
-      return;
+  rescoreTest(crtTop, clusters);
+  if (crtTop.getScore() > tests.front().getScore()) {
+    return crtTop;
+  } else {
+    crtTop.setScore(prevScore);
+    tests.push_back(crtTop);
   }
+  */
 
   std::vector<std::thread> threads;
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
@@ -119,6 +124,13 @@ void rescoreTests(std::vector<TTest>& tests,
 
   std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
+
+  TTest newTop = tests.front();
+  std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
+  tests.pop_back();
+
+  return newTop;
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
@@ -126,9 +138,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
                     std::vector<THypothesisCluster>& clusters,
                     const THypothesis& realization)
 {
-  rescoreTests(tests, clusters);
-
-  TTest test = tests.front();
+  TTest test = rescoreTests(tests, clusters);
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
@@ -141,10 +151,6 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
       t.join();
     threads.clear();
   }
-
-  std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
-  tests.pop_back();
 
   return test;
 }
@@ -164,6 +170,9 @@ size_t runEC2(std::vector<TTest>& tests,
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization);
     testRunOrder.push_back(t);
+
+    std::cout << testRunOrder.size() << " -- " << t.getNodeId() << " --> " <<
+      t.getScore() << std::endl;
 
     mass = 0.0;
     for (unsigned i = 0; i < clusters.size(); ++i)
