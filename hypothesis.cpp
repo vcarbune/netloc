@@ -18,7 +18,7 @@ GraphHypothesis::GraphHypothesis(unordered_map<int, int>& infectionTime)
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
   return test.getOutcome() == this->getTestOutcome(test) ||
-      (int) m_infectionHash.size() < test.getInfectionTime();
+      (int) m_infectionHash.size() <= test.getInfectionTime();
 }
 
 int GraphHypothesis::getInfectionTime(int nodeId) const
@@ -44,7 +44,6 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_sourceId(sourceId)
   , m_weight(weight)
 {
-  cout << "Cluster " << sourceId << " weight is... " << m_weight << endl;
   for (int i = 0; i < network->GetNodes(); ++i)
     m_nodeCount.push_back(0);
   generateHypothesisCluster(size, beta, clusterSize);
@@ -109,19 +108,20 @@ void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
 {
   m_weight = 0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight *= (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
+    h.weight = h.weight * (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
     m_weight += h.weight;
   }
 }
 
-pair<double, double> GraphHypothesisCluster::computeMassWithTest(const GraphTest& test) const
+pair<double, double> GraphHypothesisCluster::computeMassWithTest(
+    const GraphTest& test) const
 {
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
     bool consistent = h.isConsistentWithTest(test);
-    positiveMass += h.weight * consistent ? (1-EPS) : EPS;
-    negativeMass += h.weight * consistent ? EPS : (1-EPS);
+    positiveMass += h.weight * (consistent ? (1-EPS) : EPS);
+    negativeMass += h.weight * (consistent ? EPS : (1-EPS));
   }
   return pair<double, double>(positiveMass, negativeMass);
 }

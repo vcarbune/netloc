@@ -32,9 +32,6 @@ class Test {
     double getScore() const { return m_score; }
 
     virtual bool operator==(const Test& o) const { return false; }
-    virtual bool operator<(const Test& o) const {
-      return getScore() < o.getScore();
-    }
 
   private:
     double m_score;
@@ -96,21 +93,45 @@ template <class TTest, class THypothesisCluster>
 TTest rescoreTests(std::vector<TTest>& tests,
                   const std::vector<THypothesisCluster>& clusters)
 {
-  /*
-  TTest crtTop = tests.front();
-  double prevScore = tests.front().getScore();
-  std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
-  tests.pop_back();
+  int count = 0;
+  std::cout << ":: " << tests.front().getNodeId() << std::endl;
+  double score = tests.front().getScore();
+  do {
+    // Remove the top test from the heap.
+    TTest crtTop = tests.front();
+    std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+        tests.begin(), tests.end(), TestCompareFunction());
+    tests.pop_back();
 
-  rescoreTest(crtTop, clusters);
-  if (crtTop.getScore() > tests.front().getScore()) {
+    // Exit early if it's the last element in the heap.
+    if (!tests.size())
+      return crtTop;
+
+    // Recompute its score and keep it if it stays on top.
+    rescoreTest(crtTop, clusters);
+    if (crtTop.getScore() >= tests.front().getScore()) {
+      std::cout << ":: " << crtTop.getNodeId() << std::endl;
+      std::cout << (score - crtTop.getScore()) / score << std::endl;
+      std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
+      return crtTop;
+    }
+
+    // Otherwise push it back to the heap.
+    tests.push_back(crtTop); count++;
+    std::push_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+        tests.begin(), tests.end(), TestCompareFunction());
+  } while (true);
+
+  /*
+  TTest secondTop = tests.front();
+  // std::cout << prevScore << " now " << crtTop.getScore() << " - " << crtTop.getNodeId() << " " << tests.front().getScore() << " - " << tests.front().getNodeId() << std::endl;
+  if (crtTop.getScore() >= tests.front().getScore()) {
+    std::cout << "yeaaaah" << std::endl;
     return crtTop;
   } else {
     crtTop.setScore(prevScore);
     tests.push_back(crtTop);
   }
-  */
 
   std::vector<std::thread> threads;
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
@@ -130,7 +151,11 @@ TTest rescoreTests(std::vector<TTest>& tests,
       tests.begin(), tests.end(), TestCompareFunction());
   tests.pop_back();
 
+  // std::cout << newTop.getScore() << " - " << newTop.getNodeId() << " " << tests.front().getScore() << " - " << tests.front().getNodeId() << std::endl;
+  if (newTop == crtTop && secondTop == tests.front())
+    std::cout << "same order was kept.. " << std::endl;
   return newTop;
+  */
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
@@ -166,13 +191,26 @@ size_t runEC2(std::vector<TTest>& tests,
   double mass = 0.0;
   bool shouldStop = false;
 
+  // Initially assign score to all tests and create the heap from the vector.
+  std::vector<std::thread> threads;
+  for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
+    for (int t = 0; t < WORK_THREADS && test + t < tests.size(); ++t)
+      threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
+            std::ref(tests[test + t]), std::ref(clusters)));
+    for (std::thread& t : threads)
+      t.join();
+    threads.clear();
+  }
+
+  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
+
   while (!tests.empty() && !shouldStop) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization);
     testRunOrder.push_back(t);
 
-    std::cout << testRunOrder.size() << " -- " << t.getNodeId() << " --> " <<
-      t.getScore() << std::endl;
+    std::cout << testRunOrder.size() << ". " << t.getNodeId() << " --> " << t.getScore() << std::endl;
 
     mass = 0.0;
     for (unsigned i = 0; i < clusters.size(); ++i)

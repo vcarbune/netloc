@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <fstream>
 
 #include <ctime>
@@ -42,10 +43,15 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
 {
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
+  int maxOutDegree = numeric_limits<int>::min();
   for (int source = 0; source < network->GetNodes(); source++)
+    maxOutDegree = max(maxOutDegree, network->GetNI(source).GetOutDeg());
+
+  for (int source = 0; source < network->GetNodes(); source++) {
     clusters->push_back(GraphHypothesisCluster(network, source,
         config.clusterSize, config.beta, config.cascadeBound,
-        0));//network->GetNI(source).GetOutDeg()));
+        (double) network->GetNI(source).GetOutDeg() / maxOutDegree));
+  }
 }
 
 inline void generateTests(vector<GraphTest> *tests,
