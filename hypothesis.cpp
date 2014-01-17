@@ -108,7 +108,7 @@ void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
 {
   m_weight = 0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight = h.weight * (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
+    h.weight += (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
     m_weight += h.weight;
   }
 }

@@ -91,11 +91,11 @@ inline void rescoreTest(TTest& test,
 
 template <class TTest, class THypothesisCluster>
 TTest rescoreTests(std::vector<TTest>& tests,
-                  const std::vector<THypothesisCluster>& clusters)
+                   const std::vector<THypothesisCluster>& clusters)
 {
   int count = 0;
-  std::cout << ":: " << tests.front().getNodeId() << std::endl;
-  double score = tests.front().getScore();
+  // std::cout << ":: " << tests.front().getNodeId() << std::endl;
+  // double score = tests.front().getScore();
   do {
     // Remove the top test from the heap.
     TTest crtTop = tests.front();
@@ -110,9 +110,11 @@ TTest rescoreTests(std::vector<TTest>& tests,
     // Recompute its score and keep it if it stays on top.
     rescoreTest(crtTop, clusters);
     if (crtTop.getScore() >= tests.front().getScore()) {
+      /*
       std::cout << ":: " << crtTop.getNodeId() << std::endl;
       std::cout << (score - crtTop.getScore()) / score << std::endl;
       std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
+      */
       return crtTop;
     }
 
@@ -210,7 +212,7 @@ size_t runEC2(std::vector<TTest>& tests,
         tests, clusters, realization);
     testRunOrder.push_back(t);
 
-    std::cout << testRunOrder.size() << ". " << t.getNodeId() << " --> " << t.getScore() << std::endl;
+    // std::cout << testRunOrder.size() << ". " << t.getNodeId() << " --> " << t.getScore() << std::endl;
 
     mass = 0.0;
     for (unsigned i = 0; i < clusters.size(); ++i)
