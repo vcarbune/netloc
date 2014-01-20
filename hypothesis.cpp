@@ -17,8 +17,7 @@ GraphHypothesis::GraphHypothesis(unordered_map<int, int>& infectionTime)
 }
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
-  return test.getOutcome() == this->getTestOutcome(test) ||
-      (int) m_infectionHash.size() <= test.getInfectionTime();
+  return test.getOutcome() == this->getTestOutcome(test);
 }
 
 int GraphHypothesis::getInfectionTime(int nodeId) const
@@ -108,7 +107,7 @@ void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
 {
   m_weight = 0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight += (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
+    h.weight *= (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
     m_weight += h.weight;
   }
 }
@@ -119,9 +118,9 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
-    bool consistent = h.isConsistentWithTest(test);
-    positiveMass += h.weight * (consistent ? (1-EPS) : EPS);
-    negativeMass += h.weight * (consistent ? EPS : (1-EPS));
+    bool outcome = h.getTestOutcome(test);
+    positiveMass += h.weight * (outcome ? (1-EPS) : EPS);
+    negativeMass += h.weight * (outcome ? EPS : (1-EPS));
   }
   return pair<double, double>(positiveMass, negativeMass);
 }
