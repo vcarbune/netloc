@@ -10,6 +10,9 @@
 
 #include "ec2.h"
 
+#define INFECTED_FALSE        -2
+#define INFECTED_UNDEFINED    -1
+
 using namespace std;
 
 /**
@@ -23,7 +26,7 @@ class GraphTest : public Test {
   public:
     explicit GraphTest(int source) : Test()
         , m_nodeId(source)
-        , m_infectionTime(-1) {
+        , m_infectionTime(INFECTED_UNDEFINED) {
       setOutcome(true);
       setScore(std::numeric_limits<double>::max());
     }

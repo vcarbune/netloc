@@ -10,6 +10,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "ec2.h"
 #include "test.h"
 #include "snap/snap-core/Snap.h"
 
@@ -17,13 +18,12 @@ using namespace std;
 
 class GraphHypothesis {
   public:
-    explicit GraphHypothesis(unordered_map<int, int>&);
+    explicit GraphHypothesis(unsigned int, unordered_map<int, int>&);
 
     bool isConsistentWithTest(const GraphTest& test) const;
-
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
-    int getSize() const { return m_infectionHash.size(); }
+    unsigned int getSize() const { return m_infectionHash.size(); }
 
     double weight;
 
@@ -56,6 +56,7 @@ class GraphHypothesisCluster {
 
     PUNGraph m_network;
     vector<GraphHypothesis> m_hypothesis;
+
     int m_sourceId;
     double m_weight;
 

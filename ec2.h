@@ -18,8 +18,13 @@
 #include <thread>
 #include <utility>
 
+#define DBG 0
 #define WORK_THREADS 8
-#define MASS_THRESHOLD 0.07
+
+#define MASS_THRESHOLD 0.04
+#define TEST_THRESHOLD 1.00
+#define EPS 0.05
+
 
 // Abstract classes that can be implemented in order to use runEC2.
 
@@ -94,8 +99,12 @@ TTest rescoreTests(std::vector<TTest>& tests,
                    const std::vector<THypothesisCluster>& clusters)
 {
   int count = 0;
+
+#if DBG
   std::cout << ":: " << tests.front().getNodeId() << std::endl;
-  // double score = tests.front().getScore();
+  double score = tests.front().getScore();
+#endif
+
   do {
     // Remove the top test from the heap.
     TTest crtTop = tests.front();
@@ -110,11 +119,11 @@ TTest rescoreTests(std::vector<TTest>& tests,
     // Recompute its score and keep it if it stays on top.
     rescoreTest(crtTop, clusters);
     if (crtTop.getScore() >= tests.front().getScore()) {
+#if DBG
       std::cout << ":: " << crtTop.getNodeId() << std::endl;
-      /*
       std::cout << (score - crtTop.getScore()) / score << std::endl;
-      */
       std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
+#endif
       return crtTop;
     }
 
@@ -179,19 +188,33 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
     threads.clear();
   }
 
+  for (TTest& t : tests)
+    t.setScore((1-EPS) * (1-EPS) * t.getScore());
+
+  /*
+  for (std::size_t i = 0; i < tests.size(); i += WORK_THREADS) {
+    for (int t = 0; t < WORK_THREADS && i + t < tests.size(); ++t)
+      threads.push_back(std::thread(&TTest::setScore, &tests[i+t],
+            (1-EPS) * (1-EPS) * tests[i+t].getScore()));
+    for (std::thread& t : threads)
+      t.join();
+    threads.clear();
+  }
+  */
+
+
   return test;
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
-size_t runEC2(std::vector<TTest>& tests,
+double runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
-  double mass = 0.0;
-  bool shouldStop = false;
+  double totalTests = static_cast<double>(tests.size());
 
   // Initially assign score to all tests and create the heap from the vector.
   std::vector<std::thread> threads;
@@ -207,28 +230,35 @@ size_t runEC2(std::vector<TTest>& tests,
   std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
       tests.begin(), tests.end(), TestCompareFunction());
 
-  while (!tests.empty() && !shouldStop) {
+  double mass = 0.0;
+  double maxMass = 0.0;
+  double percentageTests = 0.0;
+
+  while (maxMass < MASS_THRESHOLD && percentageTests < TEST_THRESHOLD) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization);
     testRunOrder.push_back(t);
 
+#if DBG
     std::cout << testRunOrder.size() << ". " << t.getNodeId() << " --> " << t.getScore() << std::endl;
+#endif
 
     mass = 0.0;
     for (unsigned i = 0; i < clusters.size(); ++i)
       mass += clusters[i].getMass();
 
+    maxMass = 0.0;
     for (THypothesisCluster& cluster : clusters)
-      if (cluster.getWeight() / mass > MASS_THRESHOLD)
-        shouldStop = true;
+      maxMass = std::max(cluster.getWeight() / mass, maxMass);
+
+    percentageTests = static_cast<double>(testRunOrder.size() / totalTests);
   }
 
   // Normalize weights and probabilities
   for (THypothesisCluster& cluster : clusters)
     cluster.normalizeWeight(mass);
 
-  // The score is the number of tests used.
-  return testRunOrder.size();
+  return 100 * percentageTests;
 }
 
 #endif // EC2_H_

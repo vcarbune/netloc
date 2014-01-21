@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
+#include <memory>
 #include <limits>
 #include <fstream>
 
@@ -22,7 +24,7 @@
 // Needs to be included after Snap..
 #include <future>
 
-#define TRIALS 20
+#define TRIALS 15
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -48,7 +50,8 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
     maxOutDegree = max(maxOutDegree, network->GetNI(source).GetOutDeg());
 
   for (int source = 0; source < network->GetNodes(); source++) {
-    clusters->push_back(GraphHypothesisCluster(network, source,
+    clusters->push_back(GraphHypothesisCluster(
+        network, source,
         config.clusterSize, config.beta, config.cascadeBound,
         (double) network->GetNI(source).GetOutDeg() / maxOutDegree));
   }
@@ -105,7 +108,7 @@ void runSimulation(const SimConfig config,
 
     bool found = false;
     cout << "Correct: " << trueSource << "\t";
-    cout << "Tests: " << crtScore << "\t";
+    cout << "Tests: " << crtScore << "%\t";
     cout << "Time: " << difftime(time(NULL), startTime) << "s\t";
     cout << "Candidates: ";
     sort(tempClusters.begin(), tempClusters.end());
@@ -176,6 +179,8 @@ int main(int argc, char *argv[])
 
   ofstream dumpStream;
   dumpStream.open(config.logfile.CStr());
+
+  cout << fixed << std::setprecision(2);
 
   generateSimulationStats(&runStats, config, dumpStream);
   dumpSimulationStats(runStats, cout);

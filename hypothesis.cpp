@@ -4,20 +4,28 @@
  */
 
 #include <cassert>
-#include <iostream>
+#include <numeric>
 
 #include "hypothesis.h"
 
 #define INITIAL_RUNS 5
-#define EPS 0.05
 
-GraphHypothesis::GraphHypothesis(unordered_map<int, int>& infectionTime)
+GraphHypothesis::GraphHypothesis(unsigned int nodes,
+                                 unordered_map<int, int>& infectionTime)
 {
   m_infectionHash.swap(infectionTime);
 }
 
 bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
-  return test.getOutcome() == this->getTestOutcome(test);
+  if (test.getInfectionTime() == INFECTED_UNDEFINED)
+    return test.getOutcome() == this->getTestOutcome(test);
+
+  if (test.getInfectionTime() == INFECTED_FALSE)
+    return !this->getTestOutcome(test);
+
+  unsigned int infectionTime =
+    static_cast<unsigned int>(test.getInfectionTime());
+  return this->getTestOutcome(test) || m_infectionHash.size() < infectionTime;
 }
 
 int GraphHypothesis::getInfectionTime(int nodeId) const
@@ -25,7 +33,7 @@ int GraphHypothesis::getInfectionTime(int nodeId) const
   if (m_infectionHash.find(nodeId) != m_infectionHash.end())
     return m_infectionHash.at(nodeId);
 
-  return -1;
+  return INFECTED_FALSE;
 }
 
 bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
@@ -43,8 +51,8 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_sourceId(sourceId)
   , m_weight(weight)
 {
-  for (int i = 0; i < network->GetNodes(); ++i)
-    m_nodeCount.push_back(0);
+  m_nodeCount.resize(network->GetNodes());
+
   generateHypothesisCluster(size, beta, clusterSize);
 }
 
@@ -95,12 +103,12 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
 
         infectionTime[neighbourId] = infectionTime.size();
         if (infectionTime.size() == cascadeSize)
-          return GraphHypothesis(infectionTime);
+          return GraphHypothesis(m_network->GetNodes(), infectionTime);
       }
     }
   }
 
-  return GraphHypothesis(infectionTime);
+  return GraphHypothesis(m_network->GetNodes(), infectionTime);
 }
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
@@ -110,6 +118,13 @@ void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
     h.weight *= (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
     m_weight += h.weight;
   }
+
+  /*
+  double oldMass = m_weight;
+  double pcnt = (oldMass - m_weight) / oldMass;
+  if (fabs(pcnt - EPS) > 1E-3)
+    cout << "Diff is " << pcnt << endl;
+  */
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
