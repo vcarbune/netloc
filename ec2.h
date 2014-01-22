@@ -19,7 +19,7 @@
 #include <utility>
 
 #define DBG 0
-#define WORK_THREADS 8
+#define WORK_THREADS 16
 
 #define MASS_THRESHOLD 0.04
 #define TEST_THRESHOLD 1.00
