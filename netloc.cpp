@@ -37,6 +37,7 @@ inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   // To easily swap the generation model later.
   // *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
   *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
+  cout << "Generated network is connected: " << TSnap::GetMxWccSz(*network) << endl;
 }
 
 inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
@@ -104,7 +105,7 @@ void runSimulation(const SimConfig config,
     // Run the simulation with the current configuration.
     time_t startTime = time(NULL);
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization);
+        tempTests, tempClusters, realization, config.lazy);
 
     bool found = false;
     cout << "Correct: " << trueSource << "\t";
@@ -181,6 +182,7 @@ int main(int argc, char *argv[])
   dumpStream.open(config.logfile.CStr());
 
   cout << fixed << std::setprecision(2);
+  dumpStream << fixed << std::setprecision(2);
 
   generateSimulationStats(&runStats, config, dumpStream);
   dumpSimulationStats(runStats, cout);

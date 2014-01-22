@@ -32,6 +32,7 @@ struct SimConfig {
     , beta(0.05)
     , cascadeBound(0.3)
     , steps(1)
+    , lazy(false)
     , m_type(type)
   {
     if (type == BetaVar || type == HypothesisVar || type == CascBoundVar) {
@@ -96,6 +97,7 @@ struct SimConfig {
   int steps;
   int topN;             // keep topN possible solutions
   TStr logfile;
+  bool lazy;
 
 private:
   SimulationType m_type;
