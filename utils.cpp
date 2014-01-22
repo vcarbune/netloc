@@ -65,6 +65,8 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
       "-topN=", 1, "Keep topN solutions");
   const TStr dumpFile = Env.GetIfArgPrefixStr(
       "-dump=", "dump.log", "File where to dump the output");
+  const TBool paramLazy = Env.GetIfArgPrefixBool(
+      "-lazy=", false, "Lazy evaluation");
 
   SimConfig config(static_cast<SimulationType>(paramSimulation.Val));
 
@@ -79,6 +81,7 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   config.beta = paramBeta;
   config.logfile = dumpFile;
   config.topN = paramKeepTopN;
+  config.lazy = paramLazy;
 
   config += paramStartStep.Val;
 

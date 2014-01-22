@@ -95,16 +95,12 @@ inline void rescoreTest(TTest& test,
 }
 
 template <class TTest, class THypothesisCluster>
-TTest rescoreTests(std::vector<TTest>& tests,
-                   const std::vector<THypothesisCluster>& clusters)
+TTest lazyRescoreTests(std::vector<TTest>& tests,
+                       const std::vector<THypothesisCluster>& clusters)
 {
-  int count = 0;
-
 #if DBG
-  std::cout << ":: " << tests.front().getNodeId() << std::endl;
-  double score = tests.front().getScore();
+  int count = 0;
 #endif
-
   do {
     // Remove the top test from the heap.
     TTest crtTop = tests.front();
@@ -120,61 +116,58 @@ TTest rescoreTests(std::vector<TTest>& tests,
     rescoreTest(crtTop, clusters);
     if (crtTop.getScore() >= tests.front().getScore()) {
 #if DBG
-      std::cout << ":: " << crtTop.getNodeId() << std::endl;
-      std::cout << (score - crtTop.getScore()) / score << std::endl;
       std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
 #endif
       return crtTop;
     }
 
     // Otherwise push it back to the heap.
-    tests.push_back(crtTop); count++;
+    tests.push_back(crtTop);
+#if DBG
+    count++;
+#endif
     std::push_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
         tests.begin(), tests.end(), TestCompareFunction());
   } while (true);
 
-  /*
-  TTest secondTop = tests.front();
-  // std::cout << prevScore << " now " << crtTop.getScore() << " - " << crtTop.getNodeId() << " " << tests.front().getScore() << " - " << tests.front().getNodeId() << std::endl;
-  if (crtTop.getScore() >= tests.front().getScore()) {
-    std::cout << "yeaaaah" << std::endl;
-    return crtTop;
-  } else {
-    crtTop.setScore(prevScore);
-    tests.push_back(crtTop);
-  }
+  std::cout << "SHOULD NOT BE REACHED" << std::endl;
+  return tests.front();
+}
 
+template <class TTest, class THypothesisCluster>
+TTest completeRescoreTests(std::vector<TTest>& tests,
+                   const std::vector<THypothesisCluster>& clusters)
+{
+  // Rescore all the tests on multiple threads.
   std::vector<std::thread> threads;
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
     for (int t = 0; t < WORK_THREADS && test + t < tests.size(); ++t)
       threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
-            std::ref(tests[test + t]), std::ref(clusters)));
+          std::ref(tests[test + t]), std::ref(clusters)));
     for (std::thread& t : threads)
       t.join();
     threads.clear();
   }
 
-  std::make_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
+  // Just get the top scored element from the vector (no heap required).
+  TTest top = tests.front();
+  for (const TTest& test : tests)
+    if (test.getScore() > top.getScore())
+      top = test;
 
-  TTest newTop = tests.front();
-  std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
-  tests.pop_back();
-
-  // std::cout << newTop.getScore() << " - " << newTop.getNodeId() << " " << tests.front().getScore() << " - " << tests.front().getNodeId() << std::endl;
-  if (newTop == crtTop && secondTop == tests.front())
-    std::cout << "same order was kept.. " << std::endl;
-  return newTop;
-  */
+  tests.erase(std::find(tests.begin(), tests.end(), top));
+  return top;
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
 TTest runOneEC2Step(std::vector<TTest>& tests,
                     std::vector<THypothesisCluster>& clusters,
-                    const THypothesis& realization)
+                    const THypothesis& realization,
+                    bool lazyEval)
 {
-  TTest test = rescoreTests(tests, clusters);
+  TTest test = lazyEval ?
+      lazyRescoreTests(tests, clusters) : completeRescoreTests(tests, clusters);
+
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
@@ -191,25 +184,14 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
   for (TTest& t : tests)
     t.setScore((1-EPS) * (1-EPS) * t.getScore());
 
-  /*
-  for (std::size_t i = 0; i < tests.size(); i += WORK_THREADS) {
-    for (int t = 0; t < WORK_THREADS && i + t < tests.size(); ++t)
-      threads.push_back(std::thread(&TTest::setScore, &tests[i+t],
-            (1-EPS) * (1-EPS) * tests[i+t].getScore()));
-    for (std::thread& t : threads)
-      t.join();
-    threads.clear();
-  }
-  */
-
-
   return test;
 }
 
 template <class TTest, class THypothesisCluster, class THypothesis>
 double runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
-              const THypothesis& realization)
+              const THypothesis& realization,
+              bool lazyEval)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -236,7 +218,7 @@ double runEC2(std::vector<TTest>& tests,
 
   while (maxMass < MASS_THRESHOLD && percentageTests < TEST_THRESHOLD) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
-        tests, clusters, realization);
+        tests, clusters, realization, lazyEval);
     testRunOrder.push_back(t);
 
 #if DBG
