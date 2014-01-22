@@ -36,7 +36,19 @@ using namespace std;
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   // To easily swap the generation model later.
   // *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
-  *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
+  switch (config.networkType) {
+    case 0:
+      *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
+      break;
+    case 1:
+      *network = TSnap::GenPrefAttach(config.nodes, 3);
+      break;
+    case 2:
+      *network = TSnap::GenRndGnm<PUNGraph>(
+          config.nodes, config.nodes * log(config.nodes));
+      break;
+  }
+
   cout << "Generated network is connected: " << TSnap::GetMxWccSz(*network) << endl;
 }
 
@@ -54,7 +66,7 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
     clusters->push_back(GraphHypothesisCluster(
         network, source,
         config.clusterSize, config.beta, config.cascadeBound,
-        (double) network->GetNI(source).GetOutDeg() / maxOutDegree));
+        static_cast<double>(network->GetNI(source).GetOutDeg()) / maxOutDegree));
   }
 }
 

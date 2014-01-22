@@ -67,6 +67,9 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
       "-dump=", "dump.log", "File where to dump the output");
   const TBool paramLazy = Env.GetIfArgPrefixBool(
       "-lazy=", false, "Lazy evaluation");
+  const TInt paramNetworkType = Env.GetIfArgPrefixInt(
+      "-type=", 0, "Network: 0 (ForestFire), 1 (Barabasi-Albert), "
+                   "2 (Erdos-Renyi)");
 
   SimConfig config(static_cast<SimulationType>(paramSimulation.Val));
 
@@ -82,6 +85,7 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   config.logfile = dumpFile;
   config.topN = paramKeepTopN;
   config.lazy = paramLazy;
+  config.networkType = paramNetworkType;
 
   config += paramStartStep.Val;
 

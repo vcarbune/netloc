@@ -21,9 +21,9 @@
 #define DBG 0
 #define WORK_THREADS 8
 
-#define MASS_THRESHOLD 0.04
-#define TEST_THRESHOLD 1.00
-#define EPS 0.05
+#define MASS_THRESHOLD 0.15
+#define TEST_THRESHOLD 0.32
+#define EPS 0.025
 
 
 // Abstract classes that can be implemented in order to use runEC2.
@@ -98,6 +98,7 @@ template <class TTest, class THypothesisCluster>
 TTest lazyRescoreTests(std::vector<TTest>& tests,
                        const std::vector<THypothesisCluster>& clusters)
 {
+  TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
 #endif
@@ -114,7 +115,7 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
 
     // Recompute its score and keep it if it stays on top.
     rescoreTest(crtTop, clusters);
-    if (crtTop.getScore() >= tests.front().getScore()) {
+    if (tstCmpFcn(tests.front(), crtTop)) {
 #if DBG
       std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
 #endif
@@ -138,6 +139,8 @@ template <class TTest, class THypothesisCluster>
 TTest completeRescoreTests(std::vector<TTest>& tests,
                    const std::vector<THypothesisCluster>& clusters)
 {
+  TestCompareFunction tstCmpFcn;
+
   // Rescore all the tests on multiple threads.
   std::vector<std::thread> threads;
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
@@ -152,7 +155,7 @@ TTest completeRescoreTests(std::vector<TTest>& tests,
   // Just get the top scored element from the vector (no heap required).
   TTest top = tests.front();
   for (const TTest& test : tests)
-    if (test.getScore() > top.getScore())
+    if (tstCmpFcn(top, test))
       top = test;
 
   tests.erase(std::find(tests.begin(), tests.end(), top));

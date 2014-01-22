@@ -8,7 +8,7 @@
 
 #include "hypothesis.h"
 
-#define INITIAL_RUNS 5
+#define INITIAL_RUNS 7
 
 GraphHypothesis::GraphHypothesis(unsigned int nodes,
                                  unordered_map<int, int>& infectionTime)

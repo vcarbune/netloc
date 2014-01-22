@@ -33,6 +33,7 @@ struct SimConfig {
     , cascadeBound(0.3)
     , steps(1)
     , lazy(false)
+    , networkType(1)
     , m_type(type)
   {
     if (type == BetaVar || type == HypothesisVar || type == CascBoundVar) {
@@ -98,6 +99,7 @@ struct SimConfig {
   int topN;             // keep topN possible solutions
   TStr logfile;
   bool lazy;
+  int networkType;
 
 private:
   SimulationType m_type;
