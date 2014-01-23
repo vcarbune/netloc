@@ -86,7 +86,7 @@ inline void generateTests(vector<GraphTest> *tests,
 }
 
 void runSimulation(PUNGraph network,
-                   const vector<GraphHypothesis>& realizations,
+                   const GraphHypothesis& realization,
                    const SimConfig config,
                    ostream& fout,
                    vector<vector<double>> *runStats)
@@ -95,11 +95,6 @@ void runSimulation(PUNGraph network,
 
   double crtScore;
   vector<double> scoreList;
-
-  if (realizations.size() != TRIALS) {
-    cout << "Different number of trial expected" << endl;
-    return;
-  }
 
   vector<GraphHypothesisCluster> clusters;
   vector<GraphTest> tests;
@@ -118,9 +113,6 @@ void runSimulation(PUNGraph network,
     vector<int> topClusters;
     vector<GraphHypothesisCluster> tempClusters(clusters);
     vector<GraphTest> tempTests(tests);
-
-    // Select a different realization at each run.
-    GraphHypothesis realization = realizations[trial];
 
     // Run the simulation with the current configuration.
     time_t startTime = time(NULL);
@@ -173,14 +165,12 @@ void generateSimulationStats(vector<vector<double>> *runStats,
   PUNGraph network;
   generateNetwork(&network, config);
 
-  vector<GraphHypothesis> realizations;
-  for (int trial = 0; trial < TRIALS; trial++)
-    realizations.push_back(GraphHypothesis::generateHypothesis(network,
-          rand() % network->GetNodes(), config.cascadeBound, config.beta));
+  GraphHypothesis realization = GraphHypothesis::generateHypothesis(network,
+      rand() % network->GetNodes(), config.cascadeBound, config.beta);
 
   for (int step = 0; step < config.steps; step++, ++config) {
     cout << endl << "Current configuration: " << config.getSimParamValue() << endl;
-    runSimulation(network, realizations, config, fout, runStats);
+    runSimulation(network, realization, config, fout, runStats);
   }
 
   for (size_t i = 0; i < threads.size(); ++i)
