@@ -47,8 +47,8 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
 
   const TInt paramSimulation = Env.GetIfArgPrefixInt(
-      "-sim=", NodeVar, "Simulation Type"
-          "(NodeVar - 0, BetaVar - 1, HypothesisVar - 2, CascBoundVar - 3)");
+      "-sim=", 1, "Simulation Type"
+          "(BetaVar - 0, ClusterVar - 1, CascBoundVar - 2)");
   const TInt paramNodes = Env.GetIfArgPrefixInt(
       "-n=", 0, "Network size");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(

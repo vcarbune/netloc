@@ -36,8 +36,8 @@ using namespace std;
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
   // Keep the same underlying network if the
   // simulation parameter is not the number of nodes.
-  if (network->Empty() && config.getSimType() != NodeVar) {
-    cout << "Keeping the old network structure..." << endl;
+  if (!network->Empty()) {
+    cout << "Keeping the previously initialized network." << endl;
     return;
   }
 
