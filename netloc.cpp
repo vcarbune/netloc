@@ -147,7 +147,7 @@ void runSimulation(PUNGraph network,
       fails++;
 
     cout << endl;
-    scoreList.push_back(crtScore);
+    scoreList.push_back(tempClusters[0].getWeight());//crtScore);
   }
 
   scoreList.push_back(1 - (double) fails / TRIALS);

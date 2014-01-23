@@ -8,7 +8,7 @@
 
 #include "hypothesis.h"
 
-#define INITIAL_RUNS 5
+#define INITIAL_RUNS 4
 
 GraphHypothesis::GraphHypothesis(unsigned int sourceId,
                                  unordered_map<int, int>& infectionTime)
@@ -135,8 +135,8 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
     bool outcome = h.getTestOutcome(test);
-    positiveMass += h.weight * (outcome ? 1 : (EPS / (1-EPS)));
-    negativeMass += h.weight * (outcome ? (EPS / (1-EPS)) : 1);
+    positiveMass += h.weight * (outcome ? (1-EPS) : EPS);
+    negativeMass += h.weight * (outcome ? EPS : (1-EPS));
   }
   return pair<double, double>(positiveMass, negativeMass);
 }

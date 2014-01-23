@@ -52,11 +52,11 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   const TInt paramNodes = Env.GetIfArgPrefixInt(
       "-n=", 0, "Network size");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
-      "-c=", 100, "Cluster size");
+      "-c=", 500, "Cluster size");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
       "-s=", 0.4, "True cascade size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
-      "-b=", 0.05, "Activation probability on edges)");
+      "-b=", 0.08, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
       "-steps=", 1, "Number of simulation steps.");
   const TInt paramStartStep = Env.GetIfArgPrefixInt(

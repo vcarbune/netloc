@@ -21,8 +21,8 @@
 #define DBG 0
 #define WORK_THREADS 8
 
-#define MASS_THRESHOLD 0.15
-#define TEST_THRESHOLD 0.32
+#define MASS_THRESHOLD 0.50
+#define TEST_THRESHOLD 0.18
 #define EPS 0.01
 
 
