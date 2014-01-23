@@ -65,7 +65,7 @@ struct SimConfig {
         beta += 0.05;
         break;
       case HypothesisVar:
-        clusterSize += 10;
+        clusterSize += 15;
         break;
       case CascBoundVar:
         cascadeBound += 0.05;
@@ -89,6 +89,8 @@ struct SimConfig {
 
     return -1.0;
   }
+
+  SimulationType getSimType() const { return m_type; }
 
   int nodes;
   int edges;

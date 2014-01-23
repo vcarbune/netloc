@@ -24,7 +24,7 @@
 // Needs to be included after Snap..
 #include <future>
 
-#define TRIALS 15
+#define TRIALS 7
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -34,8 +34,13 @@
 using namespace std;
 
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
-  // To easily swap the generation model later.
-  // *network = TSnap::GenRndGnm<PUNGraph>(config.nodes, config.edges);
+  // Keep the same underlying network if the
+  // simulation parameter is not the number of nodes.
+  if (network->Empty() && config.getSimType() != NodeVar) {
+    cout << "Keeping the old network structure..." << endl;
+    return;
+  }
+
   switch (config.networkType) {
     case 0:
       *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
@@ -58,15 +63,16 @@ inline void generateClusters(vector<GraphHypothesisCluster> *clusters,
 {
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
+  /*
   int maxOutDegree = numeric_limits<int>::min();
   for (int source = 0; source < network->GetNodes(); source++)
     maxOutDegree = max(maxOutDegree, network->GetNI(source).GetOutDeg());
+  */
 
   for (int source = 0; source < network->GetNodes(); source++) {
     clusters->push_back(GraphHypothesisCluster(
         network, source,
-        config.clusterSize, config.beta, config.cascadeBound,
-        static_cast<double>(network->GetNI(source).GetOutDeg()) / maxOutDegree));
+        config.clusterSize, config.beta, config.cascadeBound, 1));
   }
 }
 
@@ -79,7 +85,9 @@ inline void generateTests(vector<GraphTest> *tests,
     tests->push_back(GraphTest(node));
 }
 
-void runSimulation(const SimConfig config,
+void runSimulation(PUNGraph network,
+                   const vector<GraphHypothesis>& realizations,
+                   const SimConfig config,
                    ostream& fout,
                    vector<vector<double>> *runStats)
 {
@@ -88,11 +96,14 @@ void runSimulation(const SimConfig config,
   double crtScore;
   vector<double> scoreList;
 
-  PUNGraph network;
+  if (realizations.size() != TRIALS) {
+    cout << "Different number of trial expected" << endl;
+    return;
+  }
+
   vector<GraphHypothesisCluster> clusters;
   vector<GraphTest> tests;
 
-  generateNetwork(&network, config);
   generateClusters(&clusters, network, config);
   generateTests(&tests, network);
 
@@ -102,17 +113,14 @@ void runSimulation(const SimConfig config,
   int fails = 0;
   scoreList.push_back(config.getSimParamValue());
 
-  for (int trials = 0; trials < TRIALS; ++trials) {
+  for (int trial = 0; trial < TRIALS; ++trial) {
     // Initialize temporary variables.
     vector<int> topClusters;
     vector<GraphHypothesisCluster> tempClusters(clusters);
     vector<GraphTest> tempTests(tests);
 
     // Select a different realization at each run.
-    int index = rand() % tempClusters.size();
-    GraphHypothesis realization = tempClusters[index].generateHypothesis(
-        config.cascadeBound, config.beta);
-    int trueSource = tempClusters[index].getSource();
+    GraphHypothesis realization = realizations[trial];
 
     // Run the simulation with the current configuration.
     time_t startTime = time(NULL);
@@ -120,18 +128,18 @@ void runSimulation(const SimConfig config,
         tempTests, tempClusters, realization, config.lazy);
 
     bool found = false;
-    cout << "Correct: " << trueSource << "\t";
+    cout << "Correct: " << realization.getSource() << "\t";
     cout << "Tests: " << crtScore << "%\t";
     cout << "Time: " << difftime(time(NULL), startTime) << "s\t";
     cout << "Candidates: ";
     sort(tempClusters.begin(), tempClusters.end());
     for (int i = 0; i < config.topN; ++i) {
       int foundSource = tempClusters[i].getSource();
-      if (foundSource == trueSource)
+      if (foundSource == realization.getSource())
         found = true;
 
       cout << tempClusters[i].getSource() << "(" <<
-          TSnap::GetShortPath(network, trueSource, foundSource) << " hops, " <<
+          TSnap::GetShortPath(network, realization.getSource(), foundSource) << " hops, " <<
           tempClusters[i].getWeight() << ")\t";
     }
 
@@ -162,9 +170,17 @@ void generateSimulationStats(vector<vector<double>> *runStats,
   runStats->clear();
   vector<thread> threads;
 
+  PUNGraph network;
+  generateNetwork(&network, config);
+
+  vector<GraphHypothesis> realizations;
+  for (int trial = 0; trial < TRIALS; trial++)
+    realizations.push_back(GraphHypothesis::generateHypothesis(network,
+          rand() % network->GetNodes(), config.cascadeBound, config.beta));
+
   for (int step = 0; step < config.steps; step++, ++config) {
     cout << endl << "Current configuration: " << config.getSimParamValue() << endl;
-    runSimulation(config, fout, runStats);
+    runSimulation(network, realizations, config, fout, runStats);
   }
 
   for (size_t i = 0; i < threads.size(); ++i)

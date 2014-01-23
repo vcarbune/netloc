@@ -23,7 +23,7 @@
 
 #define MASS_THRESHOLD 0.15
 #define TEST_THRESHOLD 0.32
-#define EPS 0.025
+#define EPS 0.01
 
 
 // Abstract classes that can be implemented in order to use runEC2.
@@ -54,6 +54,9 @@ class HypothesisCluster {
 
 class TestCompareFunction {
   public:
+    // The lower the score of the test, the better. The score of the represents
+    // the resulted summed mass of all the clusters (in exception over all
+    // possible outcomes of the test)
     bool operator() (const Test& p, const Test& q) const {
       return p.getScore() > q.getScore();
     }
