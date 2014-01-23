@@ -25,15 +25,15 @@ class GraphHypothesis {
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
     unsigned int getSize() const { return m_infectionHash.size(); }
-    int getSource() const { return m_sourceId; }
+    short unsigned int getSource() const { return m_sourceId; }
 
     double weight;
 
   private:
-    explicit GraphHypothesis(unsigned int, unordered_map<int, int>&);
+    GraphHypothesis(short unsigned int, unordered_map<int, int>&);
 
     unordered_map<int, int> m_infectionHash;
-    int m_sourceId;
+    short unsigned int m_sourceId;
 };
 
 class GraphHypothesisCluster {
@@ -48,7 +48,7 @@ class GraphHypothesisCluster {
     int getNodeCount(int nodeId) const { return m_nodeCount[nodeId]; }
 
     int getSource() const { return m_sourceId; }
-    double getWeight() { return m_weight; }
+    double getWeight() const { return m_weight; }
     void normalizeWeight(double mass) { m_weight /= mass; }
 
     bool operator< (const GraphHypothesisCluster& o) const {

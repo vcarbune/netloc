@@ -21,9 +21,7 @@
 #define DBG 0
 #define WORK_THREADS 8
 
-#define MASS_THRESHOLD 0.50
-#define TEST_THRESHOLD 0.18
-#define EPS 0.01
+#define EPS 0.05
 
 
 // Abstract classes that can be implemented in order to use runEC2.
@@ -197,7 +195,9 @@ template <class TTest, class THypothesisCluster, class THypothesis>
 double runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization,
-              bool lazyEval)
+              bool lazyEval,
+              const double massThreshold,
+              const double testThreshold)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -222,7 +222,7 @@ double runEC2(std::vector<TTest>& tests,
   double maxMass = 0.0;
   double percentageTests = 0.0;
 
-  while (maxMass < MASS_THRESHOLD && percentageTests < TEST_THRESHOLD) {
+  while (maxMass < massThreshold && percentageTests < testThreshold) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization, lazyEval);
     testRunOrder.push_back(t);

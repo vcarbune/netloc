@@ -33,6 +33,9 @@ struct SimConfig {
     , steps(1)
     , lazy(false)
     , networkType(1)
+    , outputType(0)
+    , testThreshold(0.25)
+    , massThreshold(0.50)
     , m_type(type)
   {
     if (type == BetaVar || type == ClusterVar || type == CascBoundVar) {
@@ -60,7 +63,7 @@ struct SimConfig {
         beta += 0.05;
         break;
       case ClusterVar:
-        clusterSize += 50;
+        clusterSize *= 2;
         break;
       case CascBoundVar:
         cascadeBound += 0.05;
@@ -95,6 +98,9 @@ struct SimConfig {
   TStr logfile;
   bool lazy;
   int networkType;
+  int outputType;       // probability of source, or number of tests.
+  double testThreshold; // stop ec2 after a percentage of tests have run.
+  double massThreshold; // stop ec2 if there's a cluster with more mass.
 
 private:
   SimulationType m_type;

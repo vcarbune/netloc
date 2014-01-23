@@ -10,7 +10,7 @@
 
 #define INITIAL_RUNS 4
 
-GraphHypothesis::GraphHypothesis(unsigned int sourceId,
+GraphHypothesis::GraphHypothesis(short unsigned int sourceId,
                                  unordered_map<int, int>& infectionTime)
   : m_sourceId(sourceId)
 {

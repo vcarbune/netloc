@@ -21,10 +21,7 @@
 
 #include "snap/snap-core/Snap.h"
 
-// Needs to be included after Snap..
-#include <future>
-
-#define TRIALS 7
+#define TRIALS 20
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -86,7 +83,8 @@ inline void generateTests(vector<GraphTest> *tests,
 }
 
 void runSimulation(PUNGraph network,
-                   const GraphHypothesis& realization,
+                   const vector<GraphHypothesis>& realizations,
+                   vector<int>& identificationCount,
                    const SimConfig config,
                    ostream& fout,
                    vector<vector<double>> *runStats)
@@ -95,6 +93,11 @@ void runSimulation(PUNGraph network,
 
   double crtScore;
   vector<double> scoreList;
+
+  if (realizations.size() != TRIALS || identificationCount.size() != TRIALS) {
+    cout << "Different number of trial expected" << endl;
+    return;
+  }
 
   vector<GraphHypothesisCluster> clusters;
   vector<GraphTest> tests;
@@ -114,10 +117,14 @@ void runSimulation(PUNGraph network,
     vector<GraphHypothesisCluster> tempClusters(clusters);
     vector<GraphTest> tempTests(tests);
 
+    // Select a different realization at each run.
+    GraphHypothesis realization = realizations[trial];
+
     // Run the simulation with the current configuration.
     time_t startTime = time(NULL);
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
-        tempTests, tempClusters, realization, config.lazy);
+        tempTests, tempClusters, realization, config.lazy,
+        config.massThreshold, config.testThreshold);
 
     bool found = false;
     cout << "Correct: " << realization.getSource() << "\t";
@@ -127,8 +134,10 @@ void runSimulation(PUNGraph network,
     sort(tempClusters.begin(), tempClusters.end());
     for (int i = 0; i < config.topN; ++i) {
       int foundSource = tempClusters[i].getSource();
-      if (foundSource == realization.getSource())
+      if (foundSource == realization.getSource()) {
+        identificationCount[trial]++;
         found = true;
+      }
 
       cout << tempClusters[i].getSource() << "(" <<
           TSnap::GetShortPath(network, realization.getSource(), foundSource) << " hops, " <<
@@ -139,7 +148,16 @@ void runSimulation(PUNGraph network,
       fails++;
 
     cout << endl;
-    scoreList.push_back(tempClusters[0].getWeight());//crtScore);
+    // scoreList.push_back(tempClusters[0].getWeight());
+    if (config.outputType == 0) {
+      scoreList.push_back(crtScore);
+    } else {
+      for (const GraphHypothesisCluster& hc : tempClusters)
+        if (hc.getSource() == realization.getSource()) {
+          scoreList.push_back(hc.getWeight());
+          break;
+        }
+    }
   }
 
   scoreList.push_back(1 - (double) fails / TRIALS);
@@ -165,16 +183,25 @@ void generateSimulationStats(vector<vector<double>> *runStats,
   PUNGraph network;
   generateNetwork(&network, config);
 
-  GraphHypothesis realization = GraphHypothesis::generateHypothesis(network,
-      rand() % network->GetNodes(), config.cascadeBound, config.beta);
+  vector<GraphHypothesis> realizations;
+  vector<int> identificationCount(TRIALS);
+  for (int trial = 0; trial < TRIALS; trial++)
+    realizations.push_back(GraphHypothesis::generateHypothesis(network,
+          rand() % network->GetNodes(), config.cascadeBound, config.beta));
 
   for (int step = 0; step < config.steps; step++, ++config) {
     cout << endl << "Current configuration: " << config.getSimParamValue() << endl;
-    runSimulation(network, realization, config, fout, runStats);
+    runSimulation(network, realizations, identificationCount,
+        config, fout, runStats);
   }
 
-  for (size_t i = 0; i < threads.size(); ++i)
-    threads[i].join();
+  vector<double> identificationPb;
+  identificationPb.push_back(0.0);
+  for (int trial = 0; trial < TRIALS; trial++) {
+    identificationPb.push_back(
+        (double) identificationCount[trial] / config.steps);
+  }
+  runStats->push_back(identificationPb);
 
   cout << endl;
 }
