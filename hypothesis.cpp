@@ -8,10 +8,11 @@
 
 #include "hypothesis.h"
 
-#define INITIAL_RUNS 5
+#define INITIAL_RUNS 4
 
-GraphHypothesis::GraphHypothesis(unsigned int nodes,
+GraphHypothesis::GraphHypothesis(short unsigned int sourceId,
                                  unordered_map<int, int>& infectionTime)
+  : m_sourceId(sourceId)
 {
   m_infectionHash.swap(infectionTime);
 }
@@ -41,55 +42,25 @@ bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
   return m_infectionHash.find(test.getNodeId()) != m_infectionHash.end();
 }
 
-GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
-                                               int sourceId,
-                                               int clusterSize,
-                                               double beta,
-                                               double size,
-                                               double weight)
-  : m_network(network)
-  , m_sourceId(sourceId)
-  , m_weight(weight)
-{
-  m_nodeCount.resize(network->GetNodes());
-
-  generateHypothesisCluster(size, beta, clusterSize);
-}
-
-/**
- * Internal generator for all the hypothesis in the cluster.
- */
-void GraphHypothesisCluster::generateHypothesisCluster(
-    double size, double beta, int clusterSize)
-{
-  // TODO(vcarbune): threadify
-  for (int h = 0; h < clusterSize; h++) {
-    m_hypothesis.push_back(generateHypothesis(size, beta, &m_nodeCount));
-    m_hypothesis[h].weight = m_weight / clusterSize;
-  }
-}
-
 /**
  * Generates one cascade, on top of the underlying network structure.
  * Extended from snap/examples/cascades.
- *
- * TODO(vcarbune): Do we want to sample the cascade (e.g. removing nodes?)
  */
-GraphHypothesis GraphHypothesisCluster::generateHypothesis(
-    double size, double beta, vector<int> *nodeCount) const
+GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
+    int sourceId, double size, double beta, vector<int> *nodeCount)
 {
   bool isTrueHypothesis = nodeCount == NULL;
 
-  unsigned int cascadeSize = size * m_network->GetNodes();
+  unsigned int cascadeSize = size * network->GetNodes();
   int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
 
   // Add the source node (fixed for this cluster).
   unordered_map<int, int> infectionTime;
-  infectionTime[m_sourceId] = 0;
+  infectionTime[sourceId] = 0;
 
   for (int run = 0; run < runTimes; run++) {
     for (const auto& p : infectionTime) {
-      const TUNGraph::TNodeI& crtIt = m_network->GetNI(p.first);
+      const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
         if (TInt::Rnd.GetUniDev() > beta) // Flip a coin!
             continue;
@@ -103,12 +74,42 @@ GraphHypothesis GraphHypothesisCluster::generateHypothesis(
 
         infectionTime[neighbourId] = infectionTime.size();
         if (infectionTime.size() == cascadeSize)
-          return GraphHypothesis(m_network->GetNodes(), infectionTime);
+          return GraphHypothesis(sourceId, infectionTime);
       }
     }
   }
 
-  return GraphHypothesis(m_network->GetNodes(), infectionTime);
+  return GraphHypothesis(sourceId, infectionTime);
+}
+
+
+
+GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
+                                               int sourceId,
+                                               int clusterSize,
+                                               double beta,
+                                               double size,
+                                               double weight)
+  : m_network(network)
+  , m_sourceId(sourceId)
+  , m_weight(weight)
+{
+  m_nodeCount.resize(network->GetNodes());
+  generateHypothesisCluster(size, beta, clusterSize);
+}
+
+/**
+ * Internal generator for all the hypothesis in the cluster.
+ */
+void GraphHypothesisCluster::generateHypothesisCluster(
+    double size, double beta, int clusterSize)
+{
+  // TODO(vcarbune): threadify
+  for (int h = 0; h < clusterSize; h++) {
+    m_hypothesis.push_back(
+        GraphHypothesis::generateHypothesis(m_network, m_sourceId, size, beta, &m_nodeCount));
+    m_hypothesis[h].weight = m_weight / clusterSize;
+  }
 }
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)

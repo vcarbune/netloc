@@ -47,16 +47,16 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
 
   const TInt paramSimulation = Env.GetIfArgPrefixInt(
-      "-sim=", NodeVar, "Simulation Type"
-          "(NodeVar - 0, BetaVar - 1, HypothesisVar - 2, CascBoundVar - 3)");
+      "-sim=", 1, "Simulation Type"
+          "(BetaVar - 0, ClusterVar - 1, CascBoundVar - 2)");
   const TInt paramNodes = Env.GetIfArgPrefixInt(
-      "-n=", 0, "Network size");
+      "-n=", 500, "Network size");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
-      "-c=", 100, "Cluster size");
+      "-c=", 500, "Cluster size");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
       "-s=", 0.4, "True cascade size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
-      "-b=", 0.05, "Activation probability on edges)");
+      "-b=", 0.06, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
       "-steps=", 1, "Number of simulation steps.");
   const TInt paramStartStep = Env.GetIfArgPrefixInt(
@@ -67,14 +67,19 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
       "-dump=", "dump.log", "File where to dump the output");
   const TBool paramLazy = Env.GetIfArgPrefixBool(
       "-lazy=", false, "Lazy evaluation");
+  const TInt paramNetworkType = Env.GetIfArgPrefixInt(
+      "-type=", 0, "Network Type: ForestFire - 0, Barabasi-Albert - 1, "
+                   "Erdos-Renyi - 2");
+  const TInt paramOutputType = Env.GetIfArgPrefixInt(
+      "-output=", 0, "Output Type: Tests - 0, Probability - 1");
+  const double paramTestThreshold = Env.GetIfArgPrefixFlt(
+      "-testthr=", 0.25, "Tests Threshold (%)");
+  const double paramMassThreshold = Env.GetIfArgPrefixFlt(
+      "-massthr=", 0.25, "Mass Threshold (%)");
 
   SimConfig config(static_cast<SimulationType>(paramSimulation.Val));
 
-  if (paramNodes.Val) {
-    config.nodes = paramNodes.Val;
-    config.edges = config.nodes * log(config.nodes);
-  }
-
+  config.nodes = paramNodes.Val;
   config.clusterSize = paramClusterSize.Val;
   config.steps = paramSteps.Val;
   config.cascadeBound = paramCascadeSize;
@@ -82,6 +87,10 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   config.logfile = dumpFile;
   config.topN = paramKeepTopN;
   config.lazy = paramLazy;
+  config.networkType = paramNetworkType;
+  config.outputType = paramOutputType;
+  config.testThreshold = paramTestThreshold;
+  config.massThreshold = paramMassThreshold;
 
   config += paramStartStep.Val;
 

@@ -18,9 +18,8 @@ void plotGraphs(const PUNGraph& network, const std::vector<GraphTest>& tests,
                 const GraphHypothesis& realization);
 
 enum SimulationType {
-  NodeVar = 0,  // nodes: G(V, VlogV)
-  BetaVar,  // beta: [0.1, 0.5]
-  HypothesisVar,  // hypothesis per cluster: [1, 15]
+  BetaVar = 0,  // beta: [0.1, 0.5]
+  ClusterVar,  // hypothesis per cluster: [1, 15]
   CascBoundVar    // max cascade size: [0.4, 0.8]
 };
 
@@ -33,16 +32,20 @@ struct SimConfig {
     , cascadeBound(0.3)
     , steps(1)
     , lazy(false)
+    , networkType(1)
+    , outputType(0)
+    , testThreshold(0.25)
+    , massThreshold(0.50)
     , m_type(type)
   {
-    if (type == BetaVar || type == HypothesisVar || type == CascBoundVar) {
+    if (type == BetaVar || type == ClusterVar || type == CascBoundVar) {
       // The base network on which the simulation is done is fixed throughout
       // so in the initial configuration we should have it enough.
       nodes = 500;
       edges = 1500;
     }
 
-    if (type == HypothesisVar) {
+    if (type == ClusterVar) {
       clusterSize = 5;
     }
   }
@@ -56,15 +59,11 @@ struct SimConfig {
 
   SimConfig& operator++() {
     switch (m_type) {
-      case NodeVar:
-        nodes += 500;
-        edges = nodes * log(nodes);
-        break;
       case BetaVar:
         beta += 0.05;
         break;
-      case HypothesisVar:
-        clusterSize += 10;
+      case ClusterVar:
+        clusterSize *= 2;
         break;
       case CascBoundVar:
         cascadeBound += 0.05;
@@ -76,11 +75,9 @@ struct SimConfig {
 
   double getSimParamValue() const {
     switch (m_type) {
-      case NodeVar:
-        return static_cast<double>(nodes);
       case BetaVar:
         return beta;
-      case HypothesisVar:
+      case ClusterVar:
         return static_cast<double>(clusterSize);
       case CascBoundVar:
         return static_cast<double>(cascadeBound);
@@ -88,6 +85,8 @@ struct SimConfig {
 
     return -1.0;
   }
+
+  SimulationType getSimType() const { return m_type; }
 
   int nodes;
   int edges;
@@ -98,6 +97,10 @@ struct SimConfig {
   int topN;             // keep topN possible solutions
   TStr logfile;
   bool lazy;
+  int networkType;
+  int outputType;       // probability of source, or number of tests.
+  double testThreshold; // stop ec2 after a percentage of tests have run.
+  double massThreshold; // stop ec2 if there's a cluster with more mass.
 
 private:
   SimulationType m_type;

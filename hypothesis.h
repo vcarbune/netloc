@@ -18,17 +18,22 @@ using namespace std;
 
 class GraphHypothesis {
   public:
-    explicit GraphHypothesis(unsigned int, unordered_map<int, int>&);
+    static GraphHypothesis generateHypothesis(
+        PUNGraph, int, double, double, vector<int>* = NULL);
 
     bool isConsistentWithTest(const GraphTest& test) const;
     int getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
     unsigned int getSize() const { return m_infectionHash.size(); }
+    short unsigned int getSource() const { return m_sourceId; }
 
     double weight;
 
   private:
+    GraphHypothesis(short unsigned int, unordered_map<int, int>&);
+
     unordered_map<int, int> m_infectionHash;
+    short unsigned int m_sourceId;
 };
 
 class GraphHypothesisCluster {
@@ -42,10 +47,8 @@ class GraphHypothesisCluster {
     int getTotalHypothesis() const { return m_hypothesis.size(); }
     int getNodeCount(int nodeId) const { return m_nodeCount[nodeId]; }
 
-    GraphHypothesis generateHypothesis(double, double, vector<int>* = NULL) const;
-
     int getSource() const { return m_sourceId; }
-    double getWeight() { return m_weight; }
+    double getWeight() const { return m_weight; }
     void normalizeWeight(double mass) { m_weight /= mass; }
 
     bool operator< (const GraphHypothesisCluster& o) const {

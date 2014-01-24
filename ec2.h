@@ -21,8 +21,6 @@
 #define DBG 0
 #define WORK_THREADS 16
 
-#define MASS_THRESHOLD 0.04
-#define TEST_THRESHOLD 1.00
 #define EPS 0.05
 
 
@@ -54,8 +52,11 @@ class HypothesisCluster {
 
 class TestCompareFunction {
   public:
+    // The lower the score of the test, the better. The score of the represents
+    // the resulted summed mass of all the clusters (in exception over all
+    // possible outcomes of the test)
     bool operator() (const Test& p, const Test& q) const {
-      return p.getScore() < q.getScore();
+      return p.getScore() > q.getScore();
     }
 };
 
@@ -98,6 +99,7 @@ template <class TTest, class THypothesisCluster>
 TTest lazyRescoreTests(std::vector<TTest>& tests,
                        const std::vector<THypothesisCluster>& clusters)
 {
+  TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
 #endif
@@ -114,7 +116,7 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
 
     // Recompute its score and keep it if it stays on top.
     rescoreTest(crtTop, clusters);
-    if (crtTop.getScore() >= tests.front().getScore()) {
+    if (tstCmpFcn(tests.front(), crtTop)) {
 #if DBG
       std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
 #endif
@@ -138,6 +140,8 @@ template <class TTest, class THypothesisCluster>
 TTest completeRescoreTests(std::vector<TTest>& tests,
                    const std::vector<THypothesisCluster>& clusters)
 {
+  TestCompareFunction tstCmpFcn;
+
   // Rescore all the tests on multiple threads.
   std::vector<std::thread> threads;
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
@@ -152,7 +156,7 @@ TTest completeRescoreTests(std::vector<TTest>& tests,
   // Just get the top scored element from the vector (no heap required).
   TTest top = tests.front();
   for (const TTest& test : tests)
-    if (test.getScore() > top.getScore())
+    if (tstCmpFcn(top, test))
       top = test;
 
   tests.erase(std::find(tests.begin(), tests.end(), top));
@@ -191,7 +195,9 @@ template <class TTest, class THypothesisCluster, class THypothesis>
 double runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization,
-              bool lazyEval)
+              bool lazyEval,
+              const double massThreshold,
+              const double testThreshold)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -216,7 +222,7 @@ double runEC2(std::vector<TTest>& tests,
   double maxMass = 0.0;
   double percentageTests = 0.0;
 
-  while (maxMass < MASS_THRESHOLD && percentageTests < TEST_THRESHOLD) {
+  while (maxMass < massThreshold && percentageTests < testThreshold) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization, lazyEval);
     testRunOrder.push_back(t);
