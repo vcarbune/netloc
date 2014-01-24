@@ -14,8 +14,20 @@ DIR=./data/batches/$1
 
 mkdir $DIR
 
-for cluster_size in $(seq 10 20 150)
-do
-	bsub -W 20:00 -n 32 $CMD -c=${cluster_size} -dump=${DIR}/top1_c${cluster_size}.log -sim=2
-	bsub -W 20:00 -n 32 $CMD -c=${cluster_size} -dump=${DIR}/top2_c${cluster_size}.log -sim=2 -topN=2
-done
+# Forest Fire Experiments
+bsub -W 8:00 -n 32 $CMD -dump=${DIR}/forest_prob.log \
+	-type=0 -sim=2 -output=1 -testthr=1.0 -n=100 -c=20 -steps=10
+bsub -W 8:00 -n 32 $CMD -dump=${DIR}/forest_test.log \
+	-type=0 -sim=2 -output=0 -testthr=0.18 -n=100 -c=20 -steps=10
+
+# Barabasi-Albert Experiments
+bsub -W 8:00 -n 32 $CMD -dump=${DIR}/barabasi_prob.log \
+	-type=1 -sim=2 -output=1 -testthr=1.0 -n=100 -c=20 -steps=10
+bsub -W 8:00 -n 32 $CMD -dump=${DIR}/barabasi_test.log \
+	-type=1 -sim=2 -output=0 -testthr=0.18 -n=100 -c=20 -steps=10
+
+# Erdos-Renyi Experiments
+bsub -W 8:00 -n 32 $CMD -dump=${DIR}/erdos_prob.log \
+	-type=1 -sim=2 -output=1 -testthr=1.0 -n=100 -c=20 -steps=10
+bsub -W 8:00 -n 32 $CMD -dump=${DIR}/erdos_test.log \
+	-type=1 -sim=2 -output=0 -testthr=0.32 -n=100 -c=20 -steps=10
