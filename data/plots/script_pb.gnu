@@ -1,8 +1,8 @@
 set title sprintf("%s", plottitle)
 set terminal png
 set output sprintf("%s.png", filename)
-set xlabel "Log2(Cluster Size)"
-set ylabel "Identification Probability(%)"
+set xlabel "ln(cluster size)"
+set ylabel "mass in solution cluster (%)"
 set key left top
 set xrange [2.8:9.5]
 plot for [i=2:21] \
