@@ -154,7 +154,7 @@ void runSimulation(PUNGraph network,
     } else {
       for (const GraphHypothesisCluster& hc : tempClusters)
         if (hc.getSource() == realization.getSource()) {
-          scoreList.push_back(hc.getWeight());
+          scoreList.push_back(100 * hc.getWeight());
           break;
         }
     }
