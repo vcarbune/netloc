@@ -202,7 +202,7 @@ double runEC2(std::vector<TTest>& tests,
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
 
-  double totalTests = static_cast<double>(tests.size());
+  unsigned int totalTests = tests.size();
 
   // Initially assign score to all tests and create the heap from the vector.
   std::vector<std::thread> threads;
@@ -239,7 +239,7 @@ double runEC2(std::vector<TTest>& tests,
     for (THypothesisCluster& cluster : clusters)
       maxMass = std::max(cluster.getWeight() / mass, maxMass);
 
-    percentageTests = static_cast<double>(testRunOrder.size() / totalTests);
+    percentageTests = (double) testRunOrder.size() / totalTests;
   }
 
   // Normalize weights and probabilities
