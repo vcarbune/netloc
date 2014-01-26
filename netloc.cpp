@@ -21,7 +21,7 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define TRIALS 20
+#define GROUND_TRUTHS 50
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -94,7 +94,7 @@ void runSimulation(PUNGraph network,
   double crtScore;
   vector<double> scoreList;
 
-  if (realizations.size() != TRIALS || identificationCount.size() != TRIALS) {
+  if (realizations.size() != GROUND_TRUTHS || identificationCount.size() != GROUND_TRUTHS) {
     cout << "Different number of trial expected" << endl;
     return;
   }
@@ -111,7 +111,7 @@ void runSimulation(PUNGraph network,
   int fails = 0;
   scoreList.push_back(config.getSimParamValue());
 
-  for (int trial = 0; trial < TRIALS; ++trial) {
+  for (int trial = 0; trial < GROUND_TRUTHS; ++trial) {
     // Initialize temporary variables.
     vector<int> topClusters;
     vector<GraphHypothesisCluster> tempClusters(clusters);
@@ -160,7 +160,7 @@ void runSimulation(PUNGraph network,
     }
   }
 
-  scoreList.push_back(1 - (double) fails / TRIALS);
+  scoreList.push_back(1 - (double) fails / GROUND_TRUTHS);
   runStats->push_back(scoreList);
 
   cout << "Runtime: " << difftime(time(NULL), start) << " seconds " << endl;
@@ -184,10 +184,11 @@ void generateSimulationStats(vector<vector<double>> *runStats,
   generateNetwork(&network, config);
 
   vector<GraphHypothesis> realizations;
-  vector<int> identificationCount(TRIALS);
-  for (int trial = 0; trial < TRIALS; trial++)
+  vector<int> identificationCount(GROUND_TRUTHS);
+  int oneSrc = rand() % network->GetNodes();
+  for (int trial = 0; trial < GROUND_TRUTHS; trial++)
     realizations.push_back(GraphHypothesis::generateHypothesis(network,
-          rand() % network->GetNodes(), config.cascadeBound, config.beta));
+          oneSrc, config.cascadeBound, config.beta));
 
   for (int step = 0; step < config.steps; step++, ++config) {
     cout << endl << "Current configuration: " << config.getSimParamValue() << endl;
@@ -197,7 +198,7 @@ void generateSimulationStats(vector<vector<double>> *runStats,
 
   vector<double> identificationPb;
   identificationPb.push_back(0.0);
-  for (int trial = 0; trial < TRIALS; trial++) {
+  for (int trial = 0; trial < GROUND_TRUTHS; trial++) {
     identificationPb.push_back(
         (double) identificationCount[trial] / config.steps);
   }

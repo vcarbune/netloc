@@ -15,19 +15,19 @@ DIR=./data/batches/$1
 mkdir $DIR
 
 # Forest Fire Experiments
-bsub -W 8:00 -n 32 $CMD -dump=${DIR}/forest_prob.log \
-	-type=0 -sim=2 -output=1 -testthr=1.0 -n=100 -c=20 -steps=10
-bsub -W 8:00 -n 32 $CMD -dump=${DIR}/forest_test.log \
-	-type=0 -sim=2 -output=0 -testthr=0.18 -n=100 -c=20 -steps=10
+bsub -o job_forest_test.log -W 8:00 -n 32 $CMD -dump=${DIR}/forest_test.log \
+	-type=0 -sim=1 -output=0 -testthr=1.0 -n=100 -c=20 -steps=10
+bsub -o job_forest_pb.log -W 8:00 -n 32 $CMD -dump=${DIR}/forest_pb.log \
+	-type=0 -sim=1 -output=1 -testthr=0.18 -n=100 -c=20 -steps=10
 
 # Barabasi-Albert Experiments
-bsub -W 8:00 -n 32 $CMD -dump=${DIR}/barabasi_prob.log \
-	-type=1 -sim=2 -output=1 -testthr=1.0 -n=100 -c=20 -steps=10
-bsub -W 8:00 -n 32 $CMD -dump=${DIR}/barabasi_test.log \
-	-type=1 -sim=2 -output=0 -testthr=0.18 -n=100 -c=20 -steps=10
+bsub -o job_barabasi_test.log -W 8:00 -n 32 $CMD -dump=${DIR}/barabasi_test.log \
+	-type=1 -sim=1 -output=0 -testthr=1.0 -n=100 -c=20 -steps=10
+bsub -o job_barabasi_pb.log -W 8:00 -n 32 $CMD -dump=${DIR}/barabasi_pb.log \
+	-type=1 -sim=1 -output=1 -testthr=0.18 -n=100 -c=20 -steps=10
 
 # Erdos-Renyi Experiments
-bsub -W 8:00 -n 32 $CMD -dump=${DIR}/erdos_prob.log \
-	-type=1 -sim=2 -output=1 -testthr=1.0 -n=100 -c=20 -steps=10
-bsub -W 8:00 -n 32 $CMD -dump=${DIR}/erdos_test.log \
-	-type=1 -sim=2 -output=0 -testthr=0.32 -n=100 -c=20 -steps=10
+bsub -o job_erdos_test.log -W 8:00 -n 32 $CMD -dump=${DIR}/erdos_test.log \
+	-type=2 -sim=1 -output=0 -testthr=1.0 -n=100 -c=20 -steps=10
+bsub -o job_erdos_pb.log -W 8:00 -n 32 $CMD -dump=${DIR}/erdos_pb.log \
+	-type=2 -sim=1 -output=1 -testthr=0.18 -n=100 -c=20 -steps=10
