@@ -21,7 +21,7 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define GROUND_TRUTHS 50
+#define GROUND_TRUTHS 20
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -185,10 +185,11 @@ void generateSimulationStats(vector<vector<double>> *runStats,
 
   vector<GraphHypothesis> realizations;
   vector<int> identificationCount(GROUND_TRUTHS);
-  int oneSrc = rand() % network->GetNodes();
-  for (int trial = 0; trial < GROUND_TRUTHS; trial++)
+  // int oneSrc = rand() % network->GetNodes();
+  for (int trial = 0; trial < GROUND_TRUTHS; trial++) {
     realizations.push_back(GraphHypothesis::generateHypothesis(network,
-          oneSrc, config.cascadeBound, config.beta));
+          rand() % network->GetNodes(), config.cascadeBound, config.beta));
+  }
 
   for (int step = 0; step < config.steps; step++, ++config) {
     cout << endl << "Current configuration: " << config.getSimParamValue() << endl;
