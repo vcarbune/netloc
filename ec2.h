@@ -21,7 +21,7 @@
 #define DBG 1
 #define WORK_THREADS 16
 
-#define EPS 0.10
+#define EPS 0.05
 
 // Abstract classes that can be implemented in order to use runEC2.
 
