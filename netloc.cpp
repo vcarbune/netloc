@@ -148,6 +148,18 @@ void runSimulation(PUNGraph network,
       fails++;
 
     cout << endl;
+
+    // Dump the mass change of the solution cluster.
+    for (const GraphHypothesisCluster& hc : tempClusters)
+      if (hc.getSource() == realization.getSource()) {
+        const vector<double>& history = hc.getWeightHistory();
+        cout << hc.getSource() << " ";
+        for(unsigned int i = 1; i < history.size(); ++i)
+          cout << 100 * history[i] << " ";
+        cout << endl;
+        break;
+      }
+ 
     // scoreList.push_back(tempClusters[0].getWeight());
     if (config.outputType == 0) {
       scoreList.push_back(crtScore);
@@ -158,7 +170,7 @@ void runSimulation(PUNGraph network,
           break;
         }
     }
-  }
+ }
 
   scoreList.push_back(1 - (double) fails / GROUND_TRUTHS);
   runStats->push_back(scoreList);
