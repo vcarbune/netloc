@@ -1,5 +1,5 @@
 /**
- * This is an abstract implementation of EC2.
+ * This is an implementation of EC2.
  * Source: http://arxiv.org/pdf/1010.3091v1.pdf
  *
  * Author: Victor Carbune (vcarbune@ethz.ch)
