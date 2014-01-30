@@ -31,13 +31,6 @@
 using namespace std;
 
 inline void generateNetwork(PUNGraph *network, const SimConfig& config) {
-  // Keep the same underlying network if the
-  // simulation parameter is not the number of nodes.
-  if (!network->Empty()) {
-    cout << "Keeping the previously initialized network." << endl;
-    return;
-  }
-
   switch (config.networkType) {
     case 0:
       *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
