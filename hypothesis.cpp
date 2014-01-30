@@ -114,18 +114,13 @@ void GraphHypothesisCluster::generateHypothesisCluster(
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
 {
+  m_weightHystory.push_back(m_weight);
+
   m_weight = 0;
   for (GraphHypothesis& h : m_hypothesis) {
     h.weight *= (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
     m_weight += h.weight;
   }
-
-  /*
-  double oldMass = m_weight;
-  double pcnt = (oldMass - m_weight) / oldMass;
-  if (fabs(pcnt - EPS) > 1E-3)
-    cout << "Diff is " << pcnt << endl;
-  */
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(

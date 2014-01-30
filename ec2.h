@@ -18,7 +18,7 @@
 #include <thread>
 #include <utility>
 
-#define DBG 1
+#define DBG 0
 #define WORK_THREADS 16
 
 #define EPS 0.05
@@ -238,12 +238,12 @@ double runEC2(std::vector<TTest>& tests,
     for (THypothesisCluster& cluster : clusters)
       maxMass = std::max(cluster.getWeight() / mass, maxMass);
 
+    // Normalize weights and probabilities
+    for (THypothesisCluster& cluster : clusters)
+      cluster.normalizeWeight(mass);
+
     percentageTests = (double) testRunOrder.size() / totalTests;
   }
-
-  // Normalize weights and probabilities
-  for (THypothesisCluster& cluster : clusters)
-    cluster.normalizeWeight(mass);
 
   return 100 * percentageTests;
 }

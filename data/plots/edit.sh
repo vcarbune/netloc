@@ -1,4 +1,6 @@
 #!/bin/bash
 
-mousepad ${1}_pb.dat ${1}_avg_pb.dat ${1}_avgdiff_pb.dat
-mousepad ${1}_test.dat ${1}_avg_test.dat ${1}_avgdiff_test.dat
+for type in barabasi erdos forest; do
+	mousepad ${type}_pb.dat ${type}_avg_pb.dat ${type}_avgdiff_pb.dat
+	mousepad ${type}_test.dat ${type}_avg_test.dat ${type}_avgdiff_test.dat
+done
