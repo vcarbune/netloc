@@ -18,12 +18,13 @@
 #include <thread>
 #include <utility>
 
-#define DBG 0
+#define DBG 1
 #define WORK_THREADS 16
 
 #define EPS 0.05
 
 // Abstract classes that can be implemented in order to use runEC2.
+// TODO(vcarbune): Not really very useful anymore.
 
 class Test {
   public:
@@ -51,9 +52,8 @@ class HypothesisCluster {
 
 class TestCompareFunction {
   public:
-    // The lower the score of the test, the better. The score of the represents
-    // the resulted summed mass of all the clusters (in exception over all
-    // possible outcomes of the test)
+    // The lower the score of the test, the better. The score represents
+    // the resulted mass, in exceptation over test outcomes, over all clusters.
     bool operator() (const Test& p, const Test& q) const {
       return p.getScore() > q.getScore();
     }
@@ -168,12 +168,14 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
                     const THypothesis& realization,
                     bool lazyEval)
 {
+  // Select the best test at this point.
   TTest test = lazyEval ?
       lazyRescoreTests(tests, clusters) : completeRescoreTests(tests, clusters);
 
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
+  // Update mass of each cluster considering the test outcome.
   std::vector<std::thread> threads;
   for (std::size_t i = 0; i < clusters.size(); i += WORK_THREADS) {
     for (int t = 0; t < WORK_THREADS && i + t < clusters.size(); ++t)
@@ -184,6 +186,7 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
     threads.clear();
   }
 
+  // Rescale all tests with (1-EPS)^2, to make lazy greedy possible.
   for (TTest& t : tests)
     t.setScore((1-EPS) * (1-EPS) * t.getScore());
 
@@ -218,10 +221,10 @@ double runEC2(std::vector<TTest>& tests,
       tests.begin(), tests.end(), TestCompareFunction());
 
   double mass = 0.0;
-  double maxMass = 0.0;
+  double percentageMass = 0.0;
   double percentageTests = 0.0;
 
-  while (maxMass < massThreshold && percentageTests < testThreshold) {
+  while (percentageMass < massThreshold && percentageTests < testThreshold) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization, lazyEval);
     testRunOrder.push_back(t);
@@ -234,13 +237,9 @@ double runEC2(std::vector<TTest>& tests,
     for (unsigned i = 0; i < clusters.size(); ++i)
       mass += clusters[i].getMass();
 
-    maxMass = 0.0;
+    percentageMass = 0.0;
     for (THypothesisCluster& cluster : clusters)
-      maxMass = std::max(cluster.getWeight() / mass, maxMass);
-
-    // Normalize weights and probabilities
-    for (THypothesisCluster& cluster : clusters)
-      cluster.normalizeWeight(mass);
+      percentageMass = std::max(cluster.getWeight() / mass, percentageMass);
 
     percentageTests = (double) testRunOrder.size() / totalTests;
   }

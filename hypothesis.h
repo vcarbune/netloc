@@ -51,8 +51,6 @@ class GraphHypothesisCluster {
     double getWeight() const { return m_weight; }
     void normalizeWeight(double mass) { m_weight /= mass; }
 
-    const vector<double>& getWeightHistory() const { return m_weightHystory; }
-
     bool operator< (const GraphHypothesisCluster& o) const {
       return m_weight > o.m_weight;
     }
@@ -64,7 +62,6 @@ class GraphHypothesisCluster {
 
     int m_sourceId;
     double m_weight;
-    vector<double> m_weightHystory;
 
     // Counts the number of times a particular node appears in all the generated
     // hypothesis. This can be used to speed up the computation of the probability

@@ -6,61 +6,26 @@
 
 using namespace std;
 
-void plotGraphs(const PUNGraph& network, const vector<GraphTest>& tests,
-                const GraphHypothesis& realization)
-{
-  TIntStrH nodeTestLabels;
-  TIntStrH nodeInfectionLabels;
-
-  for (size_t i = 0; i < tests.size(); ++i) {
-    int id = tests[i].getNodeId();
-    nodeTestLabels.AddDat(id, TStr::Fmt("%d", i));
-  }
-
-  for (int i = 0; i < network->GetNodes(); ++i) {
-    int infTime = realization.getInfectionTime(i);
-    if (infTime != -1)
-      nodeInfectionLabels.AddDat(i, TStr::Fmt("%d", infTime));
-    else
-      nodeInfectionLabels.AddDat(i, TStr::Fmt(""));
-
-    if (!nodeTestLabels.IsKey(i))
-      nodeTestLabels.AddDat(i, TStr::Fmt(""));
-  }
-
-  // Visualize the order in which the nodes have been tested.
-  TStr FNameDemo = TStr::Fmt("graph_with_test_order.%s", "png");
-  remove(FNameDemo.CStr());
-  TSnap::DrawGViz(network, TGVizLayout(2), FNameDemo, "Tests", nodeTestLabels);
-  printf("Drawing graph '%s'\n", FNameDemo.CStr());
-
-  // Visualization true infection order.
-  FNameDemo = TStr::Fmt("graph_with_infection_order.%s", "png");
-  remove(FNameDemo.CStr());
-  TSnap::DrawGViz(network, TGVizLayout(2), FNameDemo, "Infection", nodeInfectionLabels);
-  printf("Drawing graph '%s'\n", FNameDemo.CStr());
+SimConfig& SimConfig::operator++() {
+  clusterSize *= 2;
+  return *this;
 }
 
-SimConfig getSimConfigFromEnv(int argc, char *argv[])
+SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
 {
   Env = TEnv(argc, argv, TNotify::StdNotify);
   Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
 
-  const TInt paramSimulation = Env.GetIfArgPrefixInt(
-      "-sim=", 1, "Simulation Type"
-          "(BetaVar - 0, ClusterVar - 1, CascBoundVar - 2)");
   const TInt paramNodes = Env.GetIfArgPrefixInt(
       "-n=", 500, "Network size");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
       "-c=", 500, "Cluster size");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
-      "-s=", 0.4, "True cascade size");
+      "-s=", 0.4, "Ground truth size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
       "-b=", 0.06, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
       "-steps=", 1, "Number of simulation steps.");
-  const TInt paramStartStep = Env.GetIfArgPrefixInt(
-      "-start=", 0, "Simulation step");
   const TInt paramKeepTopN = Env.GetIfArgPrefixInt(
       "-topN=", 1, "Keep topN solutions");
   const TStr dumpFile = Env.GetIfArgPrefixStr(
@@ -68,16 +33,16 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   const TBool paramLazy = Env.GetIfArgPrefixBool(
       "-lazy=", false, "Lazy evaluation");
   const TInt paramNetworkType = Env.GetIfArgPrefixInt(
-      "-type=", 0, "Network Type: ForestFire - 0, Barabasi-Albert - 1, "
-                   "Erdos-Renyi - 2");
+      "-type=", 0, "Network Type: "
+                   "ForestFire - 0, Barabasi-Albert - 1, Erdos-Renyi - 2");
   const TInt paramOutputType = Env.GetIfArgPrefixInt(
       "-output=", 0, "Output Type: Tests - 0, Probability - 1");
   const double paramTestThreshold = Env.GetIfArgPrefixFlt(
       "-testthr=", 0.25, "Tests Threshold (%)");
   const double paramMassThreshold = Env.GetIfArgPrefixFlt(
-      "-massthr=", 0.25, "Mass Threshold (%)");
+      "-massthr=", 1.00, "Mass Threshold (%)");
 
-  SimConfig config(static_cast<SimulationType>(paramSimulation.Val));
+  SimConfig config;
 
   config.nodes = paramNodes.Val;
   config.clusterSize = paramClusterSize.Val;
@@ -92,7 +57,50 @@ SimConfig getSimConfigFromEnv(int argc, char *argv[])
   config.testThreshold = paramTestThreshold;
   config.massThreshold = paramMassThreshold;
 
-  config += paramStartStep.Val;
-
   return config;
+}
+
+ostream& operator<<(ostream& os, const SimConfig& config)
+{
+  os << config.clusterSize;
+  return os;
+}
+
+void generateNetwork(PUNGraph *network, const SimConfig& config) {
+  switch (config.networkType) {
+    case 0:
+      *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
+      break;
+    case 1:
+      *network = TSnap::GenPrefAttach(config.nodes, 3);
+      break;
+    case 2:
+      *network = TSnap::GenRndGnm<PUNGraph>(
+          config.nodes, config.nodes * log(config.nodes));
+      break;
+  }
+
+  cout << "Generated network is connected: " << TSnap::GetMxWccSz(*network) << endl;
+}
+
+void generateClusters(vector<GraphHypothesisCluster> *clusters,
+                      const PUNGraph& network,
+                      const SimConfig& config)
+{
+  // Generate all possible hypothesis clusters that we want to search through.
+  clusters->clear();
+  for (int source = 0; source < network->GetNodes(); source++) {
+    clusters->push_back(GraphHypothesisCluster(
+        network, source,
+        config.clusterSize, config.beta, config.cascadeBound, 1));
+  }
+}
+
+void generateTests(vector<GraphTest> *tests,
+                   const PUNGraph& network)
+{
+  // Generate all tests that are enough to differentiate between hypothesis.
+  tests->clear();
+  for (int node = 0; node < network->GetNodes(); ++node)
+    tests->push_back(GraphTest(node));
 }
