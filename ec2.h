@@ -186,9 +186,17 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
     threads.clear();
   }
 
+  // Sum up all deltas;
+  double delta = 0.0;
+  for (const THypothesisCluster& cluster : clusters) {
+    delta += cluster.getLastDelta();
+  }
   // Rescale all tests with (1-EPS)^2, to make lazy greedy possible.
-  for (TTest& t : tests)
-    t.setScore((1-EPS) * (1-EPS) * t.getScore());
+  for (TTest& t : tests) {
+    for (const THypothesisCluster& cluster : clusters) {
+      t.setScore((1-EPS) * (1-EPS) * t.getScore());
+    }
+  }
 
   return test;
 }

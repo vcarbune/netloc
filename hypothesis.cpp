@@ -93,6 +93,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   : m_network(network)
   , m_sourceId(sourceId)
   , m_weight(weight)
+  , m_lastDelta(0)
 {
   m_nodeCount.resize(network->GetNodes());
   generateHypothesisCluster(size, beta, clusterSize);
@@ -114,11 +115,16 @@ void GraphHypothesisCluster::generateHypothesisCluster(
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
 {
-  m_weight = 0;
+  double weight = 0.0;
   for (GraphHypothesis& h : m_hypothesis) {
     h.weight *= (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
-    m_weight += h.weight;
+    weight += h.weight;
   }
+
+  if (m_weight)
+    m_lastDelta = weight - m_weight;
+
+  m_weight = weight;
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
