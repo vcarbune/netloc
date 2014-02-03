@@ -42,9 +42,9 @@ ostream& operator<<(ostream& os, const SimConfig& config);
 // Initialization
 void generateNetwork(PUNGraph *network, const SimConfig& config);
 void generateClusters(vector<GraphHypothesisCluster> *clusters,
-                      const PUNGraph& network,
+                      const PUNGraph network,
                       const SimConfig& config);
 void generateTests(vector<GraphTest> *tests,
-                  const PUNGraph& network);
+                  const PUNGraph network);
 
 #endif // UTILS_H_

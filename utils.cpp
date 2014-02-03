@@ -84,7 +84,7 @@ void generateNetwork(PUNGraph *network, const SimConfig& config) {
 }
 
 void generateClusters(vector<GraphHypothesisCluster> *clusters,
-                      const PUNGraph& network,
+                      const PUNGraph network,
                       const SimConfig& config)
 {
   // Generate all possible hypothesis clusters that we want to search through.

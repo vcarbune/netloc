@@ -83,15 +83,16 @@ inline void rescoreTest(TTest& test,
     positiveMass += mass.first;
     negativeMass += mass.second;
 
-    positiveDiagonalMass -= mass.first * mass.first;
-    negativeDiagonalMass -= mass.second * mass.second;
+    positiveDiagonalMass += mass.first * mass.first;
+    negativeDiagonalMass += mass.second * mass.second;
   }
 
   positiveMass = positiveMass * positiveMass - positiveDiagonalMass;
   negativeMass = negativeMass * negativeMass - negativeDiagonalMass;
 
   double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
-  test.setScore(testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+  test.setScore(
+      testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
 }
 
 template <class TTest, class THypothesisCluster>
@@ -108,6 +109,9 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
     std::pop_heap<typename std::vector<TTest>::iterator, TestCompareFunction>(
         tests.begin(), tests.end(), TestCompareFunction());
     tests.pop_back();
+
+    std::cout << "Top: " << crtTop.getScore() << " Next: " <<
+      tests.front().getScore() << std::endl;
 
     // Exit early if it's the last element in the heap.
     if (!tests.size())
@@ -186,17 +190,18 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
     threads.clear();
   }
 
-  // Sum up all deltas;
-  double delta = 0.0;
+  /*
+  double mass = 0.0;
+  double diagmass = 0.0;
   for (const THypothesisCluster& cluster : clusters) {
-    delta += cluster.getLastDelta();
+    mass += cluster.getWeight();
+    diagmass += cluster.getWeight() * cluster.getWeight();
   }
-  // Rescale all tests with (1-EPS)^2, to make lazy greedy possible.
-  for (TTest& t : tests) {
-    for (const THypothesisCluster& cluster : clusters) {
-      t.setScore((1-EPS) * (1-EPS) * t.getScore());
-    }
-  }
+  mass = mass * mass - diagmass;
+
+  for (TTest& t : tests)
+    t.setScore(mass + t.getScore());
+  */
 
   return test;
 }
@@ -246,8 +251,10 @@ double runEC2(std::vector<TTest>& tests,
       mass += clusters[i].getMass();
 
     percentageMass = 0.0;
-    for (THypothesisCluster& cluster : clusters)
-      percentageMass = std::max(cluster.getWeight() / mass, percentageMass);
+    for (THypothesisCluster& cluster : clusters) {
+      cluster.normalizeWeight(mass);
+      percentageMass = std::max(cluster.getWeight(), percentageMass);
+    }
 
     percentageTests = (double) testRunOrder.size() / totalTests;
   }

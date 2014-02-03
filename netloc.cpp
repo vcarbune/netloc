@@ -135,6 +135,7 @@ void startSimulations(SimConfig& config, ostream& fout)
     runSimulation(network, realizations, identificationCount, config, fout);
   }
 
+
   for (int truth = 0; truth < GROUND_TRUTHS; ++truth) {
     fout << (double) identificationCount[truth] / config.steps << " ";
   }
