@@ -21,7 +21,7 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define GROUND_TRUTHS 20
+#define GROUND_TRUTHS 5
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
@@ -73,6 +73,12 @@ void runSimulation(PUNGraph network,
     cout << "Time: " << difftime(time(NULL), startTime) << "s\t";
     cout << "Candidates: ";
 
+    double mass = 0.0;
+    for (const GraphHypothesisCluster& cluster : tempClusters)
+      mass += cluster.getWeight();
+    for (GraphHypothesisCluster& cluster : tempClusters)
+      cluster.normalizeWeight(mass / 100);
+
     sort(tempClusters.begin(), tempClusters.end());
     for (int i = 0; i < config.topN; ++i) {
       int foundSource = tempClusters[i].getSource();
@@ -81,7 +87,7 @@ void runSimulation(PUNGraph network,
         found = true;
       }
 
-      cout << tempClusters[i].getSource() << "(" <<
+      cout << foundSource << "(" <<
           TSnap::GetShortPath(network, realization.getSource(), foundSource) << " hops, " <<
           tempClusters[i].getWeight() << ")\t";
     }
@@ -96,7 +102,14 @@ void runSimulation(PUNGraph network,
       case 1:
         for (const GraphHypothesisCluster& hc : tempClusters)
           if (hc.getSource() == realization.getSource()) {
-            scoreList.push_back(100 * hc.getWeight());
+            scoreList.push_back(hc.getWeight());
+            break;
+          }
+        break;
+      case 2:
+        for (const GraphHypothesisCluster& hc : tempClusters)
+          if (hc.getSource() == realization.getSource()) {
+            scoreList.push_back(tempClusters[0].getWeight() - hc.getWeight());
             break;
           }
         break;

@@ -104,7 +104,6 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
 void GraphHypothesisCluster::generateHypothesisCluster(
     double size, double beta, int clusterSize)
 {
-  // TODO(vcarbune): threadify
   for (int h = 0; h < clusterSize; h++) {
     m_hypothesis.push_back(
         GraphHypothesis::generateHypothesis(m_network, m_sourceId, size, beta, &m_nodeCount));

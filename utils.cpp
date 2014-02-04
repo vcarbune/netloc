@@ -36,7 +36,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
       "-type=", 0, "Network Type: "
                    "ForestFire - 0, Barabasi-Albert - 1, Erdos-Renyi - 2");
   const TInt paramOutputType = Env.GetIfArgPrefixInt(
-      "-output=", 0, "Output Type: Tests - 0, Probability - 1");
+      "-output=", 0, "Output Type: Tests - 0, Probability - 1, Diff - 2");
   const double paramTestThreshold = Env.GetIfArgPrefixFlt(
       "-testthr=", 0.25, "Tests Threshold (%)");
   const double paramMassThreshold = Env.GetIfArgPrefixFlt(
@@ -97,7 +97,7 @@ void generateClusters(vector<GraphHypothesisCluster> *clusters,
 }
 
 void generateTests(vector<GraphTest> *tests,
-                   const PUNGraph& network)
+                   const PUNGraph network)
 {
   // Generate all tests that are enough to differentiate between hypothesis.
   tests->clear();

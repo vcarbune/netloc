@@ -18,7 +18,7 @@
 #include <thread>
 #include <utility>
 
-#define DBG 1
+#define DBG 0
 #define WORK_THREADS 16
 
 #define EPS 0.05
@@ -55,7 +55,7 @@ class TestCompareFunction {
     // The lower the score of the test, the better. The score represents
     // the resulted mass, in exceptation over test outcomes, over all clusters.
     bool operator() (const Test& p, const Test& q) const {
-      return p.getScore() > q.getScore();
+      return p.getScore() < q.getScore();
     }
 };
 
@@ -73,6 +73,8 @@ inline void rescoreTest(TTest& test,
   double positiveDiagonalMass = 0.0;
   double negativeMass = 0.0;
   double negativeDiagonalMass = 0.0;
+  double currentMass = 0.0;
+  double currentDiagonalMass = 0.0;
 
   for (const THypothesisCluster& cluster : clusters) {
     testConsistentHypothesis += cluster.getNodeCount(test.getNodeId());
@@ -85,14 +87,24 @@ inline void rescoreTest(TTest& test,
 
     positiveDiagonalMass += mass.first * mass.first;
     negativeDiagonalMass += mass.second * mass.second;
+
+    currentMass += cluster.getWeight();
+    currentDiagonalMass += cluster.getWeight() * cluster.getWeight();
   }
 
+  currentMass = currentMass * currentMass - currentDiagonalMass;
   positiveMass = positiveMass * positiveMass - positiveDiagonalMass;
   negativeMass = negativeMass * negativeMass - negativeDiagonalMass;
 
   double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
+  double expectedMass =
+      testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass;
+
+  test.setScore(currentMass - expectedMass);
+  /*
   test.setScore(
       testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+  */
 }
 
 template <class TTest, class THypothesisCluster>
@@ -110,8 +122,10 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
         tests.begin(), tests.end(), TestCompareFunction());
     tests.pop_back();
 
+    /*
     std::cout << "Top: " << crtTop.getScore() << " Next: " <<
       tests.front().getScore() << std::endl;
+    */
 
     // Exit early if it's the last element in the heap.
     if (!tests.size())
@@ -175,7 +189,6 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
   // Select the best test at this point.
   TTest test = lazyEval ?
       lazyRescoreTests(tests, clusters) : completeRescoreTests(tests, clusters);
-
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
@@ -190,18 +203,8 @@ TTest runOneEC2Step(std::vector<TTest>& tests,
     threads.clear();
   }
 
-  /*
-  double mass = 0.0;
-  double diagmass = 0.0;
-  for (const THypothesisCluster& cluster : clusters) {
-    mass += cluster.getWeight();
-    diagmass += cluster.getWeight() * cluster.getWeight();
-  }
-  mass = mass * mass - diagmass;
-
-  for (TTest& t : tests)
-    t.setScore(mass + t.getScore());
-  */
+  for (TTest& test : tests)
+    test.setScore((1-EPS) * (1-EPS) * test.getScore());
 
   return test;
 }
@@ -252,8 +255,8 @@ double runEC2(std::vector<TTest>& tests,
 
     percentageMass = 0.0;
     for (THypothesisCluster& cluster : clusters) {
-      cluster.normalizeWeight(mass);
-      percentageMass = std::max(cluster.getWeight(), percentageMass);
+      // cluster.normalizeWeight(mass);
+      percentageMass = std::max(cluster.getWeight() / mass, percentageMass);
     }
 
     percentageTests = (double) testRunOrder.size() / totalTests;
