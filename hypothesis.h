@@ -38,8 +38,8 @@ class GraphHypothesis {
 
 class GraphHypothesisCluster {
   public:
-    GraphHypothesisCluster(PUNGraph, int, int, double, double, double);
-
+    static GraphHypothesisCluster generateHypothesisCluster(
+        PUNGraph, int, double, double, int, int);
     void updateMassWithTest(const GraphTest&);
     pair<double, double> computeMassWithTest(const GraphTest&) const;
     double getMass() const { return m_weight; }
@@ -54,14 +54,15 @@ class GraphHypothesisCluster {
     bool operator< (const GraphHypothesisCluster& o) const {
       return m_weight > o.m_weight;
     }
+
   private:
-    void generateHypothesisCluster(double, double, int);
+    GraphHypothesisCluster(PUNGraph, int, double);
 
     PUNGraph m_network;
-    vector<GraphHypothesis> m_hypothesis;
-
     int m_sourceId;
     double m_weight;
+
+    vector<GraphHypothesis> m_hypothesis;
 
     // Counts the number of times a particular node appears in all the generated
     // hypothesis. This can be used to speed up the computation of the probability

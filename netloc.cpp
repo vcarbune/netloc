@@ -76,6 +76,7 @@ void runSimulation(PUNGraph network,
     double mass = 0.0;
     for (const GraphHypothesisCluster& cluster : tempClusters)
       mass += cluster.getWeight();
+
     for (GraphHypothesisCluster& cluster : tempClusters)
       cluster.normalizeWeight(mass / 100);
 

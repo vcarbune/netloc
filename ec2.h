@@ -52,8 +52,6 @@ class HypothesisCluster {
 
 class TestCompareFunction {
   public:
-    // The lower the score of the test, the better. The score represents
-    // the resulted mass, in exceptation over test outcomes, over all clusters.
     bool operator() (const Test& p, const Test& q) const {
       return p.getScore() < q.getScore();
     }
@@ -64,7 +62,7 @@ class TestCompareFunction {
 
 template <class TTest, class THypothesisCluster>
 inline void rescoreTest(TTest& test,
-    const std::vector<THypothesisCluster>& clusters)
+                        const std::vector<THypothesisCluster>& clusters)
 {
   int totalHypothesis = 0;
   int testConsistentHypothesis = 0;
@@ -88,8 +86,9 @@ inline void rescoreTest(TTest& test,
     positiveDiagonalMass += mass.first * mass.first;
     negativeDiagonalMass += mass.second * mass.second;
 
-    currentMass += cluster.getWeight();
-    currentDiagonalMass += cluster.getWeight() * cluster.getWeight();
+    double crtMass = cluster.getWeight();
+    currentMass += crtMass;
+    currentDiagonalMass += crtMass * crtMass;
   }
 
   currentMass = currentMass * currentMass - currentDiagonalMass;
@@ -101,10 +100,6 @@ inline void rescoreTest(TTest& test,
       testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass;
 
   test.setScore(currentMass - expectedMass);
-  /*
-  test.setScore(
-      testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
-  */
 }
 
 template <class TTest, class THypothesisCluster>
@@ -122,10 +117,10 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
         tests.begin(), tests.end(), TestCompareFunction());
     tests.pop_back();
 
-    /*
+#if DBG
     std::cout << "Top: " << crtTop.getScore() << " Next: " <<
       tests.front().getScore() << std::endl;
-    */
+#endif
 
     // Exit early if it's the last element in the heap.
     if (!tests.size())
@@ -133,6 +128,11 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
 
     // Recompute its score and keep it if it stays on top.
     rescoreTest(crtTop, clusters);
+
+#if DBG
+    std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
+#endif
+
     if (tstCmpFcn(tests.front(), crtTop)) {
 #if DBG
       std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
@@ -255,7 +255,6 @@ double runEC2(std::vector<TTest>& tests,
 
     percentageMass = 0.0;
     for (THypothesisCluster& cluster : clusters) {
-      // cluster.normalizeWeight(mass);
       percentageMass = std::max(cluster.getWeight() / mass, percentageMass);
     }
 

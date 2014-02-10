@@ -90,9 +90,9 @@ void generateClusters(vector<GraphHypothesisCluster> *clusters,
   // Generate all possible hypothesis clusters that we want to search through.
   clusters->clear();
   for (int source = 0; source < network->GetNodes(); source++) {
-    clusters->push_back(GraphHypothesisCluster(
-        network, source,
-        config.clusterSize, config.beta, config.cascadeBound, 1));
+    clusters->push_back(GraphHypothesisCluster::generateHypothesisCluster(
+        network, source, 1,
+        config.beta, config.cascadeBound, config.clusterSize));
   }
 }
 

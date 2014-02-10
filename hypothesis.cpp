@@ -86,29 +86,29 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
 
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
                                                int sourceId,
-                                               int clusterSize,
-                                               double beta,
-                                               double size,
                                                double weight)
   : m_network(network)
   , m_sourceId(sourceId)
   , m_weight(weight)
 {
   m_nodeCount.resize(network->GetNodes());
-  generateHypothesisCluster(size, beta, clusterSize);
 }
 
 /**
  * Internal generator for all the hypothesis in the cluster.
  */
-void GraphHypothesisCluster::generateHypothesisCluster(
-    double size, double beta, int clusterSize)
+GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
+    PUNGraph network, int source, double weight,
+    double beta, int size, int clusterSize)
 {
+  GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < clusterSize; h++) {
-    m_hypothesis.push_back(
-        GraphHypothesis::generateHypothesis(m_network, m_sourceId, size, beta, &m_nodeCount));
-    m_hypothesis[h].weight = m_weight / clusterSize;
+    cluster.m_hypothesis.push_back(
+        GraphHypothesis::generateHypothesis(network, source, size, beta,
+          &cluster.m_nodeCount));
+    cluster.m_hypothesis[h].weight = cluster.m_weight / clusterSize;
   }
+  return cluster;
 }
 
 void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
