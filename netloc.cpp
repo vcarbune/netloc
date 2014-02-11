@@ -21,7 +21,7 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define GROUND_TRUTHS 5
+#define GROUND_TRUTHS 20
 
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.

@@ -78,7 +78,6 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
       }
     }
   }
-
   return GraphHypothesis(sourceId, infectionTime);
 }
 
