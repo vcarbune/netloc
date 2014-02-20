@@ -74,7 +74,7 @@ inline void rescoreTestVoI(TTest& test,
   }
 
   double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
-  double score = 0.0;//std::numeric_limits<double>::min();
+  double score = 0.0;
   for (const THypothesisCluster& cluster : clusters) {
     std::pair<double, double> mass = cluster.computeMassWithTest(test);
     double cMass = testPositivePb * mass.first +
