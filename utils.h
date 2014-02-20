@@ -33,6 +33,11 @@ class SimConfig {
     double testThreshold; // stop ec2 after a percentage of tests have run.
     double massThreshold; // stop ec2 if there's a cluster with more mass.
 
+    TStr netinFile;
+    TStr netoutFile;
+
+    int objType;
+
   private:
     SimConfig() {};
 };

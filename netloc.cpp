@@ -65,7 +65,7 @@ void runSimulation(PUNGraph network,
     time_t startTime = time(NULL);
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
         tempTests, tempClusters, realization, config.lazy,
-        config.massThreshold, config.testThreshold);
+        config.massThreshold, config.testThreshold, config.objType);
 
     bool found = false;
     cout << "Correct: " << realization.getSource() << "\t";

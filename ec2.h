@@ -23,6 +23,9 @@
 
 #define EPS 0.05
 
+#undef min
+#undef max
+
 // Abstract classes that can be implemented in order to use runEC2.
 // TODO(vcarbune): Not really very useful anymore.
 
@@ -58,11 +61,56 @@ class TestCompareFunction {
 };
 
 
-// Actual EC2 template implementation.
+template <class TTest, class THypothesisCluster>
+inline void rescoreTestVoI(TTest& test,
+                           const std::vector<THypothesisCluster>& clusters)
+{
+  double testConsistentHypothesis = 0.0;
+  int totalHypothesis = 0;
+
+  for (const THypothesisCluster& cluster : clusters) {
+    testConsistentHypothesis += cluster.getNodeCount(test.getNodeId());
+    totalHypothesis += cluster.getTotalHypothesis();
+  }
+
+  double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
+  double score = 0.0;//std::numeric_limits<double>::min();
+  for (const THypothesisCluster& cluster : clusters) {
+    std::pair<double, double> mass = cluster.computeMassWithTest(test);
+    double cMass = testPositivePb * mass.first +
+        (1 - testPositivePb) * mass.second;
+    score = std::max(cMass, score);
+  }
+  test.setScore(score);
+}
 
 template <class TTest, class THypothesisCluster>
-inline void rescoreTest(TTest& test,
-                        const std::vector<THypothesisCluster>& clusters)
+inline void rescoreTestGBS(TTest& test,
+                           const std::vector<THypothesisCluster>& clusters)
+{
+  double testConsistentHypothesis = 0.0;
+  int totalHypothesis = 0;
+
+  for (const THypothesisCluster& cluster : clusters) {
+    testConsistentHypothesis += cluster.getNodeCount(test.getNodeId());
+    totalHypothesis += cluster.getTotalHypothesis();
+  }
+
+  double totalMass = 0.0;
+  double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
+  for (const THypothesisCluster& cluster : clusters) {
+    std::pair<double, double> mass = cluster.computeMassWithTest(test);
+    double cMass = testPositivePb * mass.first +
+        (1 - testPositivePb) * mass.second;
+    totalMass += cMass;
+  }
+
+  test.setScore(-totalMass);
+}
+
+template <class TTest, class THypothesisCluster>
+inline void rescoreTestEC2(TTest& test,
+                           const std::vector<THypothesisCluster>& clusters)
 {
   int totalHypothesis = 0;
   int testConsistentHypothesis = 0;
@@ -103,8 +151,25 @@ inline void rescoreTest(TTest& test,
 }
 
 template <class TTest, class THypothesisCluster>
+inline void rescoreTest(TTest& test,
+                        const std::vector<THypothesisCluster>& clusters,
+                        const int objType)
+{
+  switch(objType) {
+    case 1:
+      return rescoreTestGBS(test, clusters);
+    case 2:
+      return rescoreTestVoI(test, clusters);
+    default:
+      return rescoreTestEC2(test, clusters);
+  }
+}
+
+
+template <class TTest, class THypothesisCluster>
 TTest lazyRescoreTests(std::vector<TTest>& tests,
-                       const std::vector<THypothesisCluster>& clusters)
+                       const std::vector<THypothesisCluster>& clusters,
+                       const int objType)
 {
   TestCompareFunction tstCmpFcn;
 #if DBG
@@ -127,7 +192,7 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
       return crtTop;
 
     // Recompute its score and keep it if it stays on top.
-    rescoreTest(crtTop, clusters);
+    rescoreTest(crtTop, clusters, objType);
 
 #if DBG
     std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
@@ -155,7 +220,8 @@ TTest lazyRescoreTests(std::vector<TTest>& tests,
 
 template <class TTest, class THypothesisCluster>
 TTest completeRescoreTests(std::vector<TTest>& tests,
-                   const std::vector<THypothesisCluster>& clusters)
+                           const std::vector<THypothesisCluster>& clusters,
+                           const int objType)
 {
   TestCompareFunction tstCmpFcn;
 
@@ -164,7 +230,7 @@ TTest completeRescoreTests(std::vector<TTest>& tests,
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
     for (int t = 0; t < WORK_THREADS && test + t < tests.size(); ++t)
       threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
-          std::ref(tests[test + t]), std::ref(clusters)));
+          std::ref(tests[test + t]), std::ref(clusters), objType));
     for (std::thread& t : threads)
       t.join();
     threads.clear();
@@ -184,11 +250,12 @@ template <class TTest, class THypothesisCluster, class THypothesis>
 TTest runOneEC2Step(std::vector<TTest>& tests,
                     std::vector<THypothesisCluster>& clusters,
                     const THypothesis& realization,
-                    bool lazyEval)
+                    bool lazyEval,
+                    const int objType)
 {
   // Select the best test at this point.
-  TTest test = lazyEval ?
-      lazyRescoreTests(tests, clusters) : completeRescoreTests(tests, clusters);
+  TTest test = lazyEval ? lazyRescoreTests(tests, clusters, objType) :
+      completeRescoreTests(tests, clusters, objType);
   test.setOutcome(realization.getTestOutcome(test));
   test.setInfectionTime(realization.getInfectionTime(test.getNodeId()));
 
@@ -215,7 +282,8 @@ double runEC2(std::vector<TTest>& tests,
               const THypothesis& realization,
               bool lazyEval,
               const double massThreshold,
-              const double testThreshold)
+              const double testThreshold,
+              const int objType)
 {
   typename std::vector<TTest>::iterator it;
   std::vector<TTest> testRunOrder;
@@ -227,7 +295,7 @@ double runEC2(std::vector<TTest>& tests,
   for (size_t test = 0; test < tests.size(); test += WORK_THREADS) {
     for (int t = 0; t < WORK_THREADS && test + t < tests.size(); ++t)
       threads.push_back(std::thread(rescoreTest<TTest, THypothesisCluster>,
-            std::ref(tests[test + t]), std::ref(clusters)));
+            std::ref(tests[test + t]), std::ref(clusters), objType));
     for (std::thread& t : threads)
       t.join();
     threads.clear();
@@ -242,7 +310,7 @@ double runEC2(std::vector<TTest>& tests,
 
   while (percentageMass < massThreshold && percentageTests < testThreshold) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
-        tests, clusters, realization, lazyEval);
+        tests, clusters, realization, lazyEval, objType);
     testRunOrder.push_back(t);
 
 #if DBG
