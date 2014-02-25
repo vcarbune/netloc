@@ -90,7 +90,7 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_sourceId(sourceId)
   , m_weight(weight)
 {
-  m_nodeCount.resize(network->GetNodes());
+  m_nodeCount.resize(network->GetNodes(), 0);
 }
 
 /**
@@ -104,7 +104,7 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
   for (int h = 0; h < clusterSize; h++) {
     cluster.m_hypothesis.push_back(
         GraphHypothesis::generateHypothesis(network, source, size, beta,
-          &cluster.m_nodeCount));
+            &cluster.m_nodeCount));
     cluster.m_hypothesis[h].weight = cluster.m_weight / clusterSize;
   }
   return cluster;
