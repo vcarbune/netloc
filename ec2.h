@@ -18,7 +18,7 @@
 #include <thread>
 #include <utility>
 
-#define DBG 0
+#define DBG 1
 #define WORK_THREADS 16
 
 #define EPS 0.05
@@ -74,7 +74,7 @@ inline void rescoreTestVoI(TTest& test,
   }
 
   double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
-  double score = 0.0;//std::numeric_limits<double>::min();
+  double score = 0.0;
   for (const THypothesisCluster& cluster : clusters) {
     std::pair<double, double> mass = cluster.computeMassWithTest(test);
     double cMass = testPositivePb * mass.first +
@@ -147,6 +147,7 @@ inline void rescoreTestEC2(TTest& test,
   double expectedMass =
       testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass;
 
+  std::cout << totalHypothesis << std::endl;
   test.setScore(currentMass - expectedMass);
 }
 

@@ -14,7 +14,8 @@ SimConfig& SimConfig::operator++() {
 SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
 {
   Env = TEnv(argc, argv, TNotify::StdNotify);
-  Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s", __TIME__, __DATE__, TExeTm::GetCurTm()));
+  Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s",
+        __TIME__, __DATE__, TExeTm::GetCurTm()), 1, true);
 
   const TInt paramNodes = Env.GetIfArgPrefixInt(
       "-n=", 500, "Network size");
@@ -75,11 +76,12 @@ ostream& operator<<(ostream& os, const SimConfig& config)
   return os;
 }
 
-void generateNetwork(PUNGraph *network, const SimConfig& config) {
-      // { TFOut FOut("test.graph"); G->Save(FOut); }
+void generateNetwork(PUNGraph *network, SimConfig& config) {
   if (!config.netinFile.Empty()) {
     { TFIn FIn(config.netinFile); *network = TUNGraph::Load(FIn); }
-    cout << "Loaded network from file..." << endl;
+    config.nodes = (*network)->GetNodes();
+    cout << "Loaded network (N=" << config.nodes <<
+        ") from file..." << endl;
     return;
   }
   switch (config.networkType) {
