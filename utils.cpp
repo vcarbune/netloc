@@ -49,6 +49,9 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", 0, "Objective Type: "
                   "EC2 - 0, GBS - 1, VoI - 2");
+  const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
+      "-truths=", 20, "The total number of ground truths");
+
   SimConfig config;
 
   config.nodes = paramNodes.Val;
@@ -66,6 +69,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   config.netinFile = networkInFile;
   config.netoutFile = networkOutFile;
   config.objType = paramObjType;
+  config.groundTruths = paramGroundTruths;
 
   return config;
 }

@@ -6,84 +6,59 @@
 #undef max
 #undef min
 
+#define POSITIVE_SUM      0
+#define POSITIVE_DIAG_SUM 1
+#define NEGATIVE_SUM      2
+#define NEGATIVE_DIAG_SUM 3
+#define CONS_HYPO_SUM     4
+
+#define EC2_SUMS 5
+
 void startMaster(PUNGraph network, SimConfig config)
 {
-  // Gather message from workers.
-  MPI::Status status;
-  for (int worker = 1; worker < config.mpi.nodes; worker++) {
-    int msg;
-    MPI::COMM_WORLD.Recv(&msg, 1, MPI::INT, worker, 0, status);
-    cout << "Received from " << worker << ": " << msg << endl;
-  }
-
   time_t startTime = time(NULL);
 
-  GraphHypothesis realization = GraphHypothesis::generateHypothesis(network,
-          rand() % network->GetNodes(), config.cascadeBound, config.beta);
+  vector<GraphHypothesis> realizations;
+  for (int truth = 0; truth < config.groundTruths; ++truth) {
+    int sourceNode = rand() % network->GetNodes();
+    realizations.push_back(GraphHypothesis::generateHypothesis(
+          network, sourceNode, config.cascadeBound, config.beta));
+  }
 
-  bool testNodeWasRun[config.nodes];
+  bool testWasUsed[config.nodes];
   for (int i = 0; i < config.nodes; ++i)
-    testNodeWasRun[i] = false;
+    testWasUsed[i] = false;
 
   // Final masses, summed from what was received from each node.
-  double positiveMassDiagonal[config.nodes],
-         tempPositiveMassDiagonal[config.nodes];
-  double positiveMass[config.nodes],
-         tempPositiveMass[config.nodes];
-  double negativeMassDiagonal[config.nodes],
-         tempNegativeMassDiagonal[config.nodes];
-  double negativeMass[config.nodes],
-         tempNegativeMass[config.nodes];
-  int testConsistentHypothesis[config.nodes],
-      tempTestConsistentHypothesis[config.nodes];
-  double currentMassDiagonal = 0.0;
-  double tempCurrentMassDiagonal = 0.0;
-  double currentMass = 0.0;
-  double tempCurrentMass = 0.0;
-  double finalScores[config.nodes];
+  double buffer[config.nodes];
+  double sums[config.nodes][EC2_SUMS];
+  double crtSum[2];
+
+  MPI::Status status;
 
   // Request scores for each of the tests.
   int totalTests = config.testThreshold * config.nodes;
-  // MPI::COMM_WORLD.Bcast(&totalTests, 1, MPI::INT, MPI_MASTER);
   for (int count = 0; count < totalTests; ++count) {
-    currentMass = 0.0;
-    currentMassDiagonal = 0.0;
-
-    // Reset total scores to zero
-    for (int test = 0; test < config.nodes; ++test) {
-      positiveMassDiagonal[test] = 0.0;
-      positiveMass[test] = 0.0;
-      negativeMassDiagonal[test] = 0.0;
-      negativeMass[test] = 0.0;
-      testConsistentHypothesis[test] = 0;
-    }
+    for (int test = 0; test < config.nodes; ++test)
+      for (int s = 0; s < EC2_SUMS; ++s)
+        sums[test][s] = 0.0;
 
     // Get from workers positive & negative mass of tests still in the loop.
     for (int worker = 1; worker < config.mpi.nodes; worker++) {
-      MPI::COMM_WORLD.Recv(&tempPositiveMassDiagonal, config.nodes, MPI::DOUBLE, worker, 0, status);
-      MPI::COMM_WORLD.Recv(&tempPositiveMass, config.nodes, MPI::DOUBLE, worker, 0, status);
-      MPI::COMM_WORLD.Recv(&tempNegativeMassDiagonal, config.nodes, MPI::DOUBLE, worker, 0, status);
-      MPI::COMM_WORLD.Recv(&tempNegativeMass, config.nodes, MPI::DOUBLE, worker, 0, status);
-      MPI::COMM_WORLD.Recv(&tempCurrentMassDiagonal, 1, MPI::DOUBLE, worker, 0, status);
-      MPI::COMM_WORLD.Recv(&tempCurrentMass, 1, MPI::DOUBLE, worker, 0, status);
-      MPI::COMM_WORLD.Recv(&tempTestConsistentHypothesis, config.nodes, MPI::INT, worker, 0, status);
-
-      currentMassDiagonal += tempCurrentMassDiagonal;
-      currentMass += tempCurrentMass;
-
-      for (int test = 0; test < config.nodes; ++test) {
-        if (testNodeWasRun[test])
-          continue;
-
-        positiveMassDiagonal[test] += tempPositiveMassDiagonal[test];
-        positiveMass[test] += tempPositiveMass[test];
-        negativeMassDiagonal[test] += tempNegativeMassDiagonal[test];
-        negativeMass[test] += tempNegativeMass[test];
-        testConsistentHypothesis[test] += tempTestConsistentHypothesis[test];
+      for (int s = 0; s < EC2_SUMS; ++s) {
+        MPI::COMM_WORLD.Recv(buffer, config.nodes, MPI::DOUBLE, worker, 0, status);
+        for (int test = 0; test < config.nodes; ++test)
+          sums[test][s] += buffer[test];
       }
-   }
+    }
 
-    double currentWeight = currentMass * currentMass - currentMassDiagonal;
+    // Compute current mass of all the clusters.
+    double currentWeight = 0.0;
+    MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[0], 1,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[1], 1,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
 
     // Compute the aggregated score of the tests and select the lowest one.
     double maxTestScore = numeric_limits<double>::min();
@@ -91,36 +66,34 @@ void startMaster(PUNGraph network, SimConfig config)
 
     int totalHypothesis = config.nodes * config.clusterSize;
     for (int test = 0; test < config.nodes; ++test) {
-      if (testNodeWasRun[test])
+      if (testWasUsed[test])
         continue;
 
-      positiveMass[test] = positiveMass[test] * positiveMass[test] -
-          positiveMassDiagonal[test];
-      negativeMass[test] = negativeMass[test] * negativeMass[test] -
-          negativeMassDiagonal[test];
-
+      double positiveMass = sums[test][POSITIVE_SUM] * sums[test][POSITIVE_SUM] -
+          sums[test][POSITIVE_DIAG_SUM];
+      double negativeMass = sums[test][NEGATIVE_SUM] * sums[test][NEGATIVE_SUM] -
+          sums[test][NEGATIVE_DIAG_SUM];
       double testPositivePb =
-          (double) testConsistentHypothesis[test] / totalHypothesis;
+          (double) sums[test][CONS_HYPO_SUM] / totalHypothesis;
 
-      finalScores[test] = testPositivePb * positiveMass[test] +
-          (1 - testPositivePb) * negativeMass[test];
-      finalScores[test] = currentWeight - finalScores[test];
+      double score = currentWeight -
+          (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
 
       // Select the test with maximum score (that is, maximum between
       // current mass and the expected mass after the test is run).
-      if (finalScores[test] > maxTestScore || maxTestNode < 0) {
-        maxTestScore = finalScores[test];
+      if (score > maxTestScore) {
+        maxTestScore = score;
         maxTestNode = test;
       }
     }
 
     cout << count << ". " << maxTestNode << " - " << maxTestScore << endl;
-    testNodeWasRun[maxTestNode] = true;
+    testWasUsed[maxTestNode] = true;
 
     // Broadcast the selected test to all the workers.
     GraphTest test(maxTestNode);
-    bool outcome = realization.getTestOutcome(test);
-    int infection = realization.getInfectionTime(maxTestNode);
+    bool outcome = realizations[0].getTestOutcome(test);
+    int infection = realizations[0].getInfectionTime(maxTestNode);
 
     MPI::COMM_WORLD.Bcast(&maxTestNode, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
@@ -150,7 +123,7 @@ void startMaster(PUNGraph network, SimConfig config)
   }
   maxPb /= currentMass;
 
-  cout << "True source: " << realization.getSource() << endl;
+  cout << "True source: " << realizations[0].getSource() << endl;
   cout << "Found source: " << source << "(" << maxPb << ")" << endl;
   cout << "Time: " << difftime(time(NULL), startTime) << "s" << endl;
 }
