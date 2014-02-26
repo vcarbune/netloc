@@ -51,6 +51,8 @@ class GraphHypothesisCluster {
     double getWeight() const { return m_weight; }
     void normalizeWeight(double mass) { m_weight /= mass; }
 
+    void resetWeight(double);
+
     bool operator< (const GraphHypothesisCluster& o) const {
       return m_weight > o.m_weight;
     }
