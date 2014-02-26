@@ -69,7 +69,7 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
   return pair<int, double>(maxTestNode, maxTestScore);
 }
 
-pair<int, double> identifyCluster(const SimConfig& config)
+pair<int, pair<double, double>> identifyCluster(int realSource, const SimConfig& config)
 {
   // Gather information from all processes.
   int sourceNodes[config.mpi.nodes];
@@ -87,11 +87,21 @@ pair<int, double> identifyCluster(const SimConfig& config)
     if (maxMass[maxIndex] < maxMass[i])
       maxIndex = i;
 
-  return pair<int, double>(sourceNodes[maxIndex], maxMass[maxIndex] / mass);
+  MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
+
+  double realSourceMass;
+  MPI::Status status;
+  MPI::COMM_WORLD.Recv(&realSourceMass, config.nodes, MPI::DOUBLE, MPI::ANY_SOURCE, 1, status);
+
+  pair<int, pair<double, double>> result;
+  result.first = sourceNodes[maxIndex];           // identified solution
+  result.second.first = maxMass[maxIndex] / mass; // confidence
+  result.second.second = result.second.first - realSourceMass / mass;
+  return result;
 }
 
-vector<int> simulate(const GraphHypothesis& realization,
-    const SimConfig& config)
+pair<int, pair<double, double>> simulate(
+    const GraphHypothesis& realization, const SimConfig& config)
 {
   bool testWasUsed[config.nodes];
   for (int i = 0; i < config.nodes; ++i)
@@ -116,12 +126,15 @@ vector<int> simulate(const GraphHypothesis& realization,
   }
 
   // Identify the cluster where the mass is concentrated.
-  pair<int, double> cluster = identifyCluster(config);
+  pair<int, pair<double, double>> solution =
+      identifyCluster(realization.getSource(), config);
 
-  cout << "True source: " << realization.getSource() << endl;
-  cout << "Found source: " << cluster.first << "(" << cluster.second << ")" << endl;
+  cout << "Expected: " << realization.getSource() << endl;
+  cout << "Found: " << solution.first << "(" <<
+      solution.second.first << ", " << solution.second.second <<
+      ")" << endl;
 
-  return vector<int>();
+  return solution;
 }
 
 void startMaster(PUNGraph network, SimConfig config)
@@ -130,7 +143,7 @@ void startMaster(PUNGraph network, SimConfig config)
   for (int truth = 0; truth < config.groundTruths; ++truth) {
     GraphHypothesis realization = GraphHypothesis::generateHypothesis(
         network, rand() % network->GetNodes(), config.cascadeBound, config.beta);
-    vector<int> result = simulate(realization, config);
+    pair<int, pair<double, double>> result = simulate(realization, config);
   }
   cout << "Time: " << difftime(time(NULL), startTime) << "s" << endl;
 }

@@ -101,10 +101,8 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
     }
   }
   MPI::COMM_WORLD.Reduce(&totalMass, NULL, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE,
-      NULL, 1, MPI::DOUBLE, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT,
-      NULL, 1, MPI::INT, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
 }
 
 void startWorker(PUNGraph network, SimConfig config)
@@ -126,6 +124,16 @@ void startWorker(PUNGraph network, SimConfig config)
   for (int truth = 0; truth < config.groundTruths; ++truth) {
     for (GraphHypothesisCluster& cluster : clusters)
       cluster.resetWeight(1);
+
     simulate(clusters, config);
+
+    int realSource;
+    MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
+    if (realSource >= startNode && realSource < endNode) {
+      double realSourceMass = clusters[realSource - startNode].getWeight();
+      if (clusters[realSource - startNode].getSource() != realSource)
+        cout << "!!ERROR!!" << endl;
+      MPI::COMM_WORLD.Send(&realSourceMass, 1, MPI::DOUBLE, MPI_MASTER, 1);
+    }
   }
 }
