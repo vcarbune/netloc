@@ -45,6 +45,7 @@ class SimConfig {
     TStr netoutFile;
 
     int objType;
+    int groundTruths;
 
     MPIConfig mpi;
 

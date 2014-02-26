@@ -147,7 +147,6 @@ inline void rescoreTestEC2(TTest& test,
   double expectedMass =
       testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass;
 
-  std::cout << totalHypothesis << std::endl;
   test.setScore(currentMass - expectedMass);
 }
 

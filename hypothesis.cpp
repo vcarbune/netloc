@@ -132,3 +132,12 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   }
   return pair<double, double>(positiveMass, negativeMass);
 }
+
+void GraphHypothesisCluster::resetWeight(double weight)
+{
+  m_weight = weight;
+  double hWeight = weight / m_hypothesis.size();
+  for (size_t i = 0; i < m_hypothesis.size(); ++i) {
+    m_hypothesis[i].weight = hWeight;
+  }
+}

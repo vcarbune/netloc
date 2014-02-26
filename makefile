@@ -1,7 +1,7 @@
 # Basic makefile build on top of snap
 include makefile.config
 
-TARGETS=netloc_mpi
+TARGETS=netloc_mpi netloc
 
 all: $(TARGETS)
 
