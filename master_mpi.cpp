@@ -16,6 +16,8 @@ void startMaster(PUNGraph network, SimConfig config)
     cout << "Received from " << worker << ": " << msg << endl;
   }
 
+  time_t startTime = time(NULL);
+
   GraphHypothesis realization = GraphHypothesis::generateHypothesis(network,
           rand() % network->GetNodes(), config.cascadeBound, config.beta);
 
@@ -42,7 +44,7 @@ void startMaster(PUNGraph network, SimConfig config)
 
   // Request scores for each of the tests.
   int totalTests = config.testThreshold * config.nodes;
-  MPI::COMM_WORLD.Bcast(&totalTests, 1, MPI::INT, MPI_MASTER);
+  // MPI::COMM_WORLD.Bcast(&totalTests, 1, MPI::INT, MPI_MASTER);
   for (int count = 0; count < totalTests; ++count) {
     currentMass = 0.0;
     currentMassDiagonal = 0.0;
@@ -81,7 +83,7 @@ void startMaster(PUNGraph network, SimConfig config)
       }
    }
 
-    currentMass = currentMass * currentMass - currentMassDiagonal;
+    double currentWeight = currentMass * currentMass - currentMassDiagonal;
 
     // Compute the aggregated score of the tests and select the lowest one.
     double maxTestScore = numeric_limits<double>::min();
@@ -102,11 +104,11 @@ void startMaster(PUNGraph network, SimConfig config)
 
       finalScores[test] = testPositivePb * positiveMass[test] +
           (1 - testPositivePb) * negativeMass[test];
-      finalScores[test] = currentMass - finalScores[test];
+      finalScores[test] = currentWeight - finalScores[test];
 
-      // Select the test with maximum score (that is, maximum different between
+      // Select the test with maximum score (that is, maximum between
       // current mass and the expected mass after the test is run).
-      if (finalScores[test] > maxTestScore) {
+      if (finalScores[test] > maxTestScore || maxTestNode < 0) {
         maxTestScore = finalScores[test];
         maxTestNode = test;
       }
@@ -124,4 +126,31 @@ void startMaster(PUNGraph network, SimConfig config)
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
   }
+
+  // Gather information from all processes.
+  double maxClusterMass[config.mpi.nodes];
+  double totalMass[config.mpi.nodes];
+  int sourceNodes[config.mpi.nodes];
+  MPI::COMM_WORLD.Gather(&totalMass, 1, MPI::DOUBLE,
+      &totalMass, 1, MPI::DOUBLE, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&maxClusterMass, 1, MPI::DOUBLE,
+      &maxClusterMass, 1, MPI::DOUBLE, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&sourceNodes, 1, MPI::INT,
+      &sourceNodes, 1, MPI::INT, MPI_MASTER);
+
+  currentMass = 0.0;
+  double maxPb = numeric_limits<double>::min();
+  int source = -1;
+  for (int i = 1; i < config.mpi.nodes; ++i) {
+    currentMass += totalMass[i];
+    if (maxPb < maxClusterMass[i]) {
+      maxPb = maxClusterMass[i];
+      source = sourceNodes[i];
+    }
+  }
+  maxPb /= currentMass;
+
+  cout << "True source: " << realization.getSource() << endl;
+  cout << "Found source: " << source << "(" << maxPb << ")" << endl;
+  cout << "Time: " << difftime(time(NULL), startTime) << "s" << endl;
 }
