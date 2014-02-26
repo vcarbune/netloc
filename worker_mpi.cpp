@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+#undef max
+#undef min
+
 void startWorker(PUNGraph network, SimConfig config)
 {
   // Send message to master.
@@ -22,8 +25,6 @@ void startWorker(PUNGraph network, SimConfig config)
           network, source, 1, config.beta, config.cascadeBound,
           config.clusterSize));
 
-  cout << config.mpi.rank << ": " <<  startNode << " -> " << endNode << endl;
-
   bool testNodeWasRun[config.nodes];
   for (int i = 0; i < network->GetNodes(); ++i)
     testNodeWasRun[i] = false;
@@ -36,8 +37,8 @@ void startWorker(PUNGraph network, SimConfig config)
   double currentMass;
   int testConsistentHypothesis[config.nodes];
 
-  int totalTests;
-  MPI::COMM_WORLD.Bcast(&totalTests, 1, MPI::INT, MPI_MASTER);
+  int totalTests = config.testThreshold * config.nodes;
+  // MPI::COMM_WORLD.Bcast(&totalTests, 1, MPI::INT, MPI_MASTER);
   for (int count = 0; count < totalTests; ++count) {
     // Compute the positive & negative mass for the remaining testNodes.
 
@@ -47,8 +48,6 @@ void startWorker(PUNGraph network, SimConfig config)
       positiveMass[testNode] = 0.0;
       negativeMassDiagonal[testNode] = 0.0;
       negativeMass[testNode] = 0.0;
-      currentMassDiagonal = 0.0;
-      currentMass = 0.0;
       testConsistentHypothesis[testNode] = 0;
 
       if (testNodeWasRun[testNode])
@@ -64,11 +63,17 @@ void startWorker(PUNGraph network, SimConfig config)
         positiveMassDiagonal[testNode] += mass.first * mass.first;
         negativeMassDiagonal[testNode] += mass.second * mass.second;
 
-        double crtWeight = cluster.getWeight();
-        currentMass += crtWeight;
-        currentMassDiagonal += crtWeight * crtWeight;
         testConsistentHypothesis[testNode] += cluster.getNodeCount(testNode);
       }
+    }
+
+    currentMassDiagonal = 0.0;
+    currentMass = 0.0;
+
+    for (const GraphHypothesisCluster& cluster : clusters) {
+      double crtWeight = cluster.getWeight();
+      currentMass += crtWeight;
+      currentMassDiagonal += crtWeight * crtWeight;
     }
 
     // Send to the master node the computed masses.
@@ -86,9 +91,6 @@ void startWorker(PUNGraph network, SimConfig config)
     int infectionTime;
 
     MPI::COMM_WORLD.Bcast(&selectedNode, 1, MPI::INT, MPI_MASTER);
-    if (selectedNode > config.nodes)
-      return;
-
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infectionTime, 1, MPI::INT, MPI_MASTER);
 
@@ -102,4 +104,24 @@ void startWorker(PUNGraph network, SimConfig config)
     for (GraphHypothesisCluster& cluster : clusters)
       cluster.updateMassWithTest(test);
   }
+
+  // Identify the cluster with the highest mass and send it back
+  // to the master process to identify the highest one.
+  double maxMass = numeric_limits<double>::min();
+  double totalMass = 0.0;
+  int sourceNode = -1;
+
+  for (const GraphHypothesisCluster& cluster : clusters) {
+    totalMass += cluster.getMass();
+    if (cluster.getMass() > maxMass) {
+      maxMass = cluster.getMass();
+      sourceNode = cluster.getSource();
+    }
+  }
+  MPI::COMM_WORLD.Gather(&totalMass, 1, MPI::DOUBLE,
+      NULL, 1, MPI::DOUBLE, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE,
+      NULL, 1, MPI::DOUBLE, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT,
+      NULL, 1, MPI::INT, MPI_MASTER);
 }
