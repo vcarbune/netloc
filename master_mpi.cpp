@@ -1,10 +1,15 @@
 #include "master_mpi.h"
 
-#include <iostream>
-#include <limits>
-
+// SNAP redefines max and min!
 #undef max
 #undef min
+
+#include <cmath>
+#include <iostream>
+#include <iomanip>
+#include <limits>
+#include <fstream>
+#include <utility>
 
 #define POSITIVE_SUM      0
 #define POSITIVE_DIAG_SUM 1
@@ -94,14 +99,16 @@ pair<int, pair<double, double>> identifyCluster(int realSource, const SimConfig&
   MPI::COMM_WORLD.Recv(&realSourceMass, config.nodes, MPI::DOUBLE, MPI::ANY_SOURCE, 1, status);
 
   pair<int, pair<double, double>> result;
-  result.first = sourceNodes[maxIndex];           // identified solution
-  result.second.first = maxMass[maxIndex] / mass; // confidence
-  result.second.second = result.second.first - realSourceMass / mass;
+  result.first = sourceNodes[maxIndex];         // identified solution
+  result.second.first = 100 * realSourceMass / mass;  // solution confidence
+  result.second.second = 100 * maxMass[maxIndex] / mass - result.second.first;
+
   return result;
 }
 
 pair<int, pair<double, double>> simulate(
-    const GraphHypothesis& realization, const SimConfig& config)
+    const GraphHypothesis& realization,
+    const SimConfig& config)
 {
   bool testWasUsed[config.nodes];
   for (int i = 0; i < config.nodes; ++i)
@@ -112,7 +119,9 @@ pair<int, pair<double, double>> simulate(
   for (int count = 0; count < totalTests; ++count) {
     pair<int, double> nextTest = selectNextTest(testWasUsed, config);
 
+#if DBG
     cout << count << ". " << nextTest.first << " " << nextTest.second << endl;
+#endif
     testWasUsed[nextTest.first] = true;
 
     // Inform the workers about the selected test.
@@ -129,21 +138,86 @@ pair<int, pair<double, double>> simulate(
   pair<int, pair<double, double>> solution =
       identifyCluster(realization.getSource(), config);
 
-  cout << "Expected: " << realization.getSource() << endl;
-  cout << "Found: " << solution.first << "(" <<
-      solution.second.first << ", " << solution.second.second <<
-      ")" << endl;
-
   return solution;
+}
+
+void processResults(vector<pair<int, pair<double, double>>> *results,
+    SimConfig& initialConfig)
+{
+  ofstream dumpStream;
+  dumpStream.open(initialConfig.logfile.CStr());
+  dumpStream << fixed << std::setprecision(3);
+
+  for (int step = 0; step < initialConfig.steps; ++step, ++initialConfig) {
+    double averageMassBuffer = 0.0;
+    double averageDiffBuffer = 0.0;
+    double identificationCount = 0.0;
+
+    // Compute averages and identification count.
+    for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
+      averageMassBuffer += results[step][truth].second.first;
+      averageDiffBuffer += results[step][truth].second.second;
+      identificationCount += results[step][truth].first;
+    }
+    averageMassBuffer /= initialConfig.groundTruths;
+    averageDiffBuffer /= initialConfig.groundTruths;
+    identificationCount /= initialConfig.groundTruths;
+
+
+    // Compute standard error.
+    double stderrMass = 0.0;
+    double stderrDiff = 0.0;
+    double squaredTruths =
+        initialConfig.groundTruths * initialConfig.groundTruths;
+
+    double tmp;
+    for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
+      tmp = results[step][truth].second.first - averageMassBuffer;
+      stderrMass += tmp * tmp / squaredTruths;
+      tmp = results[step][truth].second.second - averageDiffBuffer;
+      stderrDiff += tmp * tmp / squaredTruths;
+    }
+
+    stderrMass = sqrt(stderrMass);
+    stderrDiff = sqrt(stderrDiff);
+
+    // Dump to output streams.
+    dumpStream << initialConfig.clusterSize << "\t" <<
+      averageMassBuffer << "\t" << stderrMass << "\t" <<
+      averageDiffBuffer << "\t" << stderrDiff << "\t" <<
+      identificationCount << endl;
+  }
+
+  dumpStream.close();
 }
 
 void startMaster(PUNGraph network, SimConfig config)
 {
   time_t startTime = time(NULL);
+
+  vector<GraphHypothesis> realizations;
   for (int truth = 0; truth < config.groundTruths; ++truth) {
-    GraphHypothesis realization = GraphHypothesis::generateHypothesis(
-        network, rand() % network->GetNodes(), config.cascadeBound, config.beta);
-    pair<int, pair<double, double>> result = simulate(realization, config);
+    realizations.push_back(GraphHypothesis::generateHypothesis(
+          network, rand() % network->GetNodes(),
+          config.cascadeBound, config.beta));
   }
+
+  SimConfig initialConfig = config;
+  vector<pair<int, pair<double, double>>> results[config.steps];
+  for (int step = 0; step < config.steps; ++step, ++config) {
+#if DBG
+    cout << "Current configuration: " << config << endl;
+#endif
+    for (int truth = 0; truth < config.groundTruths; ++truth) {
+      pair<int, pair<double, double>> result =
+          simulate(realizations[truth], config);
+      // Keep a boolean, whether the source was identified or not.
+      result.first = realizations[truth].getSource() == result.first ? 1 : 0;
+      // Store all the data to process the results later.
+      results[step].push_back(result);
+    }
+  }
+
+  processResults(results, initialConfig);
   cout << "Time: " << difftime(time(NULL), startTime) << "s" << endl;
 }

@@ -18,7 +18,7 @@
 #include <thread>
 #include <utility>
 
-#define DBG 1
+#define DBG 0
 #define WORK_THREADS 16
 
 #define EPS 0.05
@@ -147,6 +147,7 @@ inline void rescoreTestEC2(TTest& test,
   double expectedMass =
       testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass;
 
+  std::cout << totalHypothesis << std::endl;
   test.setScore(currentMass - expectedMass);
 }
 
