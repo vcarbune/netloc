@@ -114,26 +114,28 @@ void startWorker(PUNGraph network, SimConfig config)
   if (config.mpi.rank == config.mpi.nodes - 1)
     endNode = network->GetNodes();
 
-  // Generate clusters.
-  vector<GraphHypothesisCluster> clusters;
-  for (int source = startNode; source < endNode; source++)
-    clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-          network, source, 1, config.beta, config.cascadeBound,
-          config.clusterSize));
+  for (int step = 0; step < config.steps; ++step, ++config) {
+    // Generate clusters.
+    vector<GraphHypothesisCluster> clusters;
+    for (int source = startNode; source < endNode; source++)
+      clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
+            network, source, 1, config.beta, config.cascadeBound,
+            config.clusterSize));
 
-  for (int truth = 0; truth < config.groundTruths; ++truth) {
-    for (GraphHypothesisCluster& cluster : clusters)
-      cluster.resetWeight(1);
+    for (int truth = 0; truth < config.groundTruths; ++truth) {
+      for (GraphHypothesisCluster& cluster : clusters)
+        cluster.resetWeight(1);
 
-    simulate(clusters, config);
+      simulate(clusters, config);
 
-    int realSource;
-    MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
-    if (realSource >= startNode && realSource < endNode) {
-      double realSourceMass = clusters[realSource - startNode].getWeight();
-      if (clusters[realSource - startNode].getSource() != realSource)
-        cout << "!!ERROR!!" << endl;
-      MPI::COMM_WORLD.Send(&realSourceMass, 1, MPI::DOUBLE, MPI_MASTER, 1);
+      int realSource;
+      MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
+      if (realSource >= startNode && realSource < endNode) {
+        double realSourceMass = clusters[realSource - startNode].getWeight();
+        if (clusters[realSource - startNode].getSource() != realSource)
+          cout << "!!ERROR!!" << endl;
+        MPI::COMM_WORLD.Send(&realSourceMass, 1, MPI::DOUBLE, MPI_MASTER, 1);
+      }
     }
   }
 }
