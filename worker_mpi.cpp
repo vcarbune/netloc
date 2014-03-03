@@ -1,5 +1,6 @@
 #include "worker_mpi.h"
 
+#include <cstring>
 #include <iostream>
 
 #undef max
@@ -12,27 +13,17 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
   for (int i = 0; i < config.nodes; ++i)
     testWasUsed[i] = false;
 
-  // double massBuffer[EC2_SUMS][config.nodes];
-
-  double positiveMassDiagonal[config.nodes];
-  double positiveMass[config.nodes];
-  double negativeMassDiagonal[config.nodes];
-  double negativeMass[config.nodes];
-  double testConsistentHypothesis[config.nodes];
-
   double currentMassDiagonal;
   double currentMass;
 
+  double massBuffer[config.objSums][config.nodes];
+
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
+    memset(massBuffer, 0, config.objSums * config.nodes * sizeof(**massBuffer));
+
     // Compute the positive & negative mass for the remaining testNodes.
     for (int testNode = 0; testNode < config.nodes; ++testNode) {
-      positiveMassDiagonal[testNode] = 0.0;
-      positiveMass[testNode] = 0.0;
-      negativeMassDiagonal[testNode] = 0.0;
-      negativeMass[testNode] = 0.0;
-      testConsistentHypothesis[testNode] = 0.0;
-
       if (testWasUsed[testNode])
         continue;
 
@@ -40,13 +31,11 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
         GraphTest test(testNode);
         pair<double, double> mass = cluster.computeMassWithTest(test);
 
-        positiveMass[testNode] += mass.first;
-        negativeMass[testNode] += mass.second;
-
-        positiveMassDiagonal[testNode] += mass.first * mass.first;
-        negativeMassDiagonal[testNode] += mass.second * mass.second;
-
-        testConsistentHypothesis[testNode] += cluster.getNodeCount(testNode);
+        massBuffer[POSITIVE_SUM][testNode] += mass.first;
+        massBuffer[NEGATIVE_SUM][testNode] += mass.second;
+        massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
+        massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
+        massBuffer[CONS_HYPO_SUM][testNode] += cluster.getNodeCount(testNode);
       }
     }
 
@@ -60,17 +49,9 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
     }
 
     // Send to the master node the computed masses.
-    MPI::COMM_WORLD.Reduce(&positiveMass, NULL, config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-    MPI::COMM_WORLD.Reduce(&negativeMass, NULL, config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-    MPI::COMM_WORLD.Reduce(&testConsistentHypothesis, NULL, config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-    MPI::COMM_WORLD.Reduce(&positiveMassDiagonal, NULL, config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-    MPI::COMM_WORLD.Reduce(&negativeMassDiagonal, NULL, config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    for (int s = 0; s < config.objSums; ++s)
+      MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, config.nodes,
+          MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
     MPI::COMM_WORLD.Reduce(&currentMass, NULL, 1, MPI::DOUBLE,
         MPI::SUM, MPI_MASTER);

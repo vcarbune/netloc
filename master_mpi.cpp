@@ -15,11 +15,11 @@
 pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
   // Final masses, summed from what was received from each node.
   double junk[config.nodes];
-  double sums[EC2_SUMS][config.nodes];
+  double sums[config.objSums][config.nodes];
   double crtSum[2];
 
   MPI::Status status;
-  memset(sums, 0, EC2_SUMS * config.nodes * sizeof(**sums));
+  memset(sums, 0, config.objSums * config.nodes * sizeof(**sums));
   memset(junk, 0, config.nodes * sizeof(*junk));
 
 #if DBG
@@ -27,19 +27,22 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
 #endif
 
   // Get from workers positive & negative mass of tests still in the loop.
-  for (int s = 0; s < EC2_SUMS; ++s) {
+  for (int s = 0; s < config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(&junk, sums[s], config.nodes,
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  }
+
+  cout << "Objective Sums: " << config.objSums << endl;
 
   // Compute current mass of all the clusters.
   double currentWeight = 0.0;
+  crtSum[0] = 0.0; crtSum[1] = 0.0;
   MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[0], 1,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[1], 1,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
 
+  cout << "Current Weight: " << currentWeight << endl;
 #if DBG
   cout << "Partial scores: " << difftime(time(NULL), sumTime) << "s" << endl;
 #endif
@@ -57,6 +60,8 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
         sums[POSITIVE_DIAG_SUM][test];
     double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
         sums[NEGATIVE_DIAG_SUM][test];
+    cout << positiveMass << " && " << negativeMass << endl;
+
     double testPositivePb =
         (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
     double score = currentWeight -

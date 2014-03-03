@@ -16,13 +16,14 @@
 #define MPI_MASTER 0
 
 /* MPI DEFINES */
-#define EC2_SUMS 5
+#define REGULAR_SUMS      3
+#define EC2_SUMS          5
 
-#define POSITIVE_SUM      0
-#define NEGATIVE_SUM      1
+#define POSITIVE_SUM      4
+#define NEGATIVE_SUM      3
 #define CONS_HYPO_SUM     2
-#define POSITIVE_DIAG_SUM 3
-#define NEGATIVE_DIAG_SUM 4
+#define POSITIVE_DIAG_SUM 1
+#define NEGATIVE_DIAG_SUM 0
 
 struct MPIConfig {
   int rank;
@@ -54,6 +55,7 @@ class SimConfig {
     TStr netoutFile;
 
     int objType;
+    int objSums;
     int groundTruths;
 
     MPIConfig mpi;

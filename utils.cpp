@@ -69,6 +69,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   config.netinFile = networkInFile;
   config.netoutFile = networkOutFile;
   config.objType = paramObjType;
+  config.objSums = paramObjType == 0 ? EC2_SUMS : REGULAR_SUMS;
   config.groundTruths = paramGroundTruths;
 
   return config;

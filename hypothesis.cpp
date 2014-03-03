@@ -105,7 +105,7 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
     cluster.m_hypothesis.push_back(
         GraphHypothesis::generateHypothesis(network, source, size, beta,
             &cluster.m_nodeCount));
-    cluster.m_hypothesis[h].weight = cluster.m_weight / clusterSize;
+    cluster.m_hypothesis[h].weight = weight / clusterSize;
   }
   return cluster;
 }
