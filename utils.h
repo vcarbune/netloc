@@ -15,6 +15,15 @@
 
 #define MPI_MASTER 0
 
+/* MPI DEFINES */
+#define EC2_SUMS 5
+
+#define POSITIVE_SUM      0
+#define NEGATIVE_SUM      1
+#define CONS_HYPO_SUM     2
+#define POSITIVE_DIAG_SUM 3
+#define NEGATIVE_DIAG_SUM 4
+
 struct MPIConfig {
   int rank;
   int nodes;

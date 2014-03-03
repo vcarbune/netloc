@@ -12,13 +12,16 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
   for (int i = 0; i < config.nodes; ++i)
     testWasUsed[i] = false;
 
+  // double massBuffer[EC2_SUMS][config.nodes];
+
   double positiveMassDiagonal[config.nodes];
   double positiveMass[config.nodes];
   double negativeMassDiagonal[config.nodes];
   double negativeMass[config.nodes];
+  double testConsistentHypothesis[config.nodes];
+
   double currentMassDiagonal;
   double currentMass;
-  double testConsistentHypothesis[config.nodes];
 
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
@@ -73,6 +76,7 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
         MPI::SUM, MPI_MASTER);
     MPI::COMM_WORLD.Reduce(&currentMassDiagonal, NULL, 1, MPI::DOUBLE,
         MPI::SUM, MPI_MASTER);
+
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
     bool outcome;
