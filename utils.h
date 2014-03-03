@@ -19,11 +19,11 @@
 #define REGULAR_SUMS      3
 #define EC2_SUMS          5
 
-#define POSITIVE_SUM      4
-#define NEGATIVE_SUM      3
+#define POSITIVE_SUM      0
+#define NEGATIVE_SUM      1
 #define CONS_HYPO_SUM     2
-#define POSITIVE_DIAG_SUM 1
-#define NEGATIVE_DIAG_SUM 0
+#define POSITIVE_DIAG_SUM 3
+#define NEGATIVE_DIAG_SUM 4
 
 struct MPIConfig {
   int rank;

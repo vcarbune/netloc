@@ -31,8 +31,6 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
     MPI::COMM_WORLD.Reduce(&junk, sums[s], config.nodes,
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  cout << "Objective Sums: " << config.objSums << endl;
-
   // Compute current mass of all the clusters.
   double currentWeight = 0.0;
   crtSum[0] = 0.0; crtSum[1] = 0.0;
