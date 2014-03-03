@@ -40,8 +40,8 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
 
-  cout << "Current Weight: " << currentWeight << endl;
 #if DBG
+  cout << "Current Weight: " << currentWeight << endl;
   cout << "Partial scores: " << difftime(time(NULL), sumTime) << "s" << endl;
 #endif
 
@@ -58,7 +58,6 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
         sums[POSITIVE_DIAG_SUM][test];
     double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
         sums[NEGATIVE_DIAG_SUM][test];
-    cout << positiveMass << " && " << negativeMass << endl;
 
     double testPositivePb =
         (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
