@@ -104,7 +104,7 @@ pair<int, pair<double, double>> identifyCluster(int realSource, const SimConfig&
   MPI::COMM_WORLD.Recv(&realSourceMass, config.nodes, MPI::DOUBLE, MPI::ANY_SOURCE, 1, status);
 
   pair<int, pair<double, double>> result;
-  result.first = sourceNodes[maxIndex];         // identified solution
+  result.first = sourceNodes[maxIndex];               // identified solution
   result.second.first = 100 * realSourceMass / mass;  // solution confidence
   result.second.second = 100 * maxMass[maxIndex] / mass - result.second.first;
 
@@ -198,6 +198,12 @@ void processResults(vector<pair<int, pair<double, double>>> *results,
       averageMassBuffer << "\t" << stderrMass << "\t" <<
       averageDiffBuffer << "\t" << stderrDiff << "\t" <<
       identificationCount << endl;
+
+    // Dump to cout too, to be included in the mail.
+    cout << initialConfig.clusterSize << "\t" <<
+      averageMassBuffer << "\t" << stderrMass << "\t" <<
+      averageDiffBuffer << "\t" << stderrDiff << "\t" <<
+      identificationCount << endl;
   }
 
   dumpStream.close();
@@ -206,6 +212,7 @@ void processResults(vector<pair<int, pair<double, double>>> *results,
 void startMaster(PUNGraph network, SimConfig config)
 {
   time_t startTime = time(NULL);
+  cout << fixed << std::setprecision(3);
 
   vector<GraphHypothesis> realizations;
   for (int truth = 0; truth < config.groundTruths; ++truth) {
@@ -217,17 +224,21 @@ void startMaster(PUNGraph network, SimConfig config)
   SimConfig initialConfig = config;
   vector<pair<int, pair<double, double>>> results[config.steps];
   for (int step = 0; step < config.steps; ++step, ++config) {
-#if DBG
-    cout << "Current configuration: " << config << endl;
-#endif
+    double startTime = time(NULL);
     for (int truth = 0; truth < config.groundTruths; ++truth) {
       pair<int, pair<double, double>> result =
           simulate(realizations[truth], config);
+
       // Keep a boolean, whether the source was identified or not.
       result.first = realizations[truth].getSource() == result.first ? 1 : 0;
+
       // Store all the data to process the results later.
       results[step].push_back(result);
+
+      cout << config << "-" << truth << "\t" <<
+        result.second.first << "\t" << result.second.second << "\t" << endl;
     }
+    cout << "Time: " << difftime(time(NULL), startTime) << "s\n\n";
   }
 
   processResults(results, initialConfig);
