@@ -30,6 +30,9 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
     for (int s = 0; s < EC2_SUMS; ++s)
       sums[test][s] = 0.0;
 
+#if DBG
+  time_t sumTime = time(NULL);
+#endif
   // Get from workers positive & negative mass of tests still in the loop.
   for (int worker = 1; worker < config.mpi.nodes; worker++) {
     for (int s = 0; s < EC2_SUMS; ++s) {
@@ -46,6 +49,10 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
   MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[1], 1,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
+
+#if DBG
+  cout << "Partial scores: " << difftime(time(NULL), sumTime) << "s" << endl;
+#endif
 
   // Generalize to non-EC2 objective functions.
   double maxTestScore = numeric_limits<double>::min();
@@ -129,9 +136,16 @@ pair<int, pair<double, double>> simulate(
     bool outcome = realization.getTestOutcome(test);
     int infection = realization.getInfectionTime(nextTest.first);
 
+#if DBG
+    time_t bcastTime = time(NULL);
+#endif
     MPI::COMM_WORLD.Bcast(&nextTest.first, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
+#if DBG
+    cout << "Broadcasting took " <<
+      difftime(time(NULL), bcastTime) << "s" << endl;
+#endif
   }
 
   // Identify the cluster where the mass is concentrated.
