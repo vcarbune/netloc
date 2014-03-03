@@ -57,16 +57,29 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
     }
 
     // Send to the master node the computed masses.
+    MPI::COMM_WORLD.Reduce(&positiveMassDiagonal, NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(&positiveMass, NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(&negativeMassDiagonal, NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(&negativeMass, NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(&testConsistentHypothesis, NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+    /*
     MPI::COMM_WORLD.Send(&positiveMassDiagonal, config.nodes, MPI::DOUBLE, MPI_MASTER, 0);
     MPI::COMM_WORLD.Send(&positiveMass, config.nodes, MPI::DOUBLE, MPI_MASTER, 0);
     MPI::COMM_WORLD.Send(&negativeMassDiagonal, config.nodes, MPI::DOUBLE, MPI_MASTER, 0);
     MPI::COMM_WORLD.Send(&negativeMass, config.nodes, MPI::DOUBLE, MPI_MASTER, 0);
     MPI::COMM_WORLD.Send(&testConsistentHypothesis, config.nodes, MPI::DOUBLE, MPI_MASTER, 0);
+    */
+
     MPI::COMM_WORLD.Reduce(&currentMass, NULL, 1, MPI::DOUBLE,
         MPI::SUM, MPI_MASTER);
     MPI::COMM_WORLD.Reduce(&currentMassDiagonal, NULL, 1, MPI::DOUBLE,
         MPI::SUM, MPI_MASTER);
-
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
     bool outcome;

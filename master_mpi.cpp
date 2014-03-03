@@ -5,6 +5,7 @@
 #undef min
 
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <iomanip>
 #include <limits>
@@ -21,25 +22,22 @@
 
 pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
   // Final masses, summed from what was received from each node.
-  double buffer[config.nodes];
-  double sums[config.nodes][EC2_SUMS];
+  double junk[config.nodes];
+  double sums[EC2_SUMS][config.nodes];
   double crtSum[2];
 
   MPI::Status status;
-  for (int test = 0; test < config.nodes; ++test)
-    for (int s = 0; s < EC2_SUMS; ++s)
-      sums[test][s] = 0.0;
+  memset(sums, 0, EC2_SUMS * config.nodes * sizeof(**sums));
+  memset(junk, 0, config.nodes * sizeof(*junk));
 
 #if DBG
   time_t sumTime = time(NULL);
 #endif
+
   // Get from workers positive & negative mass of tests still in the loop.
-  for (int worker = 1; worker < config.mpi.nodes; worker++) {
-    for (int s = 0; s < EC2_SUMS; ++s) {
-      MPI::COMM_WORLD.Recv(buffer, config.nodes, MPI::DOUBLE, worker, 0, status);
-      for (int test = 0; test < config.nodes; ++test)
-        sums[test][s] += buffer[test];
-    }
+  for (int s = 0; s < EC2_SUMS; ++s) {
+    MPI::COMM_WORLD.Reduce(&junk, sums[s], config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   }
 
   // Compute current mass of all the clusters.
@@ -63,12 +61,12 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
     if (testWasUsed[test])
       continue;
 
-    double positiveMass = sums[test][POSITIVE_SUM] * sums[test][POSITIVE_SUM] -
-        sums[test][POSITIVE_DIAG_SUM];
-    double negativeMass = sums[test][NEGATIVE_SUM] * sums[test][NEGATIVE_SUM] -
-        sums[test][NEGATIVE_DIAG_SUM];
+    double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
+        sums[POSITIVE_DIAG_SUM][test];
+    double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
+        sums[NEGATIVE_DIAG_SUM][test];
     double testPositivePb =
-        (double) sums[test][CONS_HYPO_SUM] / totalHypothesis;
+        (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
     double score = currentWeight -
         (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
 
@@ -143,8 +141,8 @@ pair<int, pair<double, double>> simulate(
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
 #if DBG
-    cout << "Broadcasting took " <<
-      difftime(time(NULL), bcastTime) << "s" << endl;
+    cout << "Broadcasting took " << difftime(time(NULL), bcastTime) <<
+        "s" << endl;
 #endif
   }
 
