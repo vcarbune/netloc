@@ -12,7 +12,37 @@
 #include <fstream>
 #include <utility>
 
-pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
+pair <int, double> selectNextTestUsingParallelLazyGreedy(
+    bool *testWasUsed, const SimConfig& config)
+{
+  // Gather test nodes and scores from mpi nodes.
+  int testNodeId[config.mpi.nodes];
+  double testScore[config.mpi.nodes];
+
+  int junk = -1;
+  double score = 0.0;
+
+  MPI::COMM_WORLD.Gather(&junk, 1, MPI::INT, &testNodeId, 1, MPI::INT, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&score, 1, MPI::DOUBLE, &testScore, 1, MPI::DOUBLE, MPI_MASTER);
+
+  double maxTestScore = numeric_limits<double>::min();
+  int maxTestNode = -1;
+
+  for (int i = 1; i < config.mpi.nodes; ++i) {
+#if DBG
+    cout << testNodeId[i] << " - " << testScore[i] << endl;
+#endif
+    if (testNodeId[i] != -1 && testScore[i] > maxTestScore) {
+      maxTestNode = testNodeId[i];
+      maxTestScore = testScore[i];
+    }
+  }
+
+  return pair<int, double>(maxTestNode, maxTestScore);
+}
+
+pair<int, double> selectNextTestUsingParallelComputations(
+    bool *testWasUsed, const SimConfig& config) {
   // Final masses, summed from what was received from each node.
   double junk[config.nodes];
   double sums[config.objSums][config.nodes];
@@ -38,7 +68,11 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[1], 1,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
+
+  currentWeight = crtSum[0];
+  if (config.objType == 0) { // EC2
+    currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
+  }
 
 #if DBG
   cout << "Current Weight: " << currentWeight << endl;
@@ -54,15 +88,25 @@ pair<int, double> selectNextTest(bool *testWasUsed, const SimConfig& config) {
     if (testWasUsed[test])
       continue;
 
-    double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
-        sums[POSITIVE_DIAG_SUM][test];
-    double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
-        sums[NEGATIVE_DIAG_SUM][test];
-
+    double score = 0.0;
     double testPositivePb =
         (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
-    double score = currentWeight -
-        (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+
+    if (config.objType == 0) { // EC2
+      double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
+          sums[POSITIVE_DIAG_SUM][test];
+      double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
+          sums[NEGATIVE_DIAG_SUM][test];
+      score = currentWeight -
+          (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+    } else if (config.objType == 1) { // GBS
+      score = testPositivePb * sums[POSITIVE_SUM][test] +
+        (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
+      score = currentWeight - score;
+    } else if (config.objType == 2) { // VOI
+    } else {                          // RANDOM
+
+    }
 
     if (score > maxTestScore) {
       maxTestScore = score;
@@ -99,8 +143,13 @@ pair<int, pair<double, double>> identifyCluster(int realSource, const SimConfig&
 
   pair<int, pair<double, double>> result;
   result.first = sourceNodes[maxIndex];               // identified solution
-  result.second.first = 100 * realSourceMass / mass;  // solution confidence
-  result.second.second = 100 * maxMass[maxIndex] / mass - result.second.first;
+  result.second.first = 100 * realSourceMass;  // solution confidence
+  result.second.second = 100 * maxMass[maxIndex] - result.second.first;
+
+  if (!config.lazy) {
+    result.second.first /= mass;
+    result.second.second /= mass;
+  }
 
   return result;
 }
@@ -116,7 +165,11 @@ pair<int, pair<double, double>> simulate(
   // Request scores for each of the tests.
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
-    pair<int, double> nextTest = selectNextTest(testWasUsed, config);
+    pair<int, double> nextTest;
+    if (config.lazy)
+      nextTest = selectNextTestUsingParallelLazyGreedy(testWasUsed, config);
+    else
+      nextTest = selectNextTestUsingParallelComputations(testWasUsed, config);
 
 #if DBG
     cout << count << ". " << nextTest.first << " " << nextTest.second << endl;

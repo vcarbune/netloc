@@ -6,57 +6,100 @@
 #undef max
 #undef min
 
-void simulate(vector<GraphHypothesisCluster>& clusters,
-              const SimConfig& config)
+void reducePartialTestScores(
+    bool *testWasUsed,
+    const vector<GraphHypothesisCluster>& clusters,
+    const SimConfig &config)
 {
+  double massBuffer[config.objSums][config.nodes];
+  memset(massBuffer, 0, config.objSums * config.nodes * sizeof(**massBuffer));
+
+  // Compute the positive & negative mass for the remaining testNodes.
+  for (int testNode = 0; testNode < config.nodes; ++testNode) {
+    if (testWasUsed[testNode])
+      continue;
+
+    for (const GraphHypothesisCluster& cluster : clusters) {
+      GraphTest test(testNode);
+      pair<double, double> mass = cluster.computeMassWithTest(test);
+
+      massBuffer[POSITIVE_SUM][testNode] += mass.first;
+      massBuffer[NEGATIVE_SUM][testNode] += mass.second;
+      if (config.objType == 0) { // Only for EC2
+        massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
+        massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
+      }
+      massBuffer[CONS_HYPO_SUM][testNode] += cluster.getNodeCount(testNode);
+    }
+  }
+
+  double currentMassDiagonal = 0.0;
+  double currentMass = 0.0;
+
+  for (const GraphHypothesisCluster& cluster : clusters) {
+    double crtWeight = cluster.getWeight();
+    currentMass += crtWeight;
+    currentMassDiagonal += crtWeight * crtWeight;
+  }
+
+  // Send to the master node the computed masses.
+  for (int s = 0; s < config.objSums; ++s)
+    MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  MPI::COMM_WORLD.Reduce(&currentMass, NULL, 1, MPI::DOUBLE,
+      MPI::SUM, MPI_MASTER);
+  MPI::COMM_WORLD.Reduce(&currentMassDiagonal, NULL, 1, MPI::DOUBLE,
+      MPI::SUM, MPI_MASTER);
+}
+
+GraphTest selectBestLocalTest(vector<GraphTest> &tests,
+    const vector<GraphHypothesisCluster>& clusters,
+    const SimConfig& config)
+{
+  // Local LazyGreedy approach.
+  GraphTest bestTest = GraphTest(-1);
+
+  if (tests.size())
+    bestTest = lazyRescoreTests(tests, clusters, config.objType);
+
+  // Inform the master about the score this test has (how much much it reduces)
+  int testNodeId = bestTest.getNodeId();
+
+  // Normalize scores relative to the weight of the local graph.
+  double currentWeight = computeGraphWeight(clusters, config.objType);
+  double score = 100 * bestTest.getScore() / currentWeight;
+
+  // cout << config.mpi.rank << ": " << testNodeId << " " << score << endl;
+  MPI::COMM_WORLD.Gather(&testNodeId, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
+  MPI::COMM_WORLD.Gather(&score, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
+
+  return bestTest;
+}
+
+void simulate(
+    vector<GraphTest> &tests,
+    vector<GraphHypothesisCluster>& clusters,
+    const SimConfig& config)
+{
+  GraphTest bestTest(-1); // only lazy greedy
+
   bool testWasUsed[config.nodes];
   for (int i = 0; i < config.nodes; ++i)
     testWasUsed[i] = false;
 
-  double currentMassDiagonal;
-  double currentMass;
+  for (GraphTest& test : tests)
+    rescoreTest(test, clusters, config.objType);
 
-  double massBuffer[config.objSums][config.nodes];
+  make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
 
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
-    memset(massBuffer, 0, config.objSums * config.nodes * sizeof(**massBuffer));
-
-    // Compute the positive & negative mass for the remaining testNodes.
-    for (int testNode = 0; testNode < config.nodes; ++testNode) {
-      if (testWasUsed[testNode])
-        continue;
-
-      for (const GraphHypothesisCluster& cluster : clusters) {
-        GraphTest test(testNode);
-        pair<double, double> mass = cluster.computeMassWithTest(test);
-
-        massBuffer[POSITIVE_SUM][testNode] += mass.first;
-        massBuffer[NEGATIVE_SUM][testNode] += mass.second;
-        massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
-        massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
-        massBuffer[CONS_HYPO_SUM][testNode] += cluster.getNodeCount(testNode);
-      }
-    }
-
-    currentMassDiagonal = 0.0;
-    currentMass = 0.0;
-
-    for (const GraphHypothesisCluster& cluster : clusters) {
-      double crtWeight = cluster.getWeight();
-      currentMass += crtWeight;
-      currentMassDiagonal += crtWeight * crtWeight;
-    }
-
-    // Send to the master node the computed masses.
-    for (int s = 0; s < config.objSums; ++s)
-      MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, config.nodes,
-          MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-    MPI::COMM_WORLD.Reduce(&currentMass, NULL, 1, MPI::DOUBLE,
-        MPI::SUM, MPI_MASTER);
-    MPI::COMM_WORLD.Reduce(&currentMassDiagonal, NULL, 1, MPI::DOUBLE,
-        MPI::SUM, MPI_MASTER);
+    if (config.lazy)
+      bestTest = selectBestLocalTest(tests, clusters, config);
+    else
+      reducePartialTestScores(testWasUsed, clusters, config);
 
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
@@ -76,6 +119,15 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
 
     for (GraphHypothesisCluster& cluster : clusters)
       cluster.updateMassWithTest(test);
+
+    if (config.lazy && !(test == bestTest)) {
+      tests.push_back(bestTest);
+      push_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+          tests.begin(), tests.end(), TestCompareFunction());
+    }
+
+    for (GraphTest& test : tests)
+      test.setScore((1-EPS) * (1-EPS) * test.getScore());
   }
 
   // Identify the cluster with the highest mass and send it back
@@ -91,6 +143,13 @@ void simulate(vector<GraphHypothesisCluster>& clusters,
       sourceNode = cluster.getSource();
     }
   }
+
+  // If lazy greedy is enabled, send back probabilities directly.
+  if (config.lazy) {
+    maxMass /= totalMass;
+    totalMass = 0.0;
+  }
+
   MPI::COMM_WORLD.Reduce(&totalMass, NULL, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
   MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
@@ -101,14 +160,29 @@ void startWorker(PUNGraph network, SimConfig config)
   // Determine the node clusters for which this node is responsible.
   int clustersPerNode = network->GetNodes() / (config.mpi.nodes - 1);
   int startNode = (config.mpi.rank-1) * clustersPerNode;
-  int endNode = config.mpi.rank * clustersPerNode;
-  if (config.mpi.rank == config.mpi.nodes - 1)
-    endNode = network->GetNodes();
+  int endNode = network->GetNodes();
+  if (config.mpi.rank < config.mpi.nodes - 1)
+    endNode = config.mpi.rank * clustersPerNode;
+
+  int mpiClusterStartNode = startNode;
+  int mpiClusterEndNode = endNode;
+
+  int mpiTestStartNode = startNode;
+  int mpiTestEndNode = endNode;
+
+  if (!config.lazy) {
+    // Tests don't matter if there's no lazy greedy approach.
+    mpiTestStartNode = mpiTestEndNode = 0;
+  } else {
+    // If we have lazy greedy enabled, then all the clusters are needed.
+    mpiClusterStartNode = 0;
+    mpiClusterEndNode = network->GetNodes();
+  }
 
   for (int step = 0; step < config.steps; ++step, ++config) {
     // Generate clusters.
     vector<GraphHypothesisCluster> clusters;
-    for (int source = startNode; source < endNode; source++)
+    for (int source = mpiClusterStartNode; source < mpiClusterEndNode; source++)
       clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
             network, source, 1, config.beta, config.cascadeBound,
             config.clusterSize));
@@ -117,13 +191,19 @@ void startWorker(PUNGraph network, SimConfig config)
       for (GraphHypothesisCluster& cluster : clusters)
         cluster.resetWeight(1);
 
-      simulate(clusters, config);
+      // Configure the tests for which this MPI slave node is responsible.
+      vector<GraphTest> tests;
+      for (int node = mpiTestStartNode; node < mpiTestEndNode; ++node)
+        tests.push_back(GraphTest(node));
+
+      simulate(tests, clusters, config);
 
       int realSource;
       MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
       if (realSource >= startNode && realSource < endNode) {
-        double realSourceMass = clusters[realSource - startNode].getWeight();
-        if (clusters[realSource - startNode].getSource() != realSource)
+        int realSourceIdx = config.lazy ? realSource : (realSource - startNode);
+        double realSourceMass = clusters[realSourceIdx].getWeight();
+        if (clusters[realSourceIdx].getSource() != realSource)
           cout << "!!ERROR!!" << endl;
         MPI::COMM_WORLD.Send(&realSourceMass, 1, MPI::DOUBLE, MPI_MASTER, 1);
       }

@@ -131,3 +131,21 @@ void generateTests(vector<GraphTest> *tests,
   for (int node = 0; node < network->GetNodes(); ++node)
     tests->push_back(GraphTest(node));
 }
+
+double computeGraphWeight(const vector<GraphHypothesisCluster>& clusters,
+    int objType)
+{
+  double currentMassDiagonal = 0.0;
+  double currentMass = 0.0;
+
+  for (const GraphHypothesisCluster& cluster : clusters) {
+    double crtWeight = cluster.getWeight();
+    currentMass += crtWeight;
+    currentMassDiagonal += crtWeight * crtWeight;
+  }
+
+  if (objType == 0) // EC2
+    return currentMass * currentMass - currentMassDiagonal;
+
+  return currentMass;
+}

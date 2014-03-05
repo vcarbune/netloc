@@ -74,4 +74,8 @@ void generateClusters(vector<GraphHypothesisCluster> *clusters,
 void generateTests(vector<GraphTest> *tests,
                    const PUNGraph network);
 
+// Graph Weight
+double computeGraphWeight(const vector<GraphHypothesisCluster>& clusters,
+    int objType);
+
 #endif // UTILS_H_
