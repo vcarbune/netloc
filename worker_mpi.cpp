@@ -132,7 +132,7 @@ void simulate(
 
   // Identify the cluster with the highest mass and send it back
   // to the master process to identify the highest one.
-  double maxMass = numeric_limits<double>::min();
+  double maxMass = -numeric_limits<double>::max();
   double totalMass = 0.0;
   int sourceNode = -1;
 
@@ -144,15 +144,20 @@ void simulate(
     }
   }
 
-  // If lazy greedy is enabled, send back probabilities directly.
-  if (config.lazy) {
-    maxMass /= totalMass;
-    totalMass = 0.0;
-  }
-
   MPI::COMM_WORLD.Reduce(&totalMass, NULL, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
+
+  // If lazy greedy is enabled, send back mass for all clusters directly.
+  if (config.lazy) {
+    double clusterMass[config.nodes];
+    for (int i = 0; i < config.nodes; ++i)
+      clusterMass[i] = clusters[i].getMass();
+
+    MPI::COMM_WORLD.Reduce(clusterMass, NULL, config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  } else {
+    MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
+    MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
+  }
 }
 
 void startWorker(PUNGraph network, SimConfig config)
@@ -198,10 +203,13 @@ void startWorker(PUNGraph network, SimConfig config)
 
       simulate(tests, clusters, config);
 
+      if (config.lazy)
+        continue;
+
       int realSource;
       MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
       if (realSource >= startNode && realSource < endNode) {
-        int realSourceIdx = config.lazy ? realSource : (realSource - startNode);
+        int realSourceIdx = realSource - startNode;
         double realSourceMass = clusters[realSourceIdx].getWeight();
         if (clusters[realSourceIdx].getSource() != realSource)
           cout << "!!ERROR!!" << endl;

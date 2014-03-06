@@ -117,7 +117,41 @@ pair<int, double> selectNextTestUsingParallelComputations(
   return pair<int, double>(maxTestNode, maxTestScore);
 }
 
-pair<int, pair<double, double>> identifyCluster(int realSource, const SimConfig& config)
+pair<int, pair<double, double>> identifyClusterUsingLazyGreedyAndVoting(
+    int realSource, const SimConfig& config)
+{
+  // Gather information from all processes.
+  double totalMass;
+  double zeroValues[config.nodes];
+  double clusterMass[config.nodes];
+
+  double junk = 0.0;
+  MPI::COMM_WORLD.Reduce(&junk, &totalMass, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  memset(zeroValues, 0, config.nodes * sizeof(*zeroValues));
+  MPI::COMM_WORLD.Reduce(zeroValues, clusterMass, config.nodes,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  int maxIndex = 0;
+  for (int i = 0; i < config.nodes; ++i)
+    if (clusterMass[maxIndex] < clusterMass[i])
+      maxIndex = i;
+
+  double realSourceMass = clusterMass[realSource];
+
+  pair<int, pair<double, double>> result;
+  result.first = maxIndex; // identified solution
+  result.second.first = 100 * realSourceMass;         // solution confidence
+  result.second.second = 100 * clusterMass[maxIndex] - result.second.first;
+
+  result.second.first /= totalMass;
+  result.second.second /= totalMass;
+
+  return result;
+}
+
+pair<int, pair<double, double>> identifyClusterUsingParallelComputations(
+    int realSource, const SimConfig& config)
 {
   // Gather information from all processes.
   int sourceNodes[config.mpi.nodes];
@@ -143,13 +177,11 @@ pair<int, pair<double, double>> identifyCluster(int realSource, const SimConfig&
 
   pair<int, pair<double, double>> result;
   result.first = sourceNodes[maxIndex];               // identified solution
-  result.second.first = 100 * realSourceMass;  // solution confidence
+  result.second.first = 100 * realSourceMass;         // solution confidence
   result.second.second = 100 * maxMass[maxIndex] - result.second.first;
 
-  if (!config.lazy) {
-    result.second.first /= mass;
-    result.second.second /= mass;
-  }
+  result.second.first /= mass;
+  result.second.second /= mass;
 
   return result;
 }
@@ -194,8 +226,9 @@ pair<int, pair<double, double>> simulate(
   }
 
   // Identify the cluster where the mass is concentrated.
-  pair<int, pair<double, double>> solution =
-      identifyCluster(realization.getSource(), config);
+  pair<int, pair<double, double>> solution = config.lazy ?
+    identifyClusterUsingLazyGreedyAndVoting(realization.getSource(), config) :
+    identifyClusterUsingParallelComputations(realization.getSource(), config);
 
   return solution;
 }
