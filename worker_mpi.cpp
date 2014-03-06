@@ -70,7 +70,6 @@ GraphTest selectBestLocalTest(vector<GraphTest> &tests,
   double currentWeight = computeGraphWeight(clusters, config.objType);
   double score = 100 * bestTest.getScore() / currentWeight;
 
-  // cout << config.mpi.rank << ": " << testNodeId << " " << score << endl;
   MPI::COMM_WORLD.Gather(&testNodeId, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
   MPI::COMM_WORLD.Gather(&score, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
 
@@ -96,10 +95,13 @@ void simulate(
 
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
-    if (config.lazy)
+    if (config.objType == 3) {
+      // NOTHING; test is selected at random!
+    } else if (config.lazy) {
       bestTest = selectBestLocalTest(tests, clusters, config);
-    else
+    } else {
       reducePartialTestScores(testWasUsed, clusters, config);
+    }
 
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
@@ -208,8 +210,8 @@ void startWorker(PUNGraph network, SimConfig config)
 
       int realSource;
       MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
-      if (realSource >= startNode && realSource < endNode) {
-        int realSourceIdx = realSource - startNode;
+      if (realSource >= mpiClusterStartNode && realSource < mpiClusterEndNode) {
+        int realSourceIdx = realSource - mpiClusterStartNode;
         double realSourceMass = clusters[realSourceIdx].getWeight();
         if (clusters[realSourceIdx].getSource() != realSource)
           cout << "!!ERROR!!" << endl;

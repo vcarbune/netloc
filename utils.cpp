@@ -69,7 +69,16 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   config.netinFile = networkInFile;
   config.netoutFile = networkOutFile;
   config.objType = paramObjType;
-  config.objSums = paramObjType == 0 ? EC2_SUMS : REGULAR_SUMS;
+  switch (paramObjType) {
+    case 0:
+      config.objSums = EC2_SUMS;
+      break;
+    case 3:
+      config.objSums = RANDOM_SUMS;
+      break;
+    default:
+      config.objSums = REGULAR_SUMS;
+  }
   config.groundTruths = paramGroundTruths;
 
   return config;
@@ -105,7 +114,6 @@ void generateNetwork(PUNGraph *network, SimConfig& config) {
     cout << "Saving network to file..." << endl;
     { TFOut FOut(config.netoutFile); (*network)->Save(FOut); }
   }
-
 
   cout << "Generated network is connected: " << TSnap::GetMxWccSz(*network) << endl;
 }

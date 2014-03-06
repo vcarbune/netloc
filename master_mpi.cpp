@@ -83,6 +83,9 @@ pair<int, double> selectNextTestUsingParallelComputations(
   double maxTestScore = numeric_limits<double>::min();
   int maxTestNode = -1;
 
+  if (config.objType == 3) { // RANDOM
+  }
+
   int totalHypothesis = config.nodes * config.clusterSize;
   for (int test = 0; test < config.nodes; ++test) {
     if (testWasUsed[test])
@@ -104,8 +107,7 @@ pair<int, double> selectNextTestUsingParallelComputations(
         (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
       score = currentWeight - score;
     } else if (config.objType == 2) { // VOI
-    } else {                          // RANDOM
-
+      cout << "Configuration NOT supported!" << endl;
     }
 
     if (score > maxTestScore) {
@@ -117,7 +119,7 @@ pair<int, double> selectNextTestUsingParallelComputations(
   return pair<int, double>(maxTestNode, maxTestScore);
 }
 
-pair<int, pair<double, double>> identifyClusterUsingLazyGreedyAndVoting(
+pair<int, vector<double>> identifyClusterUsingLazyGreedyAndVoting(
     int realSource, const SimConfig& config)
 {
   // Gather information from all processes.
@@ -136,21 +138,28 @@ pair<int, pair<double, double>> identifyClusterUsingLazyGreedyAndVoting(
   for (int i = 0; i < config.nodes; ++i)
     if (clusterMass[maxIndex] < clusterMass[i])
       maxIndex = i;
-
   double realSourceMass = clusterMass[realSource];
 
-  pair<int, pair<double, double>> result;
+  pair<int, vector<double>> result;
   result.first = maxIndex; // identified solution
-  result.second.first = 100 * realSourceMass;         // solution confidence
-  result.second.second = 100 * clusterMass[maxIndex] - result.second.first;
 
-  result.second.first /= totalMass;
-  result.second.second /= totalMass;
+  // Mass in solution cluster and difference of mass.
+  result.second.push_back(100 * realSourceMass);
+  result.second.push_back(100 * (clusterMass[maxIndex] - realSourceMass));
+
+  result.second[0] /= totalMass;
+  result.second[1] /= totalMass;
+
+  // Rank of the solution.
+  result.second.push_back(0.0);
+  for (int i = 0; i < config.nodes; ++i)
+    if (realSourceMass < clusterMass[i])
+      result.second[2] += 1;
 
   return result;
 }
 
-pair<int, pair<double, double>> identifyClusterUsingParallelComputations(
+pair<int, vector<double>> identifyClusterUsingParallelComputations(
     int realSource, const SimConfig& config)
 {
   // Gather information from all processes.
@@ -175,18 +184,18 @@ pair<int, pair<double, double>> identifyClusterUsingParallelComputations(
   MPI::Status status;
   MPI::COMM_WORLD.Recv(&realSourceMass, config.nodes, MPI::DOUBLE, MPI::ANY_SOURCE, 1, status);
 
-  pair<int, pair<double, double>> result;
-  result.first = sourceNodes[maxIndex];               // identified solution
-  result.second.first = 100 * realSourceMass;         // solution confidence
-  result.second.second = 100 * maxMass[maxIndex] - result.second.first;
+  pair<int, vector<double>> result;
+  result.first = sourceNodes[maxIndex]; // identified solution
+  result.second.push_back(100 * realSourceMass); // solution confidence
+  result.second.push_back(100 * (maxMass[maxIndex] - realSourceMass));
 
-  result.second.first /= mass;
-  result.second.second /= mass;
+  result.second[0] /= mass;
+  result.second[1] /= mass;
 
   return result;
 }
 
-pair<int, pair<double, double>> simulate(
+pair<int, vector<double>> simulate(
     const GraphHypothesis& realization,
     const SimConfig& config)
 {
@@ -198,10 +207,19 @@ pair<int, pair<double, double>> simulate(
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
     pair<int, double> nextTest;
-    if (config.lazy)
+    if (config.objType == 3) {
+      do {
+        int maxTestNode = rand() % config.nodes;
+        if (!testWasUsed[maxTestNode]) {
+          nextTest = pair<int, double>(maxTestNode, 0.314159);
+          break;
+        }
+      } while (true);
+    } else if (config.lazy) {
       nextTest = selectNextTestUsingParallelLazyGreedy(testWasUsed, config);
-    else
+    } else {
       nextTest = selectNextTestUsingParallelComputations(testWasUsed, config);
+    }
 
 #if DBG
     cout << count << ". " << nextTest.first << " " << nextTest.second << endl;
@@ -226,14 +244,14 @@ pair<int, pair<double, double>> simulate(
   }
 
   // Identify the cluster where the mass is concentrated.
-  pair<int, pair<double, double>> solution = config.lazy ?
+  pair<int, vector<double>> solution = config.lazy ?
     identifyClusterUsingLazyGreedyAndVoting(realization.getSource(), config) :
     identifyClusterUsingParallelComputations(realization.getSource(), config);
 
   return solution;
 }
 
-void processResults(vector<pair<int, pair<double, double>>> *results,
+void processResults(vector<pair<int, vector<double>>> *results,
     SimConfig& initialConfig)
 {
   ofstream dumpStream;
@@ -241,49 +259,49 @@ void processResults(vector<pair<int, pair<double, double>>> *results,
   dumpStream << fixed << std::setprecision(3);
 
   for (int step = 0; step < initialConfig.steps; ++step, ++initialConfig) {
-    double averageMassBuffer = 0.0;
-    double averageDiffBuffer = 0.0;
+    int vars = results[step][0].second.size();
     double identificationCount = 0.0;
+    double averages[vars];
 
-    // Compute averages and identification count.
+    memset(averages, 0, vars * sizeof(*averages));
     for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
-      averageMassBuffer += results[step][truth].second.first;
-      averageDiffBuffer += results[step][truth].second.second;
       identificationCount += results[step][truth].first;
+      for (int var = 0; var < vars; ++var) {
+        averages[var] += results[step][truth].second[var];
+      }
     }
-    averageMassBuffer /= initialConfig.groundTruths;
-    averageDiffBuffer /= initialConfig.groundTruths;
+
+    // Normalize computations.
+    for (int var = 0; var < vars; ++var)
+      averages[var] /= initialConfig.groundTruths;
     identificationCount /= initialConfig.groundTruths;
 
-
     // Compute standard error.
-    double stderrMass = 0.0;
-    double stderrDiff = 0.0;
+    double stderrs[vars];
     double squaredTruths =
         initialConfig.groundTruths * initialConfig.groundTruths;
-
     double tmp;
+
+    memset(stderrs, 0, vars * sizeof(*stderrs));
     for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
-      tmp = results[step][truth].second.first - averageMassBuffer;
-      stderrMass += tmp * tmp / squaredTruths;
-      tmp = results[step][truth].second.second - averageDiffBuffer;
-      stderrDiff += tmp * tmp / squaredTruths;
+      for (int var = 0; var < vars; ++var) {
+        tmp = results[step][truth].second[var] - averages[var];
+        stderrs[var] += tmp * tmp / squaredTruths;
+      }
     }
 
-    stderrMass = sqrt(stderrMass);
-    stderrDiff = sqrt(stderrDiff);
+    for (int var = 0; var < vars; ++var)
+      stderrs[var] = sqrt(stderrs[var]);
 
     // Dump to output streams.
-    dumpStream << initialConfig.clusterSize << "\t" <<
-      averageMassBuffer << "\t" << stderrMass << "\t" <<
-      averageDiffBuffer << "\t" << stderrDiff << "\t" <<
-      identificationCount << endl;
-
-    // Dump to cout too, to be included in the mail.
-    cout << initialConfig.clusterSize << "\t" <<
-      averageMassBuffer << "\t" << stderrMass << "\t" <<
-      averageDiffBuffer << "\t" << stderrDiff << "\t" <<
-      identificationCount << endl;
+    cout << initialConfig.clusterSize << "\t";
+    dumpStream << initialConfig.clusterSize << "\t";
+    for (int var = 0; var < vars; ++var) {
+      dumpStream << averages[var] << "\t" << stderrs[var] << "\t";
+      cout << averages[var] << "\t" << stderrs[var] << "\t";
+    }
+    dumpStream << identificationCount << endl;
+    cout << identificationCount << endl;
   }
 
   dumpStream.close();
@@ -302,12 +320,16 @@ void startMaster(PUNGraph network, SimConfig config)
   }
 
   SimConfig initialConfig = config;
-  vector<pair<int, pair<double, double>>> results[config.steps];
+  vector<pair<int, vector<double>>> results[config.steps];
   for (int step = 0; step < config.steps; ++step, ++config) {
     double startTime = time(NULL);
     for (int truth = 0; truth < config.groundTruths; ++truth) {
-      pair<int, pair<double, double>> result =
+      pair<int, vector<double>> result =
           simulate(realizations[truth], config);
+
+      // Add distance (in hops) to the source node.
+      result.second.push_back(TSnap::GetShortPath(network,
+            realizations[truth].getSource(), result.first));
 
       // Keep a boolean, whether the source was identified or not.
       result.first = realizations[truth].getSource() == result.first ? 1 : 0;
@@ -315,8 +337,10 @@ void startMaster(PUNGraph network, SimConfig config)
       // Store all the data to process the results later.
       results[step].push_back(result);
 
-      cout << config << "-" << truth << "\t" <<
-        result.second.first << "\t" << result.second.second << "\t" << endl;
+      cout << config << "-" << truth << "\t";
+      for (size_t i = 0; i < result.second.size(); ++i)
+        cout << result.second[i] << "\t";
+      cout << endl;
     }
     cout << "Time: " << difftime(time(NULL), startTime) << "s\n\n";
   }

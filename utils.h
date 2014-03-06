@@ -16,6 +16,7 @@
 #define MPI_MASTER 0
 
 /* MPI DEFINES */
+#define RANDOM_SUMS       0
 #define REGULAR_SUMS      3
 #define EC2_SUMS          5
 
