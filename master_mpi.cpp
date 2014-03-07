@@ -12,11 +12,120 @@
 #include <fstream>
 #include <utility>
 
-pair<int, double> selectNextTestUsingParallelComputations(
-    bool *testWasUsed, const SimConfig& config) {
+double computeCurrentMass(const SimConfig& config) {
+  // Compute current mass of all the clusters.
+  double currentWeight = 0.0;
+  double crtSum[2];
+  crtSum[0] = 0.0; crtSum[1] = 0.0;
+  MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[0], 1,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[1], 1,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  currentWeight = crtSum[0];
+  if (config.objType == 0) { // EC2
+    currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
+  }
+
+  return currentWeight;
+}
+
+void recomputeTestScore(
+    GraphTest& test, const SimConfig& config, double currentWeight)
+{
+  int currentTestNode = test.getNodeId();
+  MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
+
+  double sums[config.objSums];
+  double junk[config.objSums];
+  memset(junk, 0, config.objSums * sizeof(*junk));
+
+  MPI::COMM_WORLD.Reduce(&junk, sums, config.objSums,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  double totalHypothesis = config.nodes * config.clusterSize;
+  double testPositivePb = (double) sums[CONS_HYPO_SUM] / totalHypothesis;
+  double score = 0.0;
+  if (config.objType == 0) { // EC2
+    double positiveMass = sums[POSITIVE_SUM] * sums[POSITIVE_SUM] -
+        sums[POSITIVE_DIAG_SUM];
+    double negativeMass = sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] -
+        sums[NEGATIVE_DIAG_SUM];
+    score = currentWeight -
+        (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+  } else if (config.objType == 1) { // GBS
+    score = testPositivePb * sums[POSITIVE_SUM] +
+      (1 - testPositivePb) * sums[NEGATIVE_SUM];
+    score = currentWeight - score;
+  } else if (config.objType == 2) { // VOI
+    cout << "Configuration NOT supported!" << endl;
+  } else if (config.objType == 3) { // RANDOM
+    cout << "Code path should not get here!" << endl;
+  }
+
+  test.setScore(score);
+}
+
+GraphTest selectNextTest(
+    vector<GraphTest>& tests, const SimConfig& config) {
+  double currentWeight = computeCurrentMass(config);
+  TestCompareFunction tstCmpFcn;
+#if DBG
+  int count = 0;
+#endif
+  do {
+    // Remove the top test from the heap.
+    GraphTest crtTop = tests.front();
+    pop_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+        tests.begin(), tests.end(), TestCompareFunction());
+    tests.pop_back();
+
+#if DBG
+    std::cout << "Top: " << crtTop.getScore() << " Next: " <<
+      tests.front().getScore() << std::endl;
+#endif
+
+    // Exit early if it's the last element in the heap.
+    if (!tests.size()) {
+      int invalidNode = -1;
+      MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
+
+      return crtTop;
+    }
+
+    // Recompute its score and keep it if it stays on top.
+    recomputeTestScore(crtTop, config, currentWeight);
+
+#if DBG
+    std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
+#endif
+
+    if (tstCmpFcn(tests.front(), crtTop)) {
+#if DBG
+      std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
+#endif
+      int invalidNode = -1;
+      MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
+
+      return crtTop;
+    }
+
+    // Otherwise push it back to the heap.
+    tests.push_back(crtTop);
+#if DBG
+    count++;
+#endif
+    push_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+        tests.begin(), tests.end(), TestCompareFunction());
+  } while (true);
+
+  cout << "SHOULD NOT BE REACHED" << endl;
+  return tests.front();
+}
+
+vector<GraphTest> buildTestHeap(const SimConfig& config) {
   double junk[config.nodes];
   double sums[config.objSums][config.nodes];
-  double crtSum[2];
 
   MPI::Status status;
   memset(sums, 0, config.objSums * config.nodes * sizeof(**sums));
@@ -32,38 +141,18 @@ pair<int, double> selectNextTestUsingParallelComputations(
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
   // Compute current mass of all the clusters.
-  double currentWeight = 0.0;
-  crtSum[0] = 0.0; crtSum[1] = 0.0;
-  MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[0], 1,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  MPI::COMM_WORLD.Reduce(&currentWeight, &crtSum[1], 1,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  currentWeight = crtSum[0];
-  if (config.objType == 0) { // EC2
-    currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
-  }
+  double currentWeight = computeCurrentMass(config);
 
 #if DBG
   cout << "Current Weight: " << currentWeight << endl;
   cout << "Partial scores: " << difftime(time(NULL), sumTime) << "s" << endl;
 #endif
 
-  // Generalize to non-EC2 objective functions.
-  double maxTestScore = numeric_limits<double>::min();
-  int maxTestNode = -1;
-
-  if (config.objType == 3) { // RANDOM
-  }
-
+  vector<GraphTest> tests;
   int totalHypothesis = config.nodes * config.clusterSize;
   for (int test = 0; test < config.nodes; ++test) {
-    if (testWasUsed[test])
-      continue;
-
     double score = 0.0;
-    double testPositivePb =
-        (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
+    double testPositivePb = (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
 
     if (config.objType == 0) { // EC2
       double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
@@ -78,15 +167,22 @@ pair<int, double> selectNextTestUsingParallelComputations(
       score = currentWeight - score;
     } else if (config.objType == 2) { // VOI
       cout << "Configuration NOT supported!" << endl;
+    } else if (config.objType == 3) { // RANDOM
+      cout << "Code path should not get here!" << endl;
     }
 
-    if (score > maxTestScore) {
-      maxTestScore = score;
-      maxTestNode = test;
-    }
+    GraphTest graphTest(test);
+    graphTest.setScore(score);
+
+    tests.push_back(graphTest);
   }
 
-  return pair<int, double>(maxTestNode, maxTestScore);
+#if DBG
+  cout << "Built test heap ready" << endl;
+#endif
+  std::make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+      tests.begin(), tests.end(), TestCompareFunction());
+  return tests;
 }
 
 pair<int, vector<double>> identifyClusterUsingParallelComputations(
@@ -129,46 +225,32 @@ pair<int, vector<double>> simulate(
     const GraphHypothesis& realization,
     const SimConfig& config)
 {
-  bool testWasUsed[config.nodes];
-  for (int i = 0; i < config.nodes; ++i)
-    testWasUsed[i] = false;
+  vector<GraphTest> tests = buildTestHeap(config);
 
   // Request scores for each of the tests.
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
-    pair<int, double> nextTest;
-    if (config.objType == 3) {
-      do {
-        int maxTestNode = rand() % config.nodes;
-        if (!testWasUsed[maxTestNode]) {
-          nextTest = pair<int, double>(maxTestNode, 0.314159);
-          break;
-        }
-      } while (true);
-    } else {
-      nextTest = selectNextTestUsingParallelComputations(testWasUsed, config);
-    }
-
+    GraphTest nextTest = selectNextTest(tests, config);
 #if DBG
-    cout << count << ". " << nextTest.first << " " << nextTest.second << endl;
+    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 #endif
-    testWasUsed[nextTest.first] = true;
-
     // Inform the workers about the selected test.
-    GraphTest test(nextTest.first);
-    bool outcome = realization.getTestOutcome(test);
-    int infection = realization.getInfectionTime(nextTest.first);
+    int nodeId = nextTest.getNodeId();
+    bool outcome = realization.getTestOutcome(nextTest);
+    int infection = realization.getInfectionTime(nextTest.getNodeId());
 
 #if DBG
     time_t bcastTime = time(NULL);
 #endif
-    MPI::COMM_WORLD.Bcast(&nextTest.first, 1, MPI::INT, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
 #if DBG
     cout << "Broadcasting took " << difftime(time(NULL), bcastTime) <<
         "s" << endl;
 #endif
+    for (GraphTest& test : tests)
+      test.setScore((1-EPS) * (1-EPS) * test.getScore());
   }
 
   // Identify the cluster where the mass is concentrated.
