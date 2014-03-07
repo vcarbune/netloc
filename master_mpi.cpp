@@ -12,35 +12,6 @@
 #include <fstream>
 #include <utility>
 
-pair <int, double> selectNextTestUsingParallelLazyGreedy(
-    bool *testWasUsed, const SimConfig& config)
-{
-  // Gather test nodes and scores from mpi nodes.
-  int testNodeId[config.mpi.nodes];
-  double testScore[config.mpi.nodes];
-
-  int junk = -1;
-  double score = 0.0;
-
-  MPI::COMM_WORLD.Gather(&junk, 1, MPI::INT, &testNodeId, 1, MPI::INT, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&score, 1, MPI::DOUBLE, &testScore, 1, MPI::DOUBLE, MPI_MASTER);
-
-  double maxTestScore = numeric_limits<double>::min();
-  int maxTestNode = -1;
-
-  for (int i = 1; i < config.mpi.nodes; ++i) {
-#if DBG
-    cout << testNodeId[i] << " - " << testScore[i] << endl;
-#endif
-    if (testNodeId[i] != -1 && testScore[i] > maxTestScore) {
-      maxTestNode = testNodeId[i];
-      maxTestScore = testScore[i];
-    }
-  }
-
-  return pair<int, double>(maxTestNode, maxTestScore);
-}
-
 pair<int, double> selectNextTestUsingParallelComputations(
     bool *testWasUsed, const SimConfig& config) {
   double junk[config.nodes];
@@ -118,46 +89,6 @@ pair<int, double> selectNextTestUsingParallelComputations(
   return pair<int, double>(maxTestNode, maxTestScore);
 }
 
-pair<int, vector<double>> identifyClusterUsingLazyGreedyAndVoting(
-    int realSource, const SimConfig& config)
-{
-  // Gather information from all processes.
-  double totalMass;
-  double zeroValues[config.nodes];
-  double clusterMass[config.nodes];
-
-  double junk = 0.0;
-  MPI::COMM_WORLD.Reduce(&junk, &totalMass, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  memset(zeroValues, 0, config.nodes * sizeof(*zeroValues));
-  MPI::COMM_WORLD.Reduce(zeroValues, clusterMass, config.nodes,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  int maxIndex = 0;
-  for (int i = 0; i < config.nodes; ++i)
-    if (clusterMass[maxIndex] < clusterMass[i])
-      maxIndex = i;
-  double realSourceMass = clusterMass[realSource];
-
-  pair<int, vector<double>> result;
-  result.first = maxIndex; // identified solution
-
-  // Mass in solution cluster and difference of mass.
-  result.second.push_back(100 * realSourceMass);
-  result.second.push_back(100 * (clusterMass[maxIndex] - realSourceMass));
-
-  result.second[0] /= totalMass;
-  result.second[1] /= totalMass;
-
-  // Rank of the solution.
-  result.second.push_back(0.0);
-  for (int i = 0; i < config.nodes; ++i)
-    if (realSourceMass < clusterMass[i])
-      result.second[2] += 1;
-
-  return result;
-}
-
 pair<int, vector<double>> identifyClusterUsingParallelComputations(
     int realSource, const SimConfig& config)
 {
@@ -214,8 +145,6 @@ pair<int, vector<double>> simulate(
           break;
         }
       } while (true);
-    } else if (config.lazy) {
-      nextTest = selectNextTestUsingParallelLazyGreedy(testWasUsed, config);
     } else {
       nextTest = selectNextTestUsingParallelComputations(testWasUsed, config);
     }
@@ -243,9 +172,8 @@ pair<int, vector<double>> simulate(
   }
 
   // Identify the cluster where the mass is concentrated.
-  pair<int, vector<double>> solution = config.lazy ?
-    identifyClusterUsingLazyGreedyAndVoting(realization.getSource(), config) :
-    identifyClusterUsingParallelComputations(realization.getSource(), config);
+  pair<int, vector<double>> solution =
+      identifyClusterUsingParallelComputations(realization.getSource(), config);
 
   return solution;
 }
