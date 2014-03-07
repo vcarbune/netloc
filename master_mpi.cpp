@@ -43,7 +43,6 @@ pair <int, double> selectNextTestUsingParallelLazyGreedy(
 
 pair<int, double> selectNextTestUsingParallelComputations(
     bool *testWasUsed, const SimConfig& config) {
-  // Final masses, summed from what was received from each node.
   double junk[config.nodes];
   double sums[config.objSums][config.nodes];
   double crtSum[2];
