@@ -248,16 +248,9 @@ pair<int, vector<double>> simulate(
     bool outcome = realization.getTestOutcome(nextTest);
     int infection = realization.getInfectionTime(nextTest.getNodeId());
 
-#if DBG
-    time_t bcastTime = time(NULL);
-#endif
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
-#if DBG
-    cout << "Broadcasting took " << difftime(time(NULL), bcastTime) <<
-        "s" << endl;
-#endif
     for (GraphTest& test : tests)
       test.setScore((1-EPS) * (1-EPS) * test.getScore());
   }
