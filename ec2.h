@@ -18,7 +18,7 @@
 #include <thread>
 #include <utility>
 
-#define DBG 0
+#define DBG 1
 #define WORK_THREADS 16
 
 #define EPS 0.05

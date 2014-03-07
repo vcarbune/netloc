@@ -93,8 +93,6 @@ void simulate(
     vector<GraphHypothesisCluster>& clusters,
     const SimConfig& config)
 {
-  buildTestHeap(clusters, config);
-
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
     if (config.objType == 3) {
@@ -121,25 +119,18 @@ void simulate(
       cluster.updateMassWithTest(test);
   }
 
-  // Identify the cluster with the highest mass and send it back
-  // to the master process to identify the highest one.
-  double maxMass = -numeric_limits<double>::max();
-  double totalMass = 0.0;
-  int sourceNode = -1;
-
-  for (const GraphHypothesisCluster& cluster : clusters) {
-    totalMass += cluster.getMass();
-    if (cluster.getMass() > maxMass) {
-      maxMass = cluster.getMass();
-      sourceNode = cluster.getSource();
-    }
+  // Send the cluster masses to the central node.
+  int clusterNodes[clusters.size()];
+  double clusterWeight[clusters.size()];
+  for (size_t node = 0; node < clusters.size(); ++node) {
+    clusterNodes[node] = clusters[node].getSource();
+    clusterWeight[node] = clusters[node].getWeight();
   }
 
-  MPI::COMM_WORLD.Reduce(&totalMass, NULL, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  // If lazy greedy is enabled, send back mass for all clusters directly.
-  MPI::COMM_WORLD.Gather(&maxMass, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&sourceNode, 1, MPI::INT, NULL, 1, MPI::INT, MPI_MASTER);
+  int nodes = clusters.size();
+  MPI::COMM_WORLD.Send(&nodes, 1, MPI::INT, MPI_MASTER, 0);
+  MPI::COMM_WORLD.Send(&clusterNodes, nodes, MPI::INT, MPI_MASTER, 0);
+  MPI::COMM_WORLD.Send(&clusterWeight, nodes, MPI::DOUBLE, MPI_MASTER, 0);
 }
 
 void startWorker(PUNGraph network, SimConfig config)
@@ -162,21 +153,11 @@ void startWorker(PUNGraph network, SimConfig config)
             network, source, 1, config.beta, config.cascadeBound,
             config.clusterSize));
 
+    buildTestHeap(clusters, config);
     for (int truth = 0; truth < config.groundTruths; ++truth) {
       for (GraphHypothesisCluster& cluster : clusters)
         cluster.resetWeight(1);
-
       simulate(clusters, config);
-
-      int realSource;
-      MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
-      if (realSource >= mpiClusterStartNode && realSource < mpiClusterEndNode) {
-        int realSourceIdx = realSource - mpiClusterStartNode;
-        double realSourceMass = clusters[realSourceIdx].getWeight();
-        if (clusters[realSourceIdx].getSource() != realSource)
-          cout << "!!ERROR!!" << endl;
-        MPI::COMM_WORLD.Send(&realSourceMass, 1, MPI::DOUBLE, MPI_MASTER, 1);
-      }
     }
   }
 }

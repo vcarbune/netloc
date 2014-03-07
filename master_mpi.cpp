@@ -81,8 +81,10 @@ GraphTest selectNextTest(
     tests.pop_back();
 
 #if DBG
+    /*
     std::cout << "Top: " << crtTop.getScore() << " Next: " <<
       tests.front().getScore() << std::endl;
+    */
 #endif
 
     // Exit early if it's the last element in the heap.
@@ -97,12 +99,12 @@ GraphTest selectNextTest(
     recomputeTestScore(crtTop, config, currentWeight);
 
 #if DBG
-    std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
+    // std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
 #endif
 
     if (tstCmpFcn(tests.front(), crtTop)) {
 #if DBG
-      std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
+      // std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
 #endif
       int invalidNode = -1;
       MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
@@ -189,44 +191,51 @@ pair<int, vector<double>> identifyClusterUsingParallelComputations(
     int realSource, const SimConfig& config)
 {
   // Gather information from all processes.
-  int sourceNodes[config.mpi.nodes];
-  double maxMass[config.mpi.nodes];
+  int clusterNodes[config.nodes];
+  double clusterWeight[config.nodes];
+  double allClusterWeights[config.nodes];
 
-  double e = 0.0;
+  int nodes;
   double mass = 0.0;
 
-  MPI::COMM_WORLD.Reduce(&e, &mass, 1, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&e, 1, MPI::DOUBLE, &maxMass, 1, MPI::DOUBLE, MPI_MASTER);
-  MPI::COMM_WORLD.Gather(&e, 1, MPI::INT, &sourceNodes, 1, MPI::INT, MPI_MASTER);
-
-  int maxIndex = 1;
-  for (int i = 1; i < config.mpi.nodes; ++i)
-    if (maxMass[maxIndex] < maxMass[i])
-      maxIndex = i;
-
-  MPI::COMM_WORLD.Bcast(&realSource, 1, MPI::INT, MPI_MASTER);
-
-  double realSourceMass;
   MPI::Status status;
-  MPI::COMM_WORLD.Recv(&realSourceMass, config.nodes, MPI::DOUBLE, MPI::ANY_SOURCE, 1, status);
+  for (int worker = 1; worker < config.mpi.nodes; ++worker) {
+    MPI::COMM_WORLD.Recv(&nodes, 1, MPI::INT, worker, 0, status);
+    MPI::COMM_WORLD.Recv(&clusterNodes, nodes, MPI::INT, worker, 0, status);
+    MPI::COMM_WORLD.Recv(&clusterWeight, nodes, MPI::DOUBLE, worker, 0, status);
+    for (int i = 0; i < nodes; ++i) {
+      mass += clusterWeight[i];
+      allClusterWeights[clusterNodes[i]] = clusterWeight[i];
+    }
+  }
+
+  int maxIndex = 0;
+  for (int i = 0; i < config.nodes; ++i) {
+    allClusterWeights[i] = allClusterWeights[i] * 100 / mass;
+    if (allClusterWeights[i] > allClusterWeights[maxIndex])
+      maxIndex = i;
+  }
+
+  int rank = 0;
+  for (int i = 0; i < config.nodes; ++i) {
+    if (allClusterWeights[realSource] < allClusterWeights[i])
+      rank++;
+  }
 
   pair<int, vector<double>> result;
-  result.first = sourceNodes[maxIndex]; // identified solution
-  result.second.push_back(100 * realSourceMass); // solution confidence
-  result.second.push_back(100 * (maxMass[maxIndex] - realSourceMass));
-
-  result.second[0] /= mass;
-  result.second[1] /= mass;
+  result.first = maxIndex; // identified solution
+  result.second.push_back(allClusterWeights[maxIndex]); // solution confidence
+  result.second.push_back(result.second[0] - allClusterWeights[realSource]);
+  result.second.push_back(rank);
 
   return result;
 }
 
 pair<int, vector<double>> simulate(
+    vector<GraphTest>& tests,
     const GraphHypothesis& realization,
     const SimConfig& config)
 {
-  vector<GraphTest> tests = buildTestHeap(config);
-
   // Request scores for each of the tests.
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
@@ -332,9 +341,12 @@ void startMaster(PUNGraph network, SimConfig config)
   vector<pair<int, vector<double>>> results[config.steps];
   for (int step = 0; step < config.steps; ++step, ++config) {
     double startTime = time(NULL);
+
+    vector<GraphTest> tests = buildTestHeap(config);
     for (int truth = 0; truth < config.groundTruths; ++truth) {
+      vector<GraphTest> tempTests(tests);
       pair<int, vector<double>> result =
-          simulate(realizations[truth], config);
+          simulate(tempTests, realizations[truth], config);
 
       // Add distance (in hops) to the source node.
       result.second.push_back(TSnap::GetShortPath(network,
