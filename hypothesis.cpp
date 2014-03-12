@@ -4,7 +4,9 @@
  */
 
 #include <cassert>
+#include <fstream>
 #include <numeric>
+#include <sstream>
 
 #include "hypothesis.h"
 
@@ -81,7 +83,25 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
   return GraphHypothesis(sourceId, infectionTime);
 }
 
+GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
+{
+  int node; 
+  int infectionTime;
+  int srcNode = -1;
+  unordered_map<int, int> infectionTimeMap;
 
+  ifstream inputfile(filename);
+  for(string line; getline(inputfile, line); ) {
+    istringstream iss(line);
+    iss >> node >> infectionTime;
+    infectionTimeMap[node] = infectionTime;
+    if (srcNode == -1)
+      srcNode = node;
+  }
+  inputfile.close();
+
+  return GraphHypothesis(srcNode, infectionTimeMap);
+}
 
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
                                                int sourceId,

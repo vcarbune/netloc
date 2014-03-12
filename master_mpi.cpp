@@ -81,10 +81,8 @@ GraphTest selectNextTest(
     tests.pop_back();
 
 #if DBG
-    /*
     std::cout << "Top: " << crtTop.getScore() << " Next: " <<
       tests.front().getScore() << std::endl;
-    */
 #endif
 
     // Exit early if it's the last element in the heap.
@@ -99,12 +97,12 @@ GraphTest selectNextTest(
     recomputeTestScore(crtTop, config, currentWeight);
 
 #if DBG
-    // std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
+    std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
 #endif
 
     if (tstCmpFcn(tests.front(), crtTop)) {
 #if DBG
-      // std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
+      std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
 #endif
       int invalidNode = -1;
       MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
@@ -240,9 +238,7 @@ pair<int, vector<double>> simulate(
   int totalTests = config.testThreshold * config.nodes;
   for (int count = 0; count < totalTests; ++count) {
     GraphTest nextTest = selectNextTest(tests, config);
-#if DBG
     cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
-#endif
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
     bool outcome = realization.getTestOutcome(nextTest);
@@ -251,6 +247,7 @@ pair<int, vector<double>> simulate(
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
+
     for (GraphTest& test : tests)
       test.setScore((1-EPS) * (1-EPS) * test.getScore());
   }
@@ -318,17 +315,32 @@ void processResults(vector<pair<int, vector<double>>> *results,
   dumpStream.close();
 }
 
+void initializeGroundTruths(PUNGraph network,
+    vector<GraphHypothesis>& realizations,
+    const SimConfig& config)
+{
+  if (!config.groundTruth.Empty()) {
+    cout << config.mpi.rank << ": Reading ground truth from " <<
+      config.groundTruth.CStr() << endl;
+    realizations.push_back(GraphHypothesis::readHypothesisFromFile(
+          config.groundTruth.CStr()));
+    return;
+  }
+
+  for (int truth = 0; truth < config.groundTruths; ++truth) {
+    realizations.push_back(GraphHypothesis::generateHypothesis(
+          network, rand() % network->GetNodes(),
+          config.cascadeBound, config.beta));
+  }
+}
+
 void startMaster(PUNGraph network, SimConfig config)
 {
   time_t startTime = time(NULL);
   cout << fixed << std::setprecision(3);
 
   vector<GraphHypothesis> realizations;
-  for (int truth = 0; truth < config.groundTruths; ++truth) {
-    realizations.push_back(GraphHypothesis::generateHypothesis(
-          network, rand() % network->GetNodes(),
-          config.cascadeBound, config.beta));
-  }
+  initializeGroundTruths(network, realizations, config);
 
   SimConfig initialConfig = config;
   vector<pair<int, vector<double>>> results[config.steps];

@@ -49,6 +49,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", 0, "Objective Type: "
                   "EC2 - 0, GBS - 1, VoI - 2");
+  const TStr paramGroundTruth = Env.GetIfArgPrefixStr(
+      "-truth=", "", "The ground truth to search for");
   const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
       "-truths=", 20, "The total number of ground truths");
 
@@ -79,7 +81,11 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
     default:
       config.objSums = REGULAR_SUMS;
   }
+
+  config.groundTruth = paramGroundTruth;
   config.groundTruths = paramGroundTruths;
+  if (!paramGroundTruth.Empty())
+    config.groundTruths = 1;
 
   return config;
 }

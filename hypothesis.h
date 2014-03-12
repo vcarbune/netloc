@@ -20,6 +20,7 @@ class GraphHypothesis {
   public:
     static GraphHypothesis generateHypothesis(
         PUNGraph, int, double, double, vector<int>* = NULL);
+    static GraphHypothesis readHypothesisFromFile(const char* filename);
 
     bool isConsistentWithTest(const GraphTest& test) const;
     int getInfectionTime(int) const;

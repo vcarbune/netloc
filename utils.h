@@ -57,6 +57,8 @@ class SimConfig {
 
     int objType;
     int objSums;
+
+    TStr groundTruth;
     int groundTruths;
 
     MPIConfig mpi;

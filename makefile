@@ -24,4 +24,4 @@ $(CSNAP)/Snap.o:
 	$(MAKE) -C $(CSNAP)
 
 clean:
-	rm -f *.o *.dat $(TARGETS)
+	rm -f *.o $(TARGETS)

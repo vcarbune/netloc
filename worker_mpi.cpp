@@ -148,10 +148,11 @@ void startWorker(PUNGraph network, SimConfig config)
   for (int step = 0; step < config.steps; ++step, ++config) {
     // Generate clusters.
     vector<GraphHypothesisCluster> clusters;
-    for (int source = mpiClusterStartNode; source < mpiClusterEndNode; source++)
+    for (int src = mpiClusterStartNode; src < mpiClusterEndNode; src++) {
       clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-            network, source, 1, config.beta, config.cascadeBound,
+            network, src, 1, config.beta, config.cascadeBound,
             config.clusterSize));
+    }
 
     buildTestHeap(clusters, config);
     for (int truth = 0; truth < config.groundTruths; ++truth) {
