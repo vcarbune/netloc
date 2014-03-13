@@ -61,6 +61,10 @@ class SimConfig {
     TStr groundTruth;
     int groundTruths;
 
+    bool epflSolver;      // run EPFL algorithm on the given network.
+    double epflMiu;
+    double epflSigma;
+
     MPIConfig mpi;
 
   private:

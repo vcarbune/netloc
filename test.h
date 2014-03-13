@@ -32,9 +32,9 @@ class GraphTest : public Test {
     }
 
     int getNodeId() const { return m_nodeId; }
-    int getInfectionTime() const { return m_infectionTime; }
+    double getInfectionTime() const { return m_infectionTime; }
 
-    void setInfectionTime(int infectionTime) {
+    void setInfectionTime(double infectionTime) {
       m_infectionTime = infectionTime;
     }
 
@@ -44,7 +44,7 @@ class GraphTest : public Test {
 
   private:
     int m_nodeId;
-    int m_infectionTime;
+    double m_infectionTime;
 };
 
 #endif // GRAPH_TEST_H_

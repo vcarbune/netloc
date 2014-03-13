@@ -53,6 +53,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
       "-truth=", "", "The ground truth to search for");
   const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
       "-truths=", 20, "The total number of ground truths");
+  const TBool paramEpfl = Env.GetIfArgPrefixInt(
+      "-epfl=", false, "EPFL solution?");
 
   SimConfig config;
 
@@ -86,6 +88,10 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   config.groundTruths = paramGroundTruths;
   if (!paramGroundTruth.Empty())
     config.groundTruths = 1;
+
+  config.epflSolver = paramEpfl;
+  config.epflMiu = 8;
+  config.epflSigma = 2;
 
   return config;
 }

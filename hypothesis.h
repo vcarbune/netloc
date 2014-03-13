@@ -20,10 +20,12 @@ class GraphHypothesis {
   public:
     static GraphHypothesis generateHypothesis(
         PUNGraph, int, double, double, vector<int>* = NULL);
+    static GraphHypothesis generateHypothesisUsingGaussianModel(
+        PUNGraph, int, double, double, double, vector<int>* = NULL);
     static GraphHypothesis readHypothesisFromFile(const char* filename);
 
     bool isConsistentWithTest(const GraphTest& test) const;
-    int getInfectionTime(int) const;
+    double getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
     unsigned int getSize() const { return m_infectionHash.size(); }
     short unsigned int getSource() const { return m_sourceId; }
@@ -31,10 +33,10 @@ class GraphHypothesis {
     double weight;
 
   private:
-    GraphHypothesis(short unsigned int, unordered_map<int, int>&);
+    GraphHypothesis(unsigned int, unordered_map<int, double>&);
 
-    unordered_map<int, int> m_infectionHash;
-    short unsigned int m_sourceId;
+    unordered_map<int, double> m_infectionHash;
+    unsigned int m_sourceId;
 };
 
 class GraphHypothesisCluster {

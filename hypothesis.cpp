@@ -4,16 +4,20 @@
  */
 
 #include <cassert>
+#include <cmath>
 #include <fstream>
 #include <numeric>
+#include <random>
 #include <sstream>
+
+#include <queue>
 
 #include "hypothesis.h"
 
 #define INITIAL_RUNS 4
 
-GraphHypothesis::GraphHypothesis(short unsigned int sourceId,
-                                 unordered_map<int, int>& infectionTime)
+GraphHypothesis::GraphHypothesis(unsigned int sourceId,
+                                 unordered_map<int, double>& infectionTime)
   : m_sourceId(sourceId)
 {
   m_infectionHash.swap(infectionTime);
@@ -26,12 +30,11 @@ bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
   if (test.getInfectionTime() == INFECTED_FALSE)
     return !this->getTestOutcome(test);
 
-  unsigned int infectionTime =
-    static_cast<unsigned int>(test.getInfectionTime());
+  double infectionTime = test.getInfectionTime();
   return this->getTestOutcome(test) || m_infectionHash.size() < infectionTime;
 }
 
-int GraphHypothesis::getInfectionTime(int nodeId) const
+double GraphHypothesis::getInfectionTime(int nodeId) const
 {
   if (m_infectionHash.find(nodeId) != m_infectionHash.end())
     return m_infectionHash.at(nodeId);
@@ -57,7 +60,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
   int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
 
   // Add the source node (fixed for this cluster).
-  unordered_map<int, int> infectionTime;
+  unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
 
   for (int run = 0; run < runTimes; run++) {
@@ -83,12 +86,58 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
   return GraphHypothesis(sourceId, infectionTime);
 }
 
+/**
+ * Generate one cascade using the EPFL Gaussian diffusion model.
+ * See paper "Locating the Source of Diffusion in Large-Scale Networks".
+ */
+GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
+    PUNGraph network, int sourceId, double size,
+    double miu, double sigma, vector<int> *nodeCount)
+{
+  bool isTrueHypothesis = nodeCount == NULL;
+  unsigned int cascadeSize = size * network->GetNodes();
+
+  // Assign propagation delays to all edges using a normal distribution.
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  // miu/sigma = 4 (synthetic data)
+  std::normal_distribution<> d(miu, sigma);
+
+  unordered_map<int, double> infectionTime;
+  infectionTime[sourceId] = 0;
+
+  unordered_map<int, int> visited;
+  queue<int> q;
+
+  //int infectedNodes = 0;
+  q.push(sourceId);
+
+  // bfs to mark infection times.
+  while (!q.empty()) {
+    int crtNode = q.front();
+    q.pop();
+
+    const TUNGraph::TNodeI& crtIt = network->GetNI(crtNode);
+    for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
+      unsigned int neighbourId = crtIt.GetOutNId(neighbour);
+      if (infectionTime.find(neighbourId) != infectionTime.end())
+        continue;
+
+      q.push(neighbourId);
+      infectionTime[neighbourId] = infectionTime[crtNode] + d(gen);
+    }
+  }
+
+  return GraphHypothesis(sourceId, infectionTime);
+}
+
 GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
 {
   int node; 
   int infectionTime;
   int srcNode = -1;
-  unordered_map<int, int> infectionTimeMap;
+  unordered_map<int, double> infectionTimeMap;
 
   ifstream inputfile(filename);
   for(string line; getline(inputfile, line); ) {
