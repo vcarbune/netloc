@@ -102,6 +102,27 @@ ostream& operator<<(ostream& os, const SimConfig& config)
   return os;
 }
 
+MPINode::MPINode(SimConfig config)
+  : m_config(config)
+{
+  readNetwork();
+}
+
+void MPINode::readNetwork()
+{
+  if (m_config.netinFile.Empty()) {
+    cerr << "Network file MUST be provided!" << endl;
+    return;
+  }
+
+  TFIn FIn(m_config.netinFile);
+  m_network = TUNGraph::Load(FIn);
+
+  m_config.nodes = m_network->GetNodes();
+  cout << m_config.mpi.rank << ": " <<
+      "Loaded network (N=" << m_config.nodes << ") from file..." << endl;
+}
+
 void generateNetwork(PUNGraph *network, SimConfig& config) {
   if (!config.netinFile.Empty()) {
     { TFIn FIn(config.netinFile); *network = TUNGraph::Load(FIn); }
@@ -150,22 +171,4 @@ void generateTests(vector<GraphTest> *tests,
   tests->clear();
   for (int node = 0; node < network->GetNodes(); ++node)
     tests->push_back(GraphTest(node));
-}
-
-double computeGraphWeight(const vector<GraphHypothesisCluster>& clusters,
-    int objType)
-{
-  double currentMassDiagonal = 0.0;
-  double currentMass = 0.0;
-
-  for (const GraphHypothesisCluster& cluster : clusters) {
-    double crtWeight = cluster.getWeight();
-    currentMass += crtWeight;
-    currentMassDiagonal += crtWeight * crtWeight;
-  }
-
-  if (objType == 0) // EC2
-    return currentMass * currentMass - currentMassDiagonal;
-
-  return currentMass;
 }

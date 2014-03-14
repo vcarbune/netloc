@@ -31,7 +31,6 @@ struct MPIConfig {
   int nodes;
 };
 
-
 class SimConfig {
   public:
     static SimConfig getSimConfigFromEnv(int argc, char *argv[]);
@@ -66,12 +65,23 @@ class SimConfig {
     double epflSigma;
 
     MPIConfig mpi;
-
   private:
     SimConfig() {};
 };
-
 ostream& operator<<(ostream& os, const SimConfig& config);
+
+// Base class for MPI Nodes.
+class MPINode {
+  public:
+    MPINode(SimConfig);
+    virtual void run() = 0;
+
+  protected:
+    void readNetwork();
+
+    PUNGraph m_network;
+    SimConfig m_config;
+};
 
 // Initialization
 void generateNetwork(PUNGraph *network, SimConfig& config);
@@ -80,9 +90,5 @@ void generateClusters(vector<GraphHypothesisCluster> *clusters,
                       const SimConfig& config);
 void generateTests(vector<GraphTest> *tests,
                    const PUNGraph network);
-
-// Graph Weight
-double computeGraphWeight(const vector<GraphHypothesisCluster>& clusters,
-    int objType);
 
 #endif // UTILS_H_

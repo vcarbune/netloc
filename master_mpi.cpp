@@ -12,7 +12,60 @@
 #include <fstream>
 #include <utility>
 
-double computeCurrentMass(const SimConfig& config) {
+MasterNode::MasterNode(SimConfig config)
+  : MPINode(config)
+{
+  initializeGroundTruths();
+}
+
+void MasterNode::run()
+{
+  time_t startTime = time(NULL);
+  SimConfig initialConfig = m_config;
+
+  vector<result_t> results[m_config.steps];
+  for (int step = 0; step < m_config.steps; ++step, ++m_config) {
+    rebuildTestHeap();
+    double startTime = time(NULL);
+    for (const GraphHypothesis& realization : m_realizations) {
+      result_t result = simulate(realization);
+      // Add distance (in hops) to the source node.
+      result.second.push_back(TSnap::GetShortPath(m_network,
+            realization.getSource(), result.first));
+      // Keep a boolean, whether the source was identified or not.
+      result.first = realization.getSource() == result.first ? 1 : 0;
+      results[step].push_back(result);
+
+      cout << m_config << "-" << realization.getSource() << "\t";
+      for (size_t i = 0; i < result.second.size(); ++i)
+        cout << result.second[i] << "\t";
+      cout << endl;
+    }
+    cout << "Time: " << difftime(time(NULL), startTime) << "s\n\n";
+  }
+
+  processResults(results, initialConfig);
+  cout << "Time: " << difftime(time(NULL), startTime) << "s" << endl;
+}
+
+void MasterNode::initializeGroundTruths()
+{
+  // Read from file, if ground truth is given.
+  if (!m_config.groundTruth.Empty()) {
+    cout << "Reading ground truth from " << m_config.groundTruth.CStr() << endl;
+    m_realizations.push_back(
+        GraphHypothesis::readHypothesisFromFile(m_config.groundTruth.CStr()));
+    return;
+  }
+
+  // Generate artificially otherwise.
+  for (int truth = 0; truth < m_config.groundTruths; ++truth)
+    m_realizations.push_back(GraphHypothesis::generateHypothesis(
+          m_network, rand() % m_network->GetNodes(),
+          m_config.cascadeBound, m_config.beta));
+}
+
+double MasterNode::computeCurrentMass() {
   // Compute current mass of all the clusters.
   double currentWeight = 0.0;
   double crtSum[2];
@@ -23,52 +76,93 @@ double computeCurrentMass(const SimConfig& config) {
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
   currentWeight = crtSum[0];
-  if (config.objType == 0) { // EC2
+  if (m_config.objType == 0) // EC2
     currentWeight = crtSum[0] * crtSum[0] - crtSum[1];
-  }
 
   return currentWeight;
 }
 
-void recomputeTestScore(
-    GraphTest& test, const SimConfig& config, double currentWeight)
+void MasterNode::rebuildTestHeap()
 {
-  int currentTestNode = test.getNodeId();
-  MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
+  double junk[m_config.nodes];
+  double sums[m_config.objSums][m_config.nodes];
 
-  double sums[config.objSums];
-  double junk[config.objSums];
-  memset(junk, 0, config.objSums * sizeof(*junk));
+  MPI::Status status;
+  memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
+  memset(junk, 0, m_config.nodes * sizeof(*junk));
 
-  MPI::COMM_WORLD.Reduce(&junk, sums, config.objSums,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  // Get from workers positive & negative mass of tests still in the loop.
+  for (int s = 0; s < m_config.objSums; ++s)
+    MPI::COMM_WORLD.Reduce(&junk, sums[s], m_config.nodes,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  double totalHypothesis = config.nodes * config.clusterSize;
-  double testPositivePb = (double) sums[CONS_HYPO_SUM] / totalHypothesis;
-  double score = 0.0;
-  if (config.objType == 0) { // EC2
-    double positiveMass = sums[POSITIVE_SUM] * sums[POSITIVE_SUM] -
-        sums[POSITIVE_DIAG_SUM];
-    double negativeMass = sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] -
-        sums[NEGATIVE_DIAG_SUM];
-    score = currentWeight -
-        (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
-  } else if (config.objType == 1) { // GBS
-    score = testPositivePb * sums[POSITIVE_SUM] +
-      (1 - testPositivePb) * sums[NEGATIVE_SUM];
-    score = currentWeight - score;
-  } else if (config.objType == 2) { // VOI
-    cout << "Configuration NOT supported!" << endl;
-  } else if (config.objType == 3) { // RANDOM
-    cout << "Code path should not get here!" << endl;
+  // Compute current mass of all the clusters.
+  double currentWeight = computeCurrentMass();
+  m_tests.clear();
+  int totalHypothesis = m_config.nodes * m_config.clusterSize;
+  for (int test = 0; test < m_config.nodes; ++test) {
+    double score = 0.0;
+    double testPositivePb = (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
+
+    if (m_config.objType == 0) { // EC2
+      double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
+          sums[POSITIVE_DIAG_SUM][test];
+      double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
+          sums[NEGATIVE_DIAG_SUM][test];
+      score = currentWeight -
+          (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+    } else if (m_config.objType == 1) { // GBS
+      score = testPositivePb * sums[POSITIVE_SUM][test] +
+        (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
+      score = currentWeight - score;
+    } else if (m_config.objType == 2) { // VOI
+      cout << "Configuration NOT supported!" << endl;
+    } else if (m_config.objType == 3) { // RANDOM
+      cout << "Code path should not get here!" << endl;
+    }
+
+    GraphTest graphTest(test);
+    graphTest.setScore(score);
+
+    m_tests.push_back(graphTest);
   }
 
-  test.setScore(score);
+  std::make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+      m_tests.begin(), m_tests.end(), TestCompareFunction());
 }
 
-GraphTest selectNextTest(
-    vector<GraphTest>& tests, const SimConfig& config) {
-  double currentWeight = computeCurrentMass(config);
+pair<int, vector<double>> MasterNode::simulate(
+    const GraphHypothesis& realization)
+{
+  vector<GraphTest> tests(m_tests);
+
+  // Request scores for each of the tests.
+  int totalTests = m_config.testThreshold * m_config.nodes;
+  for (int count = 0; count < totalTests; ++count) {
+    GraphTest nextTest = selectNextTest(tests);
+    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+
+    // Inform the workers about the selected test.
+    int nodeId = nextTest.getNodeId();
+    bool outcome = realization.getTestOutcome(nextTest);
+    int infection = realization.getInfectionTime(nextTest.getNodeId());
+
+    MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
+
+    for (GraphTest& test : tests)
+      test.setScore((1-EPS) * (1-EPS) * test.getScore());
+  }
+
+  // Identify the cluster where the mass is concentrated.
+  result_t solution = identifyCluster(realization.getSource());
+  return solution;
+}
+
+GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
+{
+  double currentWeight = computeCurrentMass();
   TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
@@ -94,7 +188,7 @@ GraphTest selectNextTest(
     }
 
     // Recompute its score and keep it if it stays on top.
-    recomputeTestScore(crtTop, config, currentWeight);
+    recomputeTestScore(crtTop, currentWeight);
 
 #if DBG
     std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
@@ -123,81 +217,54 @@ GraphTest selectNextTest(
   return tests.front();
 }
 
-vector<GraphTest> buildTestHeap(const SimConfig& config) {
-  double junk[config.nodes];
-  double sums[config.objSums][config.nodes];
+void MasterNode::recomputeTestScore(
+    GraphTest& test, double currentWeight)
+{
+  int currentTestNode = test.getNodeId();
+  MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
 
-  MPI::Status status;
-  memset(sums, 0, config.objSums * config.nodes * sizeof(**sums));
-  memset(junk, 0, config.nodes * sizeof(*junk));
+  double sums[m_config.objSums];
+  double junk[m_config.objSums];
+  memset(junk, 0, m_config.objSums * sizeof(*junk));
 
-#if DBG
-  time_t sumTime = time(NULL);
-#endif
+  MPI::COMM_WORLD.Reduce(&junk, sums, m_config.objSums,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  // Get from workers positive & negative mass of tests still in the loop.
-  for (int s = 0; s < config.objSums; ++s)
-    MPI::COMM_WORLD.Reduce(&junk, sums[s], config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  // Compute current mass of all the clusters.
-  double currentWeight = computeCurrentMass(config);
-
-#if DBG
-  cout << "Current Weight: " << currentWeight << endl;
-  cout << "Partial scores: " << difftime(time(NULL), sumTime) << "s" << endl;
-#endif
-
-  vector<GraphTest> tests;
-  int totalHypothesis = config.nodes * config.clusterSize;
-  for (int test = 0; test < config.nodes; ++test) {
-    double score = 0.0;
-    double testPositivePb = (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
-
-    if (config.objType == 0) { // EC2
-      double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
-          sums[POSITIVE_DIAG_SUM][test];
-      double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
-          sums[NEGATIVE_DIAG_SUM][test];
-      score = currentWeight -
-          (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
-    } else if (config.objType == 1) { // GBS
-      score = testPositivePb * sums[POSITIVE_SUM][test] +
-        (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
-      score = currentWeight - score;
-    } else if (config.objType == 2) { // VOI
-      cout << "Configuration NOT supported!" << endl;
-    } else if (config.objType == 3) { // RANDOM
-      cout << "Code path should not get here!" << endl;
-    }
-
-    GraphTest graphTest(test);
-    graphTest.setScore(score);
-
-    tests.push_back(graphTest);
+  double totalHypothesis = m_config.nodes * m_config.clusterSize;
+  double testPositivePb = (double) sums[CONS_HYPO_SUM] / totalHypothesis;
+  double score = 0.0;
+  if (m_config.objType == 0) { // EC2
+    double positiveMass = sums[POSITIVE_SUM] * sums[POSITIVE_SUM] -
+        sums[POSITIVE_DIAG_SUM];
+    double negativeMass = sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] -
+        sums[NEGATIVE_DIAG_SUM];
+    score = currentWeight -
+        (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
+  } else if (m_config.objType == 1) { // GBS
+    score = testPositivePb * sums[POSITIVE_SUM] +
+      (1 - testPositivePb) * sums[NEGATIVE_SUM];
+    score = currentWeight - score;
+  } else if (m_config.objType == 2) { // VOI
+    cout << "Configuration NOT supported!" << endl;
+  } else if (m_config.objType == 3) { // RANDOM
+    cout << "Code path should not get here!" << endl;
   }
 
-#if DBG
-  cout << "Built test heap ready" << endl;
-#endif
-  std::make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
-      tests.begin(), tests.end(), TestCompareFunction());
-  return tests;
+  test.setScore(score);
 }
 
-pair<int, vector<double>> identifyClusterUsingParallelComputations(
-    int realSource, const SimConfig& config)
+result_t MasterNode::identifyCluster(int realSource)
 {
   // Gather information from all processes.
-  int clusterNodes[config.nodes];
-  double clusterWeight[config.nodes];
-  double allClusterWeights[config.nodes];
+  int clusterNodes[m_config.nodes];
+  double clusterWeight[m_config.nodes];
+  double allClusterWeights[m_config.nodes];
 
   int nodes;
   double mass = 0.0;
 
   MPI::Status status;
-  for (int worker = 1; worker < config.mpi.nodes; ++worker) {
+  for (int worker = 1; worker < m_config.mpi.nodes; ++worker) {
     MPI::COMM_WORLD.Recv(&nodes, 1, MPI::INT, worker, 0, status);
     MPI::COMM_WORLD.Recv(&clusterNodes, nodes, MPI::INT, worker, 0, status);
     MPI::COMM_WORLD.Recv(&clusterWeight, nodes, MPI::DOUBLE, worker, 0, status);
@@ -208,14 +275,14 @@ pair<int, vector<double>> identifyClusterUsingParallelComputations(
   }
 
   int maxIndex = 0;
-  for (int i = 0; i < config.nodes; ++i) {
+  for (int i = 0; i < m_config.nodes; ++i) {
     allClusterWeights[i] = allClusterWeights[i] * 100 / mass;
     if (allClusterWeights[i] > allClusterWeights[maxIndex])
       maxIndex = i;
   }
 
   int rank = 0;
-  for (int i = 0; i < config.nodes; ++i) {
+  for (int i = 0; i < m_config.nodes; ++i) {
     if (allClusterWeights[realSource] < allClusterWeights[i])
       rank++;
   }
@@ -229,37 +296,7 @@ pair<int, vector<double>> identifyClusterUsingParallelComputations(
   return result;
 }
 
-pair<int, vector<double>> simulate(
-    vector<GraphTest>& tests,
-    const GraphHypothesis& realization,
-    const SimConfig& config)
-{
-  // Request scores for each of the tests.
-  int totalTests = config.testThreshold * config.nodes;
-  for (int count = 0; count < totalTests; ++count) {
-    GraphTest nextTest = selectNextTest(tests, config);
-    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
-    // Inform the workers about the selected test.
-    int nodeId = nextTest.getNodeId();
-    bool outcome = realization.getTestOutcome(nextTest);
-    int infection = realization.getInfectionTime(nextTest.getNodeId());
-
-    MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
-    MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
-    MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
-
-    for (GraphTest& test : tests)
-      test.setScore((1-EPS) * (1-EPS) * test.getScore());
-  }
-
-  // Identify the cluster where the mass is concentrated.
-  pair<int, vector<double>> solution =
-      identifyClusterUsingParallelComputations(realization.getSource(), config);
-
-  return solution;
-}
-
-void processResults(vector<pair<int, vector<double>>> *results,
+void MasterNode::processResults(vector<result_t> *results,
     SimConfig& initialConfig)
 {
   ofstream dumpStream;
@@ -288,12 +325,11 @@ void processResults(vector<pair<int, vector<double>>> *results,
     double stderrs[vars];
     double squaredTruths =
         initialConfig.groundTruths * initialConfig.groundTruths;
-    double tmp;
 
     memset(stderrs, 0, vars * sizeof(*stderrs));
     for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
       for (int var = 0; var < vars; ++var) {
-        tmp = results[step][truth].second[var] - averages[var];
+        double tmp = results[step][truth].second[var] - averages[var];
         stderrs[var] += tmp * tmp / squaredTruths;
       }
     }
@@ -313,64 +349,4 @@ void processResults(vector<pair<int, vector<double>>> *results,
   }
 
   dumpStream.close();
-}
-
-void initializeGroundTruths(PUNGraph network,
-    vector<GraphHypothesis>& realizations,
-    const SimConfig& config)
-{
-  if (!config.groundTruth.Empty()) {
-    cout << config.mpi.rank << ": Reading ground truth from " <<
-      config.groundTruth.CStr() << endl;
-    realizations.push_back(GraphHypothesis::readHypothesisFromFile(
-          config.groundTruth.CStr()));
-    return;
-  }
-
-  for (int truth = 0; truth < config.groundTruths; ++truth) {
-    realizations.push_back(GraphHypothesis::generateHypothesis(
-          network, rand() % network->GetNodes(),
-          config.cascadeBound, config.beta));
-  }
-}
-
-void startMaster(PUNGraph network, SimConfig config)
-{
-  time_t startTime = time(NULL);
-  cout << fixed << std::setprecision(3);
-
-  vector<GraphHypothesis> realizations;
-  initializeGroundTruths(network, realizations, config);
-
-  SimConfig initialConfig = config;
-  vector<pair<int, vector<double>>> results[config.steps];
-  for (int step = 0; step < config.steps; ++step, ++config) {
-    double startTime = time(NULL);
-
-    vector<GraphTest> tests = buildTestHeap(config);
-    for (int truth = 0; truth < config.groundTruths; ++truth) {
-      vector<GraphTest> tempTests(tests);
-      pair<int, vector<double>> result =
-          simulate(tempTests, realizations[truth], config);
-
-      // Add distance (in hops) to the source node.
-      result.second.push_back(TSnap::GetShortPath(network,
-            realizations[truth].getSource(), result.first));
-
-      // Keep a boolean, whether the source was identified or not.
-      result.first = realizations[truth].getSource() == result.first ? 1 : 0;
-
-      // Store all the data to process the results later.
-      results[step].push_back(result);
-
-      cout << config << "-" << truth << "\t";
-      for (size_t i = 0; i < result.second.size(); ++i)
-        cout << result.second[i] << "\t";
-      cout << endl;
-    }
-    cout << "Time: " << difftime(time(NULL), startTime) << "s\n\n";
-  }
-
-  processResults(results, initialConfig);
-  cout << "Time: " << difftime(time(NULL), startTime) << "s" << endl;
 }

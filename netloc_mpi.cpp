@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 
 #include "master_mpi.h"
 #include "worker_mpi.h"
@@ -7,7 +8,6 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
   MPI::Init(argc, argv);
-
   srand(time(NULL));
 
   // Get initialization parameters.
@@ -18,21 +18,13 @@ int main(int argc, char *argv[]) {
 
   // The network is read directly from a file previously generated.
   PUNGraph network;
-  if (config.netinFile.Empty()) {
-    cerr << "Network file MUST be provided!" << endl;
-    MPI::Finalize();
-    return 0;
+  if (config.mpi.rank == MPI_MASTER) {
+    MasterNode master(config);
+    master.run();
+  } else {
+    WorkerNode worker(config);
+    worker.run();
   }
-
-  { TFIn FIn(config.netinFile); network = TUNGraph::Load(FIn); }
-  config.nodes = network->GetNodes();
-  cout << config.mpi.rank << ": " <<
-      "Loaded network (N=" << config.nodes << ") from file..." << endl;
-
-  if (config.mpi.rank == MPI_MASTER)
-    startMaster(network, config);
-  else
-    startWorker(network, config);
 
   MPI::Finalize();
 

@@ -1,5 +1,5 @@
 /**
- * Slave Job for MPI.
+ * Worker Job for MPI.
  * Author (Victor Carbune): vcarbune@ethz.ch
  */
 
@@ -11,6 +11,24 @@
 #ifndef WORKER_MPI_H_
 #define WORKER_MPI_H_
 
-void startWorker(PUNGraph, SimConfig);
+class WorkerNode : public MPINode {
+  public:
+    WorkerNode(SimConfig);
+    virtual void run();
+
+  private:
+    /* Initialize */
+    void initializeClusters(int, int);
+    void buildTestHeap();
+
+    /* Simulate */
+    void simulate();
+
+    /* Computational Methods */
+    void computeCurrentMass();
+    void reducePartialTestScores();
+
+    vector<GraphHypothesisCluster> m_clusters;
+};
 
 #endif
