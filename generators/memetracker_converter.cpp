@@ -1,5 +1,6 @@
 /**
  * Memetracker Converter. Original data is taken from the MemeTracker project.
+ * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 #include <ctime>
 #include <iostream>
@@ -19,7 +20,7 @@ using namespace std;
 
 int main(int argc, char* argv[]) {
   Env = TEnv(argc, argv, TNotify::StdNotify);
-  Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s",
+  Env.PrepArgs(TStr::Fmt("Memetracker Converter. Build: %s, %s. Time: %s",
         __TIME__, __DATE__, TExeTm::GetCurTm()), 1, true);
   const TStr netinfInputFile = Env.GetIfArgPrefixStr(
       "-netinfInputFile=",

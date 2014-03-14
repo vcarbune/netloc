@@ -23,5 +23,7 @@ netloc: netloc.cpp utils.o hypothesis.o ec2.h $(CSNAP)/Snap.o
 $(CSNAP)/Snap.o:
 	$(MAKE) -C $(CSNAP)
 
+generators/synthetic_generator: hypothesis.o
+
 clean:
 	rm -f *.o $(TARGETS)

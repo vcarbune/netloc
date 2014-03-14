@@ -152,6 +152,15 @@ GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
   return GraphHypothesis(srcNode, infectionTimeMap);
 }
 
+void GraphHypothesis::writeHypothesisToFile(const char* filename)
+{
+  ofstream outputStream;
+  outputStream.open(filename);
+  for (auto it = m_infectionHash.begin(); it != m_infectionHash.end(); ++it)
+    outputStream << it->first << " " << it->second << endl;
+  outputStream.close();
+}
+
 GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
                                                int sourceId,
                                                double weight)

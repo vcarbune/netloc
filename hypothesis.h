@@ -22,11 +22,14 @@ class GraphHypothesis {
         PUNGraph, int, double, double, vector<int>* = NULL);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
         PUNGraph, int, double, double, double, vector<int>* = NULL);
-    static GraphHypothesis readHypothesisFromFile(const char* filename);
+    static GraphHypothesis readHypothesisFromFile(const char*);
 
+    void writeHypothesisToFile(const char*);
     bool isConsistentWithTest(const GraphTest& test) const;
+
     double getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
+
     unsigned int getSize() const { return m_infectionHash.size(); }
     short unsigned int getSource() const { return m_sourceId; }
 
