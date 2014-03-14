@@ -7,7 +7,7 @@
 #include <sstream>
 #include <map>
 
-#include "snap/snap-core/Snap.h"
+#include "../snap/snap-core/Snap.h"
 #undef max
 #undef min
 
