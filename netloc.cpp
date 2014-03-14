@@ -207,7 +207,7 @@ void solveUsingML(PUNGraph network,
     // Observed Delay
     Eigen::VectorXf d(observers - 1);
     for (int o = 0; o < observers - 1; ++o)
-      d[o] = observerNodes[o+1].first - observerNodes[o].first;
+      d[o] = observerNodes[o+1].first - observerNodes[0].first;
 
     vector<pair<double, int>> scores;
     for (int s = 0; s < network->GetNodes(); ++s) {
@@ -222,7 +222,7 @@ void solveUsingML(PUNGraph network,
            idToShortestPathsFromSource.GetDat(referenceObserver));
 
       // Estimator value.
-      double estimator = miu_s.transpose() * invLambda * (0.5 * miu_s - d);
+      double estimator = miu_s.transpose() * invLambda * (d - 0.5 * miu_s);
       scores.push_back(pair<double, int>(estimator, s));
     }
     sort(scores.begin(), scores.end(), std::greater<pair<double, int>>());

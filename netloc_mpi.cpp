@@ -29,7 +29,6 @@ int main(int argc, char *argv[]) {
   cout << config.mpi.rank << ": " <<
       "Loaded network (N=" << config.nodes << ") from file..." << endl;
 
-
   if (config.mpi.rank == MPI_MASTER)
     startMaster(network, config);
   else
