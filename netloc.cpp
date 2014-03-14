@@ -21,8 +21,6 @@
 
 #include "snap/snap-core/Snap.h"
 
-#define GROUND_TRUTHS 20
-
 // Snap defines its own macros of max(), min() and this doesn't allow the
 // proper use of numeric_limits<int>::min()/max(), therefore undefine them.
 #undef max
@@ -53,7 +51,7 @@ void runSimulation(PUNGraph network,
     << " seconds " << endl;
 
   int fails = 0;
-  for (int truth = 0; truth < GROUND_TRUTHS; ++truth) {
+  for (int truth = 0; truth < config.groundTruths; ++truth) {
     // Initialize temporary variables.
     vector<int> topClusters;
     vector<GraphHypothesisCluster> tempClusters(clusters);
@@ -121,7 +119,7 @@ void runSimulation(PUNGraph network,
   }
 
   // Log a summary of success rate.
-  scoreList.push_back(1 - (double) fails / GROUND_TRUTHS);
+  scoreList.push_back(1 - (double) fails / config.groundTruths);
 
   // If provided, log each simulation step into an output stream.
   if (fout) {
@@ -266,9 +264,12 @@ void startSimulations(SimConfig& config, ostream& fout)
     }
   }
 
-  for (int truth = 0; truth < GROUND_TRUTHS; ++truth) {
+  double totalCount = 0.0;
+  for (int truth = 0; truth < config.groundTruths; ++truth) {
     fout << (double) identificationCount[truth] / config.steps << " ";
+    totalCount += identificationCount[truth] / config.steps;
   }
+  cout << totalCount / config.groundTruths << endl;
 
   fout << endl;
   cout << endl;
