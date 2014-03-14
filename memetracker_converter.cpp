@@ -1,5 +1,5 @@
 /**
- * Dumb simple example to get used to SNAP generators.
+ * Memetracker Converter. Original data is taken from the MemeTracker project.
  */
 #include <ctime>
 #include <iostream>
@@ -8,11 +8,9 @@
 #include <map>
 
 #include "snap/snap-core/Snap.h"
-
 #undef max
 #undef min
 
-#include <iostream>
 #include <boost/network/uri.hpp>
 #include <boost/network/uri/uri_io.hpp>
 
