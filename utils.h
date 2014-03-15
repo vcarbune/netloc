@@ -43,15 +43,12 @@ class SimConfig {
     double beta;          // edge selection probability
     double cascadeBound;  // cascade size, percentage of the network
     int steps;
-    int topN;             // keep topN possible solutions
     TStr logfile;
     bool lazy;
     int outputType;       // probability of source or number of tests.
     double testThreshold; // stop ec2 after a percentage of tests have run.
-    double massThreshold; // stop ec2 if there's a cluster with more mass.
 
     TStr netinFile;
-    TStr netoutFile;
 
     int objType;
     int objSums;

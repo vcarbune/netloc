@@ -64,7 +64,7 @@ void runSimulation(PUNGraph network,
     time_t startTime = time(NULL);
     crtScore = runEC2<GraphTest, GraphHypothesisCluster, GraphHypothesis>(
         tempTests, tempClusters, realization, config.lazy,
-        config.massThreshold, config.testThreshold, config.objType);
+        config.testThreshold, config.objType);
 
     bool found = false;
     cout << "Correct: " << realization.getSource() << "\t";
@@ -80,17 +80,15 @@ void runSimulation(PUNGraph network,
       cluster.normalizeWeight(mass / 100);
 
     sort(tempClusters.begin(), tempClusters.end());
-    for (int i = 0; i < config.topN; ++i) {
-      int foundSource = tempClusters[i].getSource();
-      if (foundSource == realization.getSource()) {
-        identificationCount[truth]++;
-        found = true;
-      }
-
-      cout << foundSource << "(" <<
-          TSnap::GetShortPath(network, realization.getSource(), foundSource) << " hops, " <<
-          tempClusters[i].getWeight() << ")\t";
+    int foundSource = tempClusters[0].getSource();
+    if (foundSource == realization.getSource()) {
+      identificationCount[truth]++;
+      found = true;
     }
+
+    cout << foundSource << "(" <<
+        TSnap::GetShortPath(network, realization.getSource(), foundSource) << " hops, " <<
+        tempClusters[0].getWeight() << ")\t";
 
     if (!found)
       fails++;

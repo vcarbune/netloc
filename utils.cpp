@@ -27,14 +27,10 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
       "-b=", 0.06, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
       "-steps=", 1, "Number of simulation steps.");
-  const TInt paramKeepTopN = Env.GetIfArgPrefixInt(
-      "-topN=", 1, "Keep topN solutions");
   const TStr dumpFile = Env.GetIfArgPrefixStr(
       "-dump=", "dump.log", "File where to dump the output");
   const TStr networkInFile = Env.GetIfArgPrefixStr(
       "-netin=", "", "File where to load the network from");
-  const TStr networkOutFile = Env.GetIfArgPrefixStr(
-      "-netout=", "", "File where to save the network to");
   const TBool paramLazy = Env.GetIfArgPrefixBool(
       "-lazy=", false, "Lazy evaluation");
   const TInt paramNetworkType = Env.GetIfArgPrefixInt(
@@ -44,8 +40,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
       "-output=", 0, "Output Type: Tests - 0, Probability - 1, Diff - 2");
   const double paramTestThreshold = Env.GetIfArgPrefixFlt(
       "-testthr=", 0.25, "Tests Threshold (%)");
-  const double paramMassThreshold = Env.GetIfArgPrefixFlt(
-      "-massthr=", 1.00, "Mass Threshold (%)");
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", 0, "Objective Type: "
                   "EC2 - 0, GBS - 1, VoI - 2");
@@ -64,14 +58,11 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   config.cascadeBound = paramCascadeSize;
   config.beta = paramBeta;
   config.logfile = dumpFile;
-  config.topN = paramKeepTopN;
   config.lazy = paramLazy;
   config.networkType = paramNetworkType;
   config.outputType = paramOutputType;
   config.testThreshold = paramTestThreshold;
-  config.massThreshold = paramMassThreshold;
   config.netinFile = networkInFile;
-  config.netoutFile = networkOutFile;
   config.objType = paramObjType;
   switch (paramObjType) {
     case 0:
@@ -143,10 +134,6 @@ void generateNetwork(PUNGraph *network, SimConfig& config) {
       *network = TSnap::GenRndGnm<PUNGraph>(
           config.nodes, config.nodes * log(config.nodes));
       break;
-  }
-  if (!config.netoutFile.Empty()) {
-    cout << "Saving network to file..." << endl;
-    { TFOut FOut(config.netoutFile); (*network)->Save(FOut); }
   }
 
   cout << "Generated network is connected: " << TSnap::GetMxWccSz(*network) << endl;

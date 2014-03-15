@@ -280,7 +280,6 @@ double runEC2(std::vector<TTest>& tests,
               std::vector<THypothesisCluster>& clusters,
               const THypothesis& realization,
               bool lazyEval,
-              const double massThreshold,
               const double testThreshold,
               const int objType)
 {
@@ -307,7 +306,7 @@ double runEC2(std::vector<TTest>& tests,
   double percentageMass = 0.0;
   double percentageTests = 0.0;
 
-  while (percentageMass < massThreshold && percentageTests < testThreshold) {
+  while (percentageTests < testThreshold) {
     TTest t = runOneEC2Step<TTest, THypothesisCluster, THypothesis>(
         tests, clusters, realization, lazyEval, objType);
     testRunOrder.push_back(t);
