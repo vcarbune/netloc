@@ -5,13 +5,12 @@
 
 #include "mpi.h"
 #include "utils.h"
+#include "epfl_solver.h"
 
 #include "snap/snap-core/Snap.h"
 
 #ifndef MASTER_MPI_H_
 #define MASTER_MPI_H_
-
-typedef pair<int, vector<double>> result_t;
 
 class MasterNode : public MPINode {
   public:
@@ -44,8 +43,11 @@ class MasterNode : public MPINode {
     result_t identifyCluster(int);
     void processResults(vector<result_t>*, SimConfig&);
 
+    /* Variables */
     vector<GraphHypothesis> m_realizations;
     vector<GraphTest> m_tests;
+
+    EPFLSolver m_epflSolver;
 };
 
 #endif

@@ -229,6 +229,7 @@ void solveUsingML(PUNGraph network,
     if (realization.getSource() == scores[0].second)
       identificationCount[truth]++;
   }
+
 }
 
 void startSimulations(SimConfig& config, ostream& fout)

@@ -16,6 +16,8 @@ int main(int argc, char *argv[]) {
   config.mpi.rank = MPI::COMM_WORLD.Get_rank();
   MPI::COMM_WORLD.Barrier();
 
+  cout << fixed << std::setprecision(3);
+
   // The network is read directly from a file previously generated.
   PUNGraph network;
   if (config.mpi.rank == MPI_MASTER) {

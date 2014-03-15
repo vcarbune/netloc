@@ -5,7 +5,7 @@ TARGETS=netloc_mpi netloc
 
 all: $(TARGETS)
 
-netloc_mpi: netloc_mpi.cpp master_mpi.o worker_mpi.o utils.o hypothesis.o ec2.h $(CSNAP)/Snap.o
+netloc_mpi: netloc_mpi.cpp master_mpi.o worker_mpi.o utils.o hypothesis.o epfl_solver.o ec2.h $(CSNAP)/Snap.o
 	$(MPICXX) $(CXXFLAGS) $^ -isystem $(CGLIB) $(LDFLAGS) $(LIBS) -o $@
 
 netloc: netloc.cpp utils.o hypothesis.o ec2.h $(CSNAP)/Snap.o

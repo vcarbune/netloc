@@ -14,6 +14,7 @@
 
 MasterNode::MasterNode(SimConfig config)
   : MPINode(config)
+  , m_epflSolver(m_network, config)
 {
   initializeGroundTruths();
 }
@@ -59,10 +60,18 @@ void MasterNode::initializeGroundTruths()
   }
 
   // Generate artificially otherwise.
-  for (int truth = 0; truth < m_config.groundTruths; ++truth)
-    m_realizations.push_back(GraphHypothesis::generateHypothesis(
-          m_network, rand() % m_network->GetNodes(),
-          m_config.cascadeBound, m_config.beta));
+  for (int truth = 0; truth < m_config.groundTruths; ++truth) {
+    if (m_config.objType == EPFL_ML) {
+      m_realizations.push_back(
+          GraphHypothesis::generateHypothesisUsingGaussianModel(
+            m_network, rand() % m_network->GetNodes(), m_config.cascadeBound,
+            m_config.epflMiu, m_config.epflSigma));
+    } else {
+      m_realizations.push_back(GraphHypothesis::generateHypothesis(
+            m_network, rand() % m_network->GetNodes(),
+            m_config.cascadeBound, m_config.beta));
+    }
+  }
 }
 
 double MasterNode::computeCurrentMass() {
@@ -173,8 +182,7 @@ result_t MasterNode::simulate(const GraphHypothesis& realization)
 
 result_t MasterNode::simulateEPFLPolicy(const GraphHypothesis& realization)
 {
-  // TODO(vcarbune): FIXME
-  return simulateAdaptivePolicy(realization);
+  return m_epflSolver.solve(realization);
 }
 
 result_t MasterNode::simulateAdaptivePolicy(const GraphHypothesis& realization)

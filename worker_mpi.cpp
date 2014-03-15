@@ -17,8 +17,7 @@ void WorkerNode::run()
   // matrix computations are a different beast, so keeping, for now, algorithm
   // implementation on single machine, running on central MPI node only)
   if (m_config.objType == EPFL_ML) {
-    cout << "Note: EPFL runs only on central MPI node" << endl;
-    cout << "Worker " << m_config.mpi.rank << " exiting..." << endl;
+    cout << "Note: EPFLSolver runs only on central MPI node" << endl;
     return;
   }
 

@@ -27,6 +27,8 @@
 #define POSITIVE_DIAG_SUM 2
 #define NEGATIVE_DIAG_SUM 3
 
+typedef pair<int, vector<double>> result_t;
+
 struct MPIConfig {
   int rank;
   int nodes;
