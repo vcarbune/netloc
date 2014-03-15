@@ -84,15 +84,15 @@ double MasterNode::computeCurrentMass() {
 
 void MasterNode::initializeTestHeap()
 {
-  double junk[m_config.nodes];
+  double nullVals[m_config.nodes];
   double sums[m_config.objSums][m_config.nodes];
 
   MPI::Status status;
   memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
-  memset(junk, 0, m_config.nodes * sizeof(*junk));
+  memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
 
   // Get from workers the node count for each test node.
-  MPI::COMM_WORLD.Reduce(&junk, sums[0], m_config.nodes,
+  MPI::COMM_WORLD.Reduce(&nullVals, sums[0], m_config.nodes,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
   int totalHypothesis = m_config.nodes * m_config.clusterSize;
@@ -105,9 +105,14 @@ void MasterNode::initializeTestHeap()
   MPI::COMM_WORLD.Bcast(sums[0], m_config.nodes, MPI::DOUBLE, MPI_MASTER);
 
   // Get from workers positive & negative mass of tests still in the loop.
-  for (int s = 0; s < m_config.objSums; ++s)
-    MPI::COMM_WORLD.Reduce(&junk, sums[s], m_config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  if (m_config.objType != 2) {
+    for (int s = 0; s < m_config.objSums; ++s)
+      MPI::COMM_WORLD.Reduce(&nullVals, sums[s], m_config.nodes,
+          MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  } else {
+    MPI::COMM_WORLD.Reduce(&nullVals, sums[0], m_config.nodes,
+        MPI::DOUBLE, MPI::MAX, MPI_MASTER);
+  }
 
   // Compute current mass of all the clusters.
   double currentWeight = computeCurrentMass();
@@ -131,7 +136,7 @@ void MasterNode::initializeTestHeap()
         (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
       score = currentWeight - score;
     } else if (m_config.objType == 2) {   // VOI
-      cout << "Configuration NOT supported!" << endl;
+      score = sums[0][test];
     } else if (m_config.objType == 3) {   // RANDOM
       cout << "Code path should not get here!" << endl;
     }
@@ -232,39 +237,62 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   return tests.front();
 }
 
+void MasterNode::recomputeTestScoreEC2(
+    GraphTest& test, double currentWeight, double* nullVals)
+{
+  double sums[m_config.objSums];
+  MPI::COMM_WORLD.Reduce(nullVals, sums, m_config.objSums,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  pair<double, double> mass(
+      sums[POSITIVE_SUM] * sums[POSITIVE_SUM] - sums[POSITIVE_DIAG_SUM],
+      sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] - sums[NEGATIVE_DIAG_SUM]);
+  double expectedMass = m_testsPrior[test.getNodeId()] * mass.first +
+      (1 - m_testsPrior[test.getNodeId()]) * mass.second;
+
+  test.setScore(currentWeight - expectedMass);
+}
+
+void MasterNode::recomputeTestScoreGBS(
+    GraphTest& test, double currentWeight, double* nullVals)
+{
+  double sums[m_config.objSums];
+  MPI::COMM_WORLD.Reduce(nullVals, sums, m_config.objSums,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  double expectedMass = m_testsPrior[test.getNodeId()] * sums[POSITIVE_SUM] +
+    (1 - m_testsPrior[test.getNodeId()]) * sums[NEGATIVE_SUM];
+
+  test.setScore(currentWeight - expectedMass);
+}
+
+void MasterNode::recomputeTestScoreVOI(GraphTest& test)
+{
+  double nullVal = 0;
+  double maxClusterMassWithTest;
+  MPI::COMM_WORLD.Reduce(&nullVal, &maxClusterMassWithTest, 1,
+      MPI::DOUBLE, MPI::MAX, MPI_MASTER);
+  test.setScore(maxClusterMassWithTest);
+}
+
+
 void MasterNode::recomputeTestScore(
     GraphTest& test, double currentWeight)
 {
   int currentTestNode = test.getNodeId();
   MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
 
-  double sums[m_config.objSums];
-  double junk[m_config.objSums];
-  memset(junk, 0, m_config.objSums * sizeof(*junk));
+  double nullVals[m_config.objSums];
+  memset(nullVals, 0, m_config.objSums * sizeof(*nullVals));
 
-  MPI::COMM_WORLD.Reduce(&junk, sums, m_config.objSums,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  double score = 0.0;
-  double testPositivePb = m_testsPrior[test.getNodeId()];
-  if (m_config.objType == 0) { // EC2
-    double positiveMass = sums[POSITIVE_SUM] * sums[POSITIVE_SUM] -
-        sums[POSITIVE_DIAG_SUM];
-    double negativeMass = sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] -
-        sums[NEGATIVE_DIAG_SUM];
-    score = currentWeight -
-        (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
-  } else if (m_config.objType == 1) { // GBS
-    score = testPositivePb * sums[POSITIVE_SUM] +
-      (1 - testPositivePb) * sums[NEGATIVE_SUM];
-    score = currentWeight - score;
-  } else if (m_config.objType == 2) { // VOI
-    cout << "Configuration NOT supported!" << endl;
-  } else if (m_config.objType == 3) { // RANDOM
-    cout << "Code path should not get here!" << endl;
-  }
-
-  test.setScore(score);
+  if (m_config.objType == 0)
+    recomputeTestScoreEC2(test, currentWeight, nullVals);
+  else if (m_config.objType == 1)
+    recomputeTestScoreGBS(test, currentWeight, nullVals);
+  else if (m_config.objType == 2)
+    recomputeTestScoreVOI(test);
+  else
+    cout << "Configuration NOT yet supported!" << endl;
 }
 
 result_t MasterNode::identifyCluster(int realSource)

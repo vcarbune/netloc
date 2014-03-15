@@ -27,6 +27,10 @@ class MasterNode : public MPINode {
     /* Simulate */
     result_t simulate(const GraphHypothesis&);
     GraphTest selectNextTest(vector<GraphTest>&);
+
+    void recomputeTestScoreEC2(GraphTest&, double, double*);
+    void recomputeTestScoreGBS(GraphTest&, double, double*);
+    void recomputeTestScoreVOI(GraphTest&);
     void recomputeTestScore(GraphTest&, double);
 
     /* Results */
