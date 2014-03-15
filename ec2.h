@@ -311,9 +311,7 @@ double runEC2(std::vector<TTest>& tests,
         tests, clusters, realization, lazyEval, objType);
     testRunOrder.push_back(t);
 
-#if DBG
     std::cout << testRunOrder.size() << ". " << t.getNodeId() << " --> " << t.getScore() << std::endl;
-#endif
 
     mass = 0.0;
     for (unsigned i = 0; i < clusters.size(); ++i)

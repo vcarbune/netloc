@@ -13,6 +13,15 @@ WorkerNode::WorkerNode(SimConfig config)
 
 void WorkerNode::run()
 {
+  // No reason for a distributed version EPFL max-likelihood (distributed
+  // matrix computations are a different beast, so keeping, for now, algorithm
+  // implementation on single machine, running on central MPI node only)
+  if (m_config.objType == EPFL_ML) {
+    cout << "Note: EPFL runs only on central MPI node" << endl;
+    cout << "Worker " << m_config.mpi.rank << " exiting..." << endl;
+    return;
+  }
+
   // Determine the node clusters for which this node is responsible.
   int clustersPerNode = m_network->GetNodes() / (m_config.mpi.nodes - 1);
   int startNode = (m_config.mpi.rank-1) * clustersPerNode;
@@ -42,6 +51,9 @@ void WorkerNode::initializeClusters(int startNode, int endNode)
 
 void WorkerNode::initializeTestHeap()
 {
+  if (m_config.objType == RANDOM)
+    return;
+
   double massBuffer[m_config.objSums][m_config.nodes];
   memset(massBuffer, 0, m_config.objSums * m_config.nodes * sizeof(**massBuffer));
 
@@ -63,31 +75,28 @@ void WorkerNode::initializeTestHeap()
       GraphTest test(testNode);
       pair<double, double> mass = cluster.computeMassWithTest(test);
 
-      if (m_config.objType == 0 || m_config.objType == 1) {
-        massBuffer[POSITIVE_SUM][testNode] += mass.first;
-        massBuffer[NEGATIVE_SUM][testNode] += mass.second;
-        if (m_config.objType == 0) { // Only for EC2
-          massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
-          massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
-        }
-      } else if (m_config.objType == 2) {
+      if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[testNode] * mass.first +
             (1 - m_testsPrior[testNode]) * mass.second;
         massBuffer[0][testNode] = max(massBuffer[0][testNode], expectedMass);
+      } else {
+        massBuffer[POSITIVE_SUM][testNode] += mass.first;
+        massBuffer[NEGATIVE_SUM][testNode] += mass.second;
+        if (m_config.objType == EC2) { // Only for EC2
+          massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
+          massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
+        }
       }
     }
   }
 
   // Send to the master node the computed masses.
-  if (m_config.objType != 2) {
-    for (int s = 0; s < m_config.objSums; ++s)
-      MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, m_config.nodes,
-          MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  } else {
-    MPI::COMM_WORLD.Reduce(massBuffer[0], NULL, m_config.nodes,
-        MPI::DOUBLE, MPI::MAX, MPI_MASTER);
-  }
-
+  MPI::Op op = MPI::SUM;
+  if (m_config.objType == VOI)
+    op = MPI::MAX;
+  for (int s = 0; s < m_config.objSums; ++s)
+    MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, m_config.nodes,
+        MPI::DOUBLE, op, MPI_MASTER);
   computeCurrentMass();
 }
 
@@ -95,11 +104,7 @@ void WorkerNode::simulate()
 {
   int totalTests = m_config.testThreshold * m_config.nodes;
   for (int count = 0; count < totalTests; ++count) {
-    if (m_config.objType == 3) {
-      // NOTHING; test is selected at random!
-    } else {
-      reducePartialTestScores();
-    }
+    recomputePartialTestScores();
 
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
@@ -150,8 +155,12 @@ void WorkerNode::computeCurrentMass()
       MPI::SUM, MPI_MASTER);
 }
 
-void WorkerNode::reducePartialTestScores()
+void WorkerNode::recomputePartialTestScores()
 {
+  // No requests will come for random policy.
+  if (m_config.objType == RANDOM)
+    return;
+
   // Distribute partial sum for the mass.
   computeCurrentMass();
 
@@ -167,28 +176,28 @@ void WorkerNode::reducePartialTestScores()
     GraphTest test(currentTestNode);
     for (const GraphHypothesisCluster& cluster : m_clusters) {
       pair<double, double> mass = cluster.computeMassWithTest(test);
-      if (m_config.objType == 2) {
+      if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[currentTestNode] * mass.first +
             (1 - m_testsPrior[currentTestNode]) * mass.second;
         massBuffer[0] = max(massBuffer[0], expectedMass);
-        continue;
-      }
-      massBuffer[POSITIVE_SUM] += mass.first;
-      massBuffer[NEGATIVE_SUM] += mass.second;
-      if (m_config.objType == 0) { // Only for EC2
-        massBuffer[POSITIVE_DIAG_SUM] += mass.first * mass.first;
-        massBuffer[NEGATIVE_DIAG_SUM] += mass.second * mass.second;
+      } else {
+        massBuffer[POSITIVE_SUM] += mass.first;
+        massBuffer[NEGATIVE_SUM] += mass.second;
+        if (m_config.objType == EC2) {
+          massBuffer[POSITIVE_DIAG_SUM] += mass.first * mass.first;
+          massBuffer[NEGATIVE_DIAG_SUM] += mass.second * mass.second;
+        }
       }
     }
 
     // Return the information to the master node.
-    if (m_config.objType != 2) {
-      MPI::COMM_WORLD.Reduce(massBuffer, NULL, m_config.objSums,
-          MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-    } else {
-      MPI::COMM_WORLD.Reduce(&massBuffer[0], NULL, 1,
-          MPI::DOUBLE, MPI::MAX, MPI_MASTER);
-    }
+    MPI::Op op = MPI::SUM;
+    if (m_config.objType == VOI)
+      op = MPI::MAX;
+    MPI::COMM_WORLD.Reduce(massBuffer, NULL, m_config.objSums,
+        MPI::DOUBLE, op, MPI_MASTER);
+
+    // Get the next node to be evaluated.
     MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
   }
 }

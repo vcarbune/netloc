@@ -22,10 +22,17 @@ class MasterNode : public MPINode {
     /* Initialize */
     void initializeGroundTruths();
     double computeCurrentMass();
+
+    void initializeTests();
     void initializeTestHeap();
+    void initializeTestVector();
 
     /* Simulate */
     result_t simulate(const GraphHypothesis&);
+    result_t simulateAdaptivePolicy(const GraphHypothesis&);
+    result_t simulateEPFLPolicy(const GraphHypothesis&);
+
+    GraphTest selectRandomTest(vector<GraphTest>&);
     GraphTest selectNextTest(vector<GraphTest>&);
 
     void recomputeTestScoreEC2(GraphTest&, double, double*);

@@ -19,6 +19,8 @@
 #define RANDOM_SUMS       0
 #define REGULAR_SUMS      2
 #define EC2_SUMS          4
+#define GBS_SUMS          2
+#define VOI_SUMS          1
 
 #define POSITIVE_SUM      0
 #define NEGATIVE_SUM      1
@@ -30,9 +32,17 @@ struct MPIConfig {
   int nodes;
 };
 
+enum AlgorithmType {
+  EC2 = 0,    // Adaptive     Edge Cutting Equivalence Class
+  GBS,        // Adaptive     Generalized Binary Search
+  VOI,        // Adaptive     Value of Information
+  RANDOM,     // Non-adaptive Random Selection
+  EPFL_ML     // Non-adaptive EPFL Approach (using Maximum Likelihood)
+};
+
 class SimConfig {
   public:
-    static SimConfig getSimConfigFromEnv(int argc, char *argv[]);
+    static SimConfig getSimConfigFromEnv(int argc, char *argv[], bool = true);
 
     // Parameters changing from one step of the simulation to the other.
     SimConfig& operator++();
@@ -50,7 +60,7 @@ class SimConfig {
 
     TStr netinFile;
 
-    int objType;
+    AlgorithmType objType;
     int objSums;
 
     TStr groundTruth;

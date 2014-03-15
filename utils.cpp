@@ -11,11 +11,12 @@ SimConfig& SimConfig::operator++() {
   return *this;
 }
 
-SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
+SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 {
-  Env = TEnv(argc, argv, TNotify::StdNotify);
-  Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s",
-        __TIME__, __DATE__, TExeTm::GetCurTm()), 1, true);
+  Env = TEnv(argc, argv, silent ? NULL : TNotify::StdNotify);
+  if (!silent)
+    Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s",
+          __TIME__, __DATE__, TExeTm::GetCurTm()));
 
   const TInt paramNodes = Env.GetIfArgPrefixInt(
       "-n=", 500, "Network size");
@@ -63,15 +64,22 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[])
   config.outputType = paramOutputType;
   config.testThreshold = paramTestThreshold;
   config.netinFile = networkInFile;
-  config.objType = paramObjType;
-  switch (paramObjType) {
-    case 0:
+
+  config.objType = static_cast<AlgorithmType>(paramObjType.Val);
+  switch (config.objType) {
+    case EC2:
       config.objSums = EC2_SUMS;
       break;
-    case 3:
+    case GBS:
+      config.objSums = GBS_SUMS;
+      break;
+    case VOI:
+      config.objSums = VOI_SUMS;
+      break;
+    case RANDOM:
       config.objSums = RANDOM_SUMS;
       break;
-    default:
+    case EPFL_ML:
       config.objSums = REGULAR_SUMS;
   }
 
@@ -109,10 +117,7 @@ void MPINode::readNetwork()
 
   TFIn FIn(m_config.netinFile);
   m_network = TUNGraph::Load(FIn);
-
   m_config.nodes = m_network->GetNodes();
-  cout << m_config.mpi.rank << ": " <<
-      "Loaded network (N=" << m_config.nodes << ") from file..." << endl;
 }
 
 void generateNetwork(PUNGraph *network, SimConfig& config) {

@@ -26,7 +26,7 @@ class WorkerNode : public MPINode {
 
     /* Computational Methods */
     void computeCurrentMass();
-    void reducePartialTestScores();
+    void recomputePartialTestScores();
 
     vector<GraphHypothesisCluster> m_clusters;
 };

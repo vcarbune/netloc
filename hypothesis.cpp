@@ -63,6 +63,8 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
 
+  // Make sure worker nodes have different seeds.
+  TInt::Rnd.PutSeed(0);
   for (int run = 0; run < runTimes; run++) {
     for (const auto& p : infectionTime) {
       const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
@@ -94,8 +96,10 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
     PUNGraph network, int sourceId, double size,
     double miu, double sigma, vector<int> *nodeCount)
 {
+  /*
   bool isTrueHypothesis = nodeCount == NULL;
   unsigned int cascadeSize = size * network->GetNodes();
+  */
 
   // Assign propagation delays to all edges using a normal distribution.
   std::random_device rd;

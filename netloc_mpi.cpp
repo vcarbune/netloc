@@ -8,10 +8,10 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
   MPI::Init(argc, argv);
-  srand(time(NULL));
 
   // Get initialization parameters.
-  SimConfig config = SimConfig::getSimConfigFromEnv(argc, argv);
+  SimConfig config = SimConfig::getSimConfigFromEnv(argc, argv,
+      MPI::COMM_WORLD.Get_rank() != MPI_MASTER);
   config.mpi.nodes = MPI::COMM_WORLD.Get_size();
   config.mpi.rank = MPI::COMM_WORLD.Get_rank();
   MPI::COMM_WORLD.Barrier();
