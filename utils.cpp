@@ -106,6 +106,7 @@ MPINode::MPINode(SimConfig config)
   : m_config(config)
 {
   readNetwork();
+  m_testsPrior.resize(m_config.nodes);
 }
 
 void MPINode::readNetwork()

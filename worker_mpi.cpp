@@ -22,7 +22,7 @@ void WorkerNode::run()
 
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
     initializeClusters(startNode, endNode);
-    buildTestHeap();
+    initializeTestHeap();
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
       simulate();
       for (GraphHypothesisCluster& cluster : m_clusters)
@@ -40,10 +40,23 @@ void WorkerNode::initializeClusters(int startNode, int endNode)
           m_config.clusterSize));
 }
 
-void WorkerNode::buildTestHeap()
+void WorkerNode::initializeTestHeap()
 {
   double massBuffer[m_config.objSums][m_config.nodes];
   memset(massBuffer, 0, m_config.objSums * m_config.nodes * sizeof(**massBuffer));
+
+  // Compute partial test priors first and distribute them to master node.
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode)
+    for (const GraphHypothesisCluster& cluster : m_clusters)
+      massBuffer[0][testNode] += cluster.getNodeCount(testNode);
+
+  MPI::COMM_WORLD.Reduce(massBuffer[0], NULL, m_config.nodes,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  // Get test priors computed at the central node.
+  MPI::COMM_WORLD.Bcast(massBuffer[0], m_config.nodes, MPI::DOUBLE, MPI_MASTER);
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode)
+    m_testsPrior[testNode] = massBuffer[0][testNode];
 
   // Compute the positive & negative mass for the remaining testNodes.
   for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
@@ -57,7 +70,6 @@ void WorkerNode::buildTestHeap()
         massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
         massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
       }
-      massBuffer[CONS_HYPO_SUM][testNode] += cluster.getNodeCount(testNode);
     }
   }
 
@@ -151,7 +163,6 @@ void WorkerNode::reducePartialTestScores()
         massBuffer[POSITIVE_DIAG_SUM] += mass.first * mass.first;
         massBuffer[NEGATIVE_DIAG_SUM] += mass.second * mass.second;
       }
-      massBuffer[CONS_HYPO_SUM] += cluster.getNodeCount(currentTestNode);
     }
 
     // Return the information to the master node.

@@ -19,7 +19,7 @@ class WorkerNode : public MPINode {
   private:
     /* Initialize */
     void initializeClusters(int, int);
-    void buildTestHeap();
+    void initializeTestHeap();
 
     /* Simulate */
     void simulate();

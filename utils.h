@@ -17,14 +17,13 @@
 
 /* MPI DEFINES */
 #define RANDOM_SUMS       0
-#define REGULAR_SUMS      3
-#define EC2_SUMS          5
+#define REGULAR_SUMS      2
+#define EC2_SUMS          4
 
 #define POSITIVE_SUM      0
 #define NEGATIVE_SUM      1
-#define CONS_HYPO_SUM     2
-#define POSITIVE_DIAG_SUM 3
-#define NEGATIVE_DIAG_SUM 4
+#define POSITIVE_DIAG_SUM 2
+#define NEGATIVE_DIAG_SUM 3
 
 struct MPIConfig {
   int rank;
@@ -81,6 +80,8 @@ class MPINode {
 
     PUNGraph m_network;
     SimConfig m_config;
+
+    vector<double> m_testsPrior;
 };
 
 // Initialization

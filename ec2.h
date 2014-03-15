@@ -97,7 +97,6 @@ inline void rescoreTestGBS(TTest& test,
   }
 
   double expectedMass = 0.0;
-  double crtMass = computeGraphWeight(clusters, 1);
   double testPositivePb = (double) testConsistentHypothesis / totalHypothesis;
   for (const THypothesisCluster& cluster : clusters) {
     std::pair<double, double> mass = cluster.computeMassWithTest(test);
@@ -105,7 +104,7 @@ inline void rescoreTestGBS(TTest& test,
         (1 - testPositivePb) * mass.second;
     expectedMass += cMass;
   }
-  test.setScore(crtMass - expectedMass);
+  test.setScore(expectedMass);
 }
 
 template <class TTest, class THypothesisCluster>

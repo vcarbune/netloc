@@ -22,7 +22,7 @@ class MasterNode : public MPINode {
     /* Initialize */
     void initializeGroundTruths();
     double computeCurrentMass();
-    void rebuildTestHeap();
+    void initializeTestHeap();
 
     /* Simulate */
     result_t simulate(const GraphHypothesis&);

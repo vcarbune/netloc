@@ -25,7 +25,7 @@ void MasterNode::run()
 
   vector<result_t> results[m_config.steps];
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
-    rebuildTestHeap();
+    initializeTestHeap();
     double startTime = time(NULL);
     for (const GraphHypothesis& realization : m_realizations) {
       result_t result = simulate(realization);
@@ -82,7 +82,7 @@ double MasterNode::computeCurrentMass() {
   return currentWeight;
 }
 
-void MasterNode::rebuildTestHeap()
+void MasterNode::initializeTestHeap()
 {
   double junk[m_config.nodes];
   double sums[m_config.objSums][m_config.nodes];
@@ -91,6 +91,19 @@ void MasterNode::rebuildTestHeap()
   memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
   memset(junk, 0, m_config.nodes * sizeof(*junk));
 
+  // Get from workers the node count for each test node.
+  MPI::COMM_WORLD.Reduce(&junk, sums[0], m_config.nodes,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  int totalHypothesis = m_config.nodes * m_config.clusterSize;
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
+    m_testsPrior[testNode] = sums[0][testNode] / totalHypothesis;
+    sums[0][testNode] = m_testsPrior[testNode];
+  }
+
+  // Broadcast back to workers computed test priors.
+  MPI::COMM_WORLD.Bcast(sums[0], m_config.nodes, MPI::DOUBLE, MPI_MASTER);
+
   // Get from workers positive & negative mass of tests still in the loop.
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(&junk, sums[s], m_config.nodes,
@@ -98,26 +111,28 @@ void MasterNode::rebuildTestHeap()
 
   // Compute current mass of all the clusters.
   double currentWeight = computeCurrentMass();
+
+  // Store on the fly the test node probabilities.
   m_tests.clear();
-  int totalHypothesis = m_config.nodes * m_config.clusterSize;
+
   for (int test = 0; test < m_config.nodes; ++test) {
     double score = 0.0;
-    double testPositivePb = (double) sums[CONS_HYPO_SUM][test] / totalHypothesis;
+    double testPositivePb = m_testsPrior[test];
 
-    if (m_config.objType == 0) { // EC2
+    if (m_config.objType == 0) {          // EC2
       double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
           sums[POSITIVE_DIAG_SUM][test];
       double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
           sums[NEGATIVE_DIAG_SUM][test];
       score = currentWeight -
           (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
-    } else if (m_config.objType == 1) { // GBS
+    } else if (m_config.objType == 1) {   // GBS
       score = testPositivePb * sums[POSITIVE_SUM][test] +
         (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
       score = currentWeight - score;
-    } else if (m_config.objType == 2) { // VOI
+    } else if (m_config.objType == 2) {   // VOI
       cout << "Configuration NOT supported!" << endl;
-    } else if (m_config.objType == 3) { // RANDOM
+    } else if (m_config.objType == 3) {   // RANDOM
       cout << "Code path should not get here!" << endl;
     }
 
@@ -230,9 +245,8 @@ void MasterNode::recomputeTestScore(
   MPI::COMM_WORLD.Reduce(&junk, sums, m_config.objSums,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  double totalHypothesis = m_config.nodes * m_config.clusterSize;
-  double testPositivePb = (double) sums[CONS_HYPO_SUM] / totalHypothesis;
   double score = 0.0;
+  double testPositivePb = m_testsPrior[test.getNodeId()];
   if (m_config.objType == 0) { // EC2
     double positiveMass = sums[POSITIVE_SUM] * sums[POSITIVE_SUM] -
         sums[POSITIVE_DIAG_SUM];
