@@ -31,8 +31,8 @@ class MasterNode : public MPINode {
     result_t simulateAdaptivePolicy(const GraphHypothesis&);
     result_t simulateEPFLPolicy(const GraphHypothesis&);
 
-    GraphTest selectRandomTest(vector<GraphTest>&);
-    GraphTest selectNextTest(vector<GraphTest>&);
+    GraphTest selectRandomTest(std::vector<GraphTest>&);
+    GraphTest selectNextTest(std::vector<GraphTest>&);
 
     void recomputeTestScoreEC2(GraphTest&, double, double*);
     void recomputeTestScoreGBS(GraphTest&, double, double*);
@@ -41,11 +41,11 @@ class MasterNode : public MPINode {
 
     /* Results */
     result_t identifyCluster(int);
-    void processResults(vector<result_t>*, SimConfig&);
+    void processResults(std::vector<result_t>*, SimConfig&);
 
     /* Variables */
-    vector<GraphHypothesis> m_realizations;
-    vector<GraphTest> m_tests;
+    std::vector<GraphHypothesis> m_realizations;
+    std::vector<GraphTest> m_tests;
 
     EPFLSolver m_epflSolver;
 };

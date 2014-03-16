@@ -2,6 +2,8 @@
  * Various utility functions.
  */
 
+#include <fstream>
+#include <iostream>
 #include "utils.h"
 
 using namespace std;
@@ -26,7 +28,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-b=", 0.06, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
       "-steps=", 1, "Number of simulation steps.");
-  const TStr dumpFile = Env.GetIfArgPrefixStr(
+  const TStr paramOutputLog = Env.GetIfArgPrefixStr(
       "-dump=", "dump.log", "File where to dump the output");
   const TStr networkInFile = Env.GetIfArgPrefixStr(
       "-netin=", "", "File where to load the network from");
@@ -34,8 +36,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-testthr=", 0.25, "Tests Threshold (%)");
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", 0, "Objective Type: "
-                  "EC2 - 0, GBS - 1, VoI - 2");
-  const TStr paramGroundTruth = Env.GetIfArgPrefixStr(
+                  "EC2 - 0, GBS - 1, VoI - 2, Random - 3, EPFL - 4");
+  const TStr paramGroundTruthFile = Env.GetIfArgPrefixStr(
       "-truth=", "", "The ground truth to search for");
   const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
       "-truths=", 20, "The total number of ground truths");
@@ -46,7 +48,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.steps = paramSteps.Val;
   config.cascadeBound = paramCascadeSize;
   config.beta = paramBeta;
-  config.logfile = dumpFile;
+  config.logfile = paramOutputLog;
   config.testThreshold = paramTestThreshold;
   config.netinFile = networkInFile;
 
@@ -68,9 +70,9 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       config.objSums = REGULAR_SUMS;
   }
 
-  config.groundTruth = paramGroundTruth;
+  config.groundTruthFile = paramGroundTruthFile;
   config.groundTruths = paramGroundTruths;
-  if (!paramGroundTruth.Empty())
+  if (!paramGroundTruthFile.Empty())
     config.groundTruths = 1;
 
   config.epflMiu = 8;

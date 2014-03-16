@@ -6,6 +6,8 @@
 #undef max
 #undef min
 
+using namespace std;
+
 WorkerNode::WorkerNode(SimConfig config)
   : MPINode(config)
 {

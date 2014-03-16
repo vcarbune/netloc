@@ -3,18 +3,21 @@
  * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 
+#include "hypothesis.h"
+
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <numeric>
 #include <random>
 #include <sstream>
-
 #include <queue>
 
-#include "hypothesis.h"
+#include "utils.h"
 
 #define INITIAL_RUNS 4
+
+using namespace std;
 
 GraphHypothesis::GraphHypothesis(unsigned int sourceId,
                                  unordered_map<int, double>& infectionTime)

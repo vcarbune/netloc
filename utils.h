@@ -4,16 +4,24 @@
  * Author (Victor Carbune): vcarbune@ethz.ch
  */
 
-#ifndef UTILS_H_
-#define UTILS_H_
+#include <vector>
 
 #include "hypothesis.h"
 #include "test.h"
-#include "snap/snap-core/Snap.h"
 
-#include <vector>
+#include "snap/snap-core/Snap.h"
+#undef min
+#undef max
+
+#ifndef UTILS_H_
+#define UTILS_H_
 
 #define MPI_MASTER 0
+#define DBG 0
+
+/* Noisy Model Re-Weighing*/
+#define EPS 0.05
+
 
 /* MPI DEFINES */
 #define RANDOM_SUMS       0
@@ -27,7 +35,7 @@
 #define POSITIVE_DIAG_SUM 2
 #define NEGATIVE_DIAG_SUM 3
 
-typedef pair<int, vector<double>> result_t;
+typedef std::pair<int, std::vector<double>> result_t;
 
 struct MPIConfig {
   int rank;
@@ -62,7 +70,7 @@ class SimConfig {
     AlgorithmType objType;
     int objSums;
 
-    TStr groundTruth;
+    TStr groundTruthFile;
     int groundTruths;
 
     double epflMiu;
@@ -72,7 +80,7 @@ class SimConfig {
   private:
     SimConfig() {};
 };
-ostream& operator<<(ostream& os, const SimConfig& config);
+std::ostream& operator<<(std::ostream& os, const SimConfig& config);
 
 // Base class for MPI Nodes.
 class MPINode {
@@ -86,7 +94,7 @@ class MPINode {
     PUNGraph m_network;
     SimConfig m_config;
 
-    vector<double> m_testsPrior;
+    std::vector<double> m_testsPrior;
 };
 
 #endif // UTILS_H_

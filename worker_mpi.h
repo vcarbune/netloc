@@ -28,7 +28,7 @@ class WorkerNode : public MPINode {
     void computeCurrentMass();
     void recomputePartialTestScores();
 
-    vector<GraphHypothesisCluster> m_clusters;
+    std::vector<GraphHypothesisCluster> m_clusters;
 };
 
 #endif

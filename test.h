@@ -6,30 +6,51 @@
 #ifndef GRAPH_TEST_H_
 #define GRAPH_TEST_H_
 
+#include <limits>
 #include <utility>
-
-#include "ec2.h"
 
 #define INFECTED_FALSE        -2
 #define INFECTED_UNDEFINED    -1
 
-using namespace std;
+/**
+ * Base Class (Generic)
+ */
+class Test {
+  public:
+    Test()
+      : m_score(std::numeric_limits<double>::max())
+      , m_outcome(true) {}
+
+    void setOutcome(bool outcome) { m_outcome = outcome; }
+    bool getOutcome() const { return m_outcome; }
+
+    void setScore(double score) { m_score = score; }
+    double getScore() const { return m_score; }
+
+    virtual bool operator==(const Test& o) const { return false; }
+
+  private:
+    double m_score;
+    bool m_outcome;
+};
+
+class TestCompareFunction {
+  public:
+    bool operator() (const Test& p, const Test& q) const {
+      return p.getScore() < q.getScore();
+    }
+};
 
 /**
- * One test is a simple container of score and nodeId. The meaning of the two items is:
- * Score  - the expected reduction in weight from the prior to the posterior
- *          distribution, given that the test runs.
- * Node   - the node tested (and further assumed to be infected)
+ * GraphTest is a particular instance used to solve
+ * the source localization problem.
  */
 
 class GraphTest : public Test {
   public:
     explicit GraphTest(int source) : Test()
         , m_nodeId(source)
-        , m_infectionTime(INFECTED_UNDEFINED) {
-      setOutcome(true);
-      setScore(std::numeric_limits<double>::max());
-    }
+        , m_infectionTime(INFECTED_UNDEFINED) {}
 
     int getNodeId() const { return m_nodeId; }
     double getInfectionTime() const { return m_infectionTime; }

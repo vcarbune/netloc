@@ -4,6 +4,7 @@
 #undef max
 #undef min
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -11,6 +12,8 @@
 #include <limits>
 #include <fstream>
 #include <utility>
+
+using namespace std;
 
 MasterNode::MasterNode(SimConfig config)
   : MPINode(config)
@@ -38,6 +41,7 @@ void MasterNode::run()
       results[step].push_back(result);
 
       cout << m_config << "-" << realization.getSource() << "\t";
+      cout << result.first << "\t";
       for (size_t i = 0; i < result.second.size(); ++i)
         cout << result.second[i] << "\t";
       cout << endl;
@@ -52,10 +56,13 @@ void MasterNode::run()
 void MasterNode::initializeGroundTruths()
 {
   // Read from file, if ground truth is given.
-  if (!m_config.groundTruth.Empty()) {
-    cout << "Reading ground truth from " << m_config.groundTruth.CStr() << endl;
+  if (!m_config.groundTruthFile.Empty()) {
+    cout << "Reading ground truth from " <<
+      m_config.groundTruthFile.CStr() << endl;
+
     m_realizations.push_back(
-        GraphHypothesis::readHypothesisFromFile(m_config.groundTruth.CStr()));
+        GraphHypothesis::readHypothesisFromFile(
+            m_config.groundTruthFile.CStr()));
     return;
   }
 
