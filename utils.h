@@ -50,14 +50,11 @@ class SimConfig {
     SimConfig& operator++();
 
     int nodes;
-    int networkType;
     int clusterSize;      // cluster size, number of hypothesis in a cluster
     double beta;          // edge selection probability
     double cascadeBound;  // cascade size, percentage of the network
     int steps;
     TStr logfile;
-    bool lazy;
-    int outputType;       // probability of source or number of tests.
     double testThreshold; // stop ec2 after a percentage of tests have run.
 
     TStr netinFile;
@@ -68,7 +65,6 @@ class SimConfig {
     TStr groundTruth;
     int groundTruths;
 
-    bool epflSolver;      // run EPFL algorithm on the given network.
     double epflMiu;
     double epflSigma;
 
@@ -92,13 +88,5 @@ class MPINode {
 
     vector<double> m_testsPrior;
 };
-
-// Initialization
-void generateNetwork(PUNGraph *network, SimConfig& config);
-void generateClusters(vector<GraphHypothesisCluster> *clusters,
-                      const PUNGraph network,
-                      const SimConfig& config);
-void generateTests(vector<GraphTest> *tests,
-                   const PUNGraph network);
 
 #endif // UTILS_H_

@@ -18,8 +18,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
     Env.PrepArgs(TStr::Fmt("NetLoc. Build: %s, %s. Time: %s",
           __TIME__, __DATE__, TExeTm::GetCurTm()));
 
-  const TInt paramNodes = Env.GetIfArgPrefixInt(
-      "-n=", 500, "Network size");
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
       "-c=", 500, "Cluster size");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
@@ -32,13 +30,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-dump=", "dump.log", "File where to dump the output");
   const TStr networkInFile = Env.GetIfArgPrefixStr(
       "-netin=", "", "File where to load the network from");
-  const TBool paramLazy = Env.GetIfArgPrefixBool(
-      "-lazy=", false, "Lazy evaluation");
-  const TInt paramNetworkType = Env.GetIfArgPrefixInt(
-      "-type=", 0, "Network Type: "
-                   "ForestFire - 0, Barabasi-Albert - 1, Erdos-Renyi - 2");
-  const TInt paramOutputType = Env.GetIfArgPrefixInt(
-      "-output=", 0, "Output Type: Tests - 0, Probability - 1, Diff - 2");
   const double paramTestThreshold = Env.GetIfArgPrefixFlt(
       "-testthr=", 0.25, "Tests Threshold (%)");
   const TInt paramObjType = Env.GetIfArgPrefixInt(
@@ -48,20 +39,14 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-truth=", "", "The ground truth to search for");
   const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
       "-truths=", 20, "The total number of ground truths");
-  const TBool paramEpfl = Env.GetIfArgPrefixInt(
-      "-epfl=", false, "EPFL solution?");
 
   SimConfig config;
 
-  config.nodes = paramNodes.Val;
   config.clusterSize = paramClusterSize.Val;
   config.steps = paramSteps.Val;
   config.cascadeBound = paramCascadeSize;
   config.beta = paramBeta;
   config.logfile = dumpFile;
-  config.lazy = paramLazy;
-  config.networkType = paramNetworkType;
-  config.outputType = paramOutputType;
   config.testThreshold = paramTestThreshold;
   config.netinFile = networkInFile;
 
@@ -88,7 +73,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   if (!paramGroundTruth.Empty())
     config.groundTruths = 1;
 
-  config.epflSolver = paramEpfl;
   config.epflMiu = 8;
   config.epflSigma = 2;
 
@@ -118,50 +102,4 @@ void MPINode::readNetwork()
   TFIn FIn(m_config.netinFile);
   m_network = TUNGraph::Load(FIn);
   m_config.nodes = m_network->GetNodes();
-}
-
-void generateNetwork(PUNGraph *network, SimConfig& config) {
-  if (!config.netinFile.Empty()) {
-    { TFIn FIn(config.netinFile); *network = TUNGraph::Load(FIn); }
-    config.nodes = (*network)->GetNodes();
-    cout << "Loaded network (N=" << config.nodes <<
-        ") from file..." << endl;
-    return;
-  }
-  switch (config.networkType) {
-    case 0:
-      *network = TSnap::ConvertGraph<PUNGraph, PNGraph>(TSnap::GenForestFire(config.nodes, 0.35, 0.32));
-      break;
-    case 1:
-      *network = TSnap::GenPrefAttach(config.nodes, 3);
-      break;
-    case 2:
-      *network = TSnap::GenRndGnm<PUNGraph>(
-          config.nodes, config.nodes * log(config.nodes));
-      break;
-  }
-
-  cout << "Generated network is connected: " << TSnap::GetMxWccSz(*network) << endl;
-}
-
-void generateClusters(vector<GraphHypothesisCluster> *clusters,
-                      const PUNGraph network,
-                      const SimConfig& config)
-{
-  // Generate all possible hypothesis clusters that we want to search through.
-  clusters->clear();
-  for (int source = 0; source < network->GetNodes(); source++) {
-    clusters->push_back(GraphHypothesisCluster::generateHypothesisCluster(
-        network, source, 1,
-        config.beta, config.cascadeBound, config.clusterSize));
-  }
-}
-
-void generateTests(vector<GraphTest> *tests,
-                   const PUNGraph network)
-{
-  // Generate all tests that are enough to differentiate between hypothesis.
-  tests->clear();
-  for (int node = 0; node < network->GetNodes(); ++node)
-    tests->push_back(GraphTest(node));
 }
