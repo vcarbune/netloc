@@ -4,6 +4,8 @@
  */
 
 #include "mpi.h"
+#include "hypothesis.h"
+#include "test.h"
 #include "utils.h"
 
 #include "snap/snap-core/Snap.h"

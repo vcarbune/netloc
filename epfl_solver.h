@@ -8,6 +8,7 @@
  * Within the present thesis, it is used as a comparison method.
  * Author (Victor Carbune): vcarbune@ethz.ch
  */
+#include "hypothesis.h"
 #include "utils.h"
 
 #include "snap/snap-core/Snap.h"

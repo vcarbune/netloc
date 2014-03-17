@@ -4,6 +4,8 @@
  */
 
 #include "mpi.h"
+#include "test.h"
+#include "hypothesis.h"
 #include "utils.h"
 #include "epfl_solver.h"
 

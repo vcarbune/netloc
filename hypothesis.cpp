@@ -14,10 +14,7 @@
 #include <sstream>
 #include <queue>
 
-#include "utils.h"
 #include <iostream>
-
-#define INITIAL_RUNS 5
 
 using namespace std;
 
@@ -33,10 +30,10 @@ bool GraphHypothesis::isConsistentWithTest(
   // The test wasn't validated with the realization (so it's value is set to
   // true/false, depending on the computation that needs to be done).
   if (test.getInfectionTime() == INFECTED_UNDEFINED)
-    return test.getOutcome() == this->getTestOutcome(test, prevTests);
+    return test.getOutcome() == this->getTestOutcome(test);
 
   if (test.getInfectionTime() == INFECTED_FALSE)
-    return !this->getTestOutcome(test, prevTests);
+    return !this->getTestOutcome(test);
 
   double infectionTime = test.getInfectionTime();
   return this->getTestOutcome(test, prevTests) ||
@@ -51,23 +48,47 @@ double GraphHypothesis::getInfectionTime(int nodeId) const
   return INFECTED_FALSE;
 }
 
+bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
+{
+  return m_infectionHash.find(test.getNodeId()) != m_infectionHash.end();
+}
+
 bool GraphHypothesis::getTestOutcome(
     const GraphTest& test, const vector<pair<double, int>>& prevTests) const
 {
-  return m_infectionHash.find(test.getNodeId()) != m_infectionHash.end();
+  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE)
+      return false;
+
+  // Make sure the test keeps order with respect to other tests.
+  for (size_t i = 0; i < prevTests.size(); ++i) {
+    if (getInfectionTime(prevTests[i].second) == INFECTED_FALSE ||
+        prevTests[i].first == INFECTED_FALSE)
+      continue;
+
+    double realizationDiffTime = test.getInfectionTime() - prevTests[i].first;
+    double cascadeDiffTime = getInfectionTime(test.getNodeId()) -
+        getInfectionTime(prevTests[i].second);
+
+    // If they have different signs, then the order is not preserved.
+    if (realizationDiffTime * cascadeDiffTime < 0)
+      return false;
+  }
+
+  return true;
 }
 
 /**
  * Generates one cascade, on top of the underlying network structure.
  * Extended from snap/examples/cascades.
  */
-GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
-    int sourceId, double size, double beta, vector<int> *nodeCount)
+GraphHypothesis GraphHypothesis::generateHypothesis(
+    PUNGraph network, int sourceId,
+    HypothesisClusterConfig config, vector<int> *nodeCount)
 {
   bool isTrueHypothesis = nodeCount == NULL;
 
-  unsigned int cascadeSize = size * network->GetNodes();
-  int runTimes = isTrueHypothesis ? cascadeSize : INITIAL_RUNS;
+  unsigned int trueCascadeSize = config.size * network->GetNodes();
+  int runTimes = isTrueHypothesis ? trueCascadeSize : config.simulations;
 
   // Add the source node (fixed for this cluster).
   unordered_map<int, double> infectionTime;
@@ -79,7 +100,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
     for (const auto& p : infectionTime) {
       const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
-        if (TInt::Rnd.GetUniDev() > beta) // Flip a coin!
+        if (TInt::Rnd.GetUniDev() > config.beta) // Flip a coin!
             continue;
 
         unsigned int neighbourId = crtIt.GetOutNId(neighbour);
@@ -90,7 +111,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(PUNGraph network,
           (*nodeCount)[neighbourId]++;
 
         infectionTime[neighbourId] = infectionTime.size();
-        if (infectionTime.size() == cascadeSize)
+        if (infectionTime.size() == trueCascadeSize)
           return GraphHypothesis(sourceId, infectionTime);
       }
     }
@@ -190,14 +211,13 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
  */
 GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
     PUNGraph network, int source, double weight,
-    double beta, int size, int clusterSize)
+    HypothesisClusterConfig config)
 {
   GraphHypothesisCluster cluster(network, source, weight);
-  for (int h = 0; h < clusterSize; h++) {
-    cluster.m_hypothesis.push_back(
-        GraphHypothesis::generateHypothesis(network, source, size, beta,
-            &cluster.m_nodeCount));
-    cluster.m_hypothesis[h].weight = weight / clusterSize;
+  for (int h = 0; h < config.size; h++) {
+    cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
+          network, source, config, &cluster.m_nodeCount));
+    cluster.m_hypothesis[h].weight = weight / config.size;
   }
   return cluster;
 }
@@ -220,7 +240,7 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
-    bool outcome = h.getTestOutcome(test, prevTests);
+    bool outcome = h.isConsistentWithTest(test, prevTests);
     positiveMass += h.weight * (outcome ? (1-eps) : eps);
     negativeMass += h.weight * (outcome ? eps : (1-eps));
   }
@@ -230,7 +250,7 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
 void GraphHypothesisCluster::resetWeight(double weight)
 {
   m_weight = weight;
-  double hWeight = weight / m_hypothesis.size();
+  double hWeight = (double) weight / m_hypothesis.size();
   for (size_t i = 0; i < m_hypothesis.size(); ++i)
     m_hypothesis[i].weight = hWeight;
 }

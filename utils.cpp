@@ -23,7 +23,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
       "-c=", 500, "Cluster size");
   const double paramEps = Env.GetIfArgPrefixFlt(
-      "-eps=", 0.001, "Penalty factor");
+      "-eps=", 0.001, "EPS Noisy Measurement Probability");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
       "-s=", 0.4, "Ground truth size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
@@ -43,10 +43,13 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-truth=", "", "The ground truth to search for");
   const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
       "-truths=", 20, "The total number of ground truths");
+  const TInt paramSimulations = Env.GetIfArgPrefixInt(
+      "-sim=", 5, "Simulation steps for cascades");
 
   SimConfig config;
 
   config.cluster.size = paramClusterSize.Val;
+  config.cluster.simulations = paramSimulations;
   config.cluster.beta = paramBeta;
   config.cluster.bound = paramCascadeSize;
 

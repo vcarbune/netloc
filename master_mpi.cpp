@@ -19,6 +19,7 @@ MasterNode::MasterNode(SimConfig config)
   : MPINode(config)
   , m_epflSolver(m_network, config)
 {
+  srand(time(NULL));
   initializeGroundTruths();
 }
 
@@ -33,6 +34,10 @@ void MasterNode::run()
     double startTime = time(NULL);
     for (const GraphHypothesis& realization : m_realizations) {
       result_t result = simulate(realization);
+
+      cout << m_config << "-" << realization.getSource() << "\t";
+      cout << result.first << "\t";
+
       // Add distance (in hops) to the source node.
       result.second.push_back(TSnap::GetShortPath(m_network,
             realization.getSource(), result.first));
@@ -40,8 +45,6 @@ void MasterNode::run()
       result.first = realization.getSource() == result.first ? 1 : 0;
       results[step].push_back(result);
 
-      cout << m_config << "-" << realization.getSource() << "\t";
-      cout << result.first << "\t";
       for (size_t i = 0; i < result.second.size(); ++i)
         cout << result.second[i] << "\t";
       cout << endl;
@@ -66,7 +69,7 @@ void MasterNode::initializeGroundTruths()
     return;
   }
 
-  // Generate artificially otherwise.
+  // Generate artificially.
   for (int truth = 0; truth < m_config.groundTruths; ++truth) {
     if (m_config.objType == EPFL_ML) {
       m_realizations.push_back(
@@ -76,7 +79,7 @@ void MasterNode::initializeGroundTruths()
     } else {
       m_realizations.push_back(GraphHypothesis::generateHypothesis(
             m_network, rand() % m_network->GetNodes(),
-            m_config.cluster.bound, m_config.cluster.beta));
+            m_config.cluster));
     }
   }
 }
@@ -225,7 +228,7 @@ result_t MasterNode::simulateAdaptivePolicy(const GraphHypothesis& realization)
 
 GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
 {
-  int randomIdx = 0;
+  size_t randomIdx = rand() % tests.size();
   GraphTest test = tests[randomIdx];
 
   tests.erase(tests.begin() + randomIdx);
@@ -385,9 +388,10 @@ result_t MasterNode::identifyCluster(int realSource)
   }
 
   pair<int, vector<double>> result;
-  result.first = maxIndex; // identified solution
+  result.first = maxIndex;  // identified solution
   result.second.push_back(allClusterWeights[maxIndex]); // solution confidence
-  result.second.push_back(result.second[0] - allClusterWeights[realSource]);
+  result.second.push_back(  // distance to the right solution.
+      allClusterWeights[maxIndex] - allClusterWeights[realSource]);
   result.second.push_back(rank);
 
   return result;

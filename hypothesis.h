@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include "test.h"
+#include "utils.h"
 
 #include "snap/snap-core/Snap.h"
 #undef min
@@ -20,7 +21,7 @@ class GraphHypothesis {
   public:
     /* Generators */
     static GraphHypothesis generateHypothesis(
-        PUNGraph, int, double, double, std::vector<int>* = NULL);
+        PUNGraph, int, HypothesisClusterConfig, std::vector<int>* = NULL);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
         PUNGraph, int, double, double, double, std::vector<int>* = NULL);
 
@@ -32,12 +33,13 @@ class GraphHypothesis {
     bool isConsistentWithTest(
         const GraphTest&, const std::vector<std::pair<double, int>>&) const;
     double getInfectionTime(int) const;
+    bool getTestOutcome(const GraphTest&) const;
     bool getTestOutcome(
         const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
     /* Properties */
-    unsigned int getSize() const { return m_infectionHash.size(); }
-    short unsigned int getSource() const { return m_sourceId; }
+    int getSize() const { return m_infectionHash.size(); }
+    int getSource() const { return m_sourceId; }
 
     double weight;
 
@@ -45,13 +47,13 @@ class GraphHypothesis {
     GraphHypothesis(unsigned int, std::unordered_map<int, double>&);
 
     std::unordered_map<int, double> m_infectionHash;
-    unsigned int m_sourceId;
+    int m_sourceId;
 };
 
 class GraphHypothesisCluster {
   public:
     static GraphHypothesisCluster generateHypothesisCluster(
-        PUNGraph, int, double, double, int, int);
+        PUNGraph, int, double, HypothesisClusterConfig);
 
     /* Tests */
     void updateMassWithTest(const double,

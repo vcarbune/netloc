@@ -48,8 +48,7 @@ void WorkerNode::initializeClusters(int startNode, int endNode)
   m_clusters.clear();
   for (int src = startNode; src < endNode; src++)
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-          m_network, src, 1, m_config.cluster.beta, m_config.cluster.bound,
-          m_config.cluster.size));
+          m_network, src, 1, m_config.cluster));
 }
 
 void WorkerNode::initializeTestHeap()
@@ -130,7 +129,6 @@ void WorkerNode::simulate()
     // This is wrong.
     m_previousTests.push_back(
         make_pair(test.getInfectionTime(), test.getNodeId()));
-    sort(m_previousTests.begin(), m_previousTests.end());
   }
 
   // Send the cluster masses to the central node.
