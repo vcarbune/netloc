@@ -25,10 +25,11 @@ class WorkerNode : public MPINode {
     void simulate();
 
     /* Computational Methods */
-    void computeCurrentMass();
+    void computeCurrentWeight();
     void recomputePartialTestScores();
 
     std::vector<GraphHypothesisCluster> m_clusters;
+    std::vector<std::pair<double, int>> m_previousTests;
 };
 
 #endif

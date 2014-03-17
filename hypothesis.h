@@ -18,18 +18,24 @@
 
 class GraphHypothesis {
   public:
+    /* Generators */
     static GraphHypothesis generateHypothesis(
         PUNGraph, int, double, double, std::vector<int>* = NULL);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
         PUNGraph, int, double, double, double, std::vector<int>* = NULL);
+
+    /* Input/Output */
     static GraphHypothesis readHypothesisFromFile(const char*);
-
     void writeHypothesisToFile(const char*);
-    bool isConsistentWithTest(const GraphTest& test) const;
 
+    /* Tests */
+    bool isConsistentWithTest(
+        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
     double getInfectionTime(int) const;
-    bool getTestOutcome(const GraphTest&) const;
+    bool getTestOutcome(
+        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
+    /* Properties */
     unsigned int getSize() const { return m_infectionHash.size(); }
     short unsigned int getSource() const { return m_sourceId; }
 
@@ -46,16 +52,17 @@ class GraphHypothesisCluster {
   public:
     static GraphHypothesisCluster generateHypothesisCluster(
         PUNGraph, int, double, double, int, int);
-    void updateMassWithTest(const GraphTest&);
-    std::pair<double, double> computeMassWithTest(const GraphTest&) const;
-    double getMass() const { return m_weight; }
 
-    int getTotalHypothesis() const { return m_hypothesis.size(); }
+    /* Tests */
+    void updateMassWithTest(
+        const GraphTest&, const std::vector<std::pair<double, int>>&);
+    std::pair<double, double> computeMassWithTest(
+        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
+
+    /* Properties */
     int getNodeCount(int nodeId) const { return m_nodeCount[nodeId]; }
-
     int getSource() const { return m_sourceId; }
     double getWeight() const { return m_weight; }
-    void normalizeWeight(double mass) { m_weight /= mass; }
 
     void resetWeight(double);
 
@@ -73,7 +80,7 @@ class GraphHypothesisCluster {
     std::vector<GraphHypothesis> m_hypothesis;
 
     // Counts the number of times a particular node appears in all the generated
-    // hypothesis. This can be used to speed up the computation of the probability
+    // hypothesis. This is used to speed up the computation of the probability
     // of a test outcome to be positive.
     std::vector<int> m_nodeCount;
 };

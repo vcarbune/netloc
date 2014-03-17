@@ -1,5 +1,6 @@
 #include "worker_mpi.h"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 
@@ -11,6 +12,7 @@ using namespace std;
 WorkerNode::WorkerNode(SimConfig config)
   : MPINode(config)
 {
+  m_previousTests.clear();
 }
 
 void WorkerNode::run()
@@ -74,7 +76,8 @@ void WorkerNode::initializeTestHeap()
   for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
     for (const GraphHypothesisCluster& cluster : m_clusters) {
       GraphTest test(testNode);
-      pair<double, double> mass = cluster.computeMassWithTest(test);
+      pair<double, double> mass =
+        cluster.computeMassWithTest(test, m_previousTests);
 
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[testNode] * mass.first +
@@ -98,7 +101,7 @@ void WorkerNode::initializeTestHeap()
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, m_config.nodes,
         MPI::DOUBLE, op, MPI_MASTER);
-  computeCurrentMass();
+  computeCurrentWeight();
 }
 
 void WorkerNode::simulate()
@@ -122,7 +125,12 @@ void WorkerNode::simulate()
     test.setInfectionTime(infectionTime);
 
     for (GraphHypothesisCluster& cluster : m_clusters)
-      cluster.updateMassWithTest(test);
+      cluster.updateMassWithTest(test, m_previousTests);
+
+    // This is wrong.
+    m_previousTests.push_back(
+        make_pair(test.getInfectionTime(), test.getNodeId()));
+    sort(m_previousTests.begin(), m_previousTests.end());
   }
 
   // Send the cluster masses to the central node.
@@ -139,7 +147,7 @@ void WorkerNode::simulate()
   MPI::COMM_WORLD.Send(&clusterWeight, nodes, MPI::DOUBLE, MPI_MASTER, 0);
 }
 
-void WorkerNode::computeCurrentMass()
+void WorkerNode::computeCurrentWeight()
 {
   double currentMassDiagonal = 0.0;
   double currentMass = 0.0;
@@ -163,7 +171,7 @@ void WorkerNode::recomputePartialTestScores()
     return;
 
   // Distribute partial sum for the mass.
-  computeCurrentMass();
+  computeCurrentWeight();
 
   // Recompute requests coming from master.
   int currentTestNode = 0;
@@ -176,7 +184,8 @@ void WorkerNode::recomputePartialTestScores()
     // Compute partial mass scores.
     GraphTest test(currentTestNode);
     for (const GraphHypothesisCluster& cluster : m_clusters) {
-      pair<double, double> mass = cluster.computeMassWithTest(test);
+      pair<double, double> mass =
+          cluster.computeMassWithTest(test, m_previousTests);
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[currentTestNode] * mass.first +
             (1 - m_testsPrior[currentTestNode]) * mass.second;

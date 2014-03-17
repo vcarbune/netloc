@@ -20,7 +20,7 @@ class MasterNode : public MPINode {
   private:
     /* Initialize */
     void initializeGroundTruths();
-    double computeCurrentMass();
+    double computeCurrentWeight();
 
     void initializeTests();
     void initializeTestHeap();
@@ -46,6 +46,7 @@ class MasterNode : public MPINode {
     /* Variables */
     std::vector<GraphHypothesis> m_realizations;
     std::vector<GraphTest> m_tests;
+    std::vector<std::pair<double, int>> m_previousTests;
 
     EPFLSolver m_epflSolver;
 };

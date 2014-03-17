@@ -81,7 +81,7 @@ void MasterNode::initializeGroundTruths()
   }
 }
 
-double MasterNode::computeCurrentMass() {
+double MasterNode::computeCurrentWeight() {
   // Compute current mass of all the clusters.
   double currentMass = 0.0;
   double crtSum[2] = {0.0, 0.0};
@@ -137,7 +137,7 @@ void MasterNode::initializeTestHeap()
         MPI::DOUBLE, op, MPI_MASTER);
 
   // Compute current mass of all the clusters.
-  double currentMass = computeCurrentMass();
+  double currentMass = computeCurrentWeight();
 
   // Store on the fly the test node probabilities.
   m_tests.clear();
@@ -204,7 +204,7 @@ result_t MasterNode::simulateAdaptivePolicy(const GraphHypothesis& realization)
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
-    bool outcome = realization.getTestOutcome(nextTest);
+    bool outcome = realization.getTestOutcome(nextTest, m_previousTests);
     int infection = realization.getInfectionTime(nextTest.getNodeId());
 
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
@@ -237,7 +237,7 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
 
-  double currentMass = computeCurrentMass();
+  double currentMass = computeCurrentWeight();
   TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;

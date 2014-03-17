@@ -5,6 +5,7 @@
 
 #include "hypothesis.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <fstream>
@@ -14,8 +15,9 @@
 #include <queue>
 
 #include "utils.h"
+#include <iostream>
 
-#define INITIAL_RUNS 4
+#define INITIAL_RUNS 5
 
 using namespace std;
 
@@ -26,15 +28,19 @@ GraphHypothesis::GraphHypothesis(unsigned int sourceId,
   m_infectionHash.swap(infectionTime);
 }
 
-bool GraphHypothesis::isConsistentWithTest(const GraphTest& test) const {
+bool GraphHypothesis::isConsistentWithTest(
+    const GraphTest& test, const vector<pair<double,int>>& prevTests) const {
+  // The test wasn't validated with the realization (so it's value is set to
+  // true/false, depending on the computation that needs to be done).
   if (test.getInfectionTime() == INFECTED_UNDEFINED)
-    return test.getOutcome() == this->getTestOutcome(test);
+    return test.getOutcome() == this->getTestOutcome(test, prevTests);
 
   if (test.getInfectionTime() == INFECTED_FALSE)
-    return !this->getTestOutcome(test);
+    return !this->getTestOutcome(test, prevTests);
 
   double infectionTime = test.getInfectionTime();
-  return this->getTestOutcome(test) || m_infectionHash.size() < infectionTime;
+  return this->getTestOutcome(test, prevTests) ||
+      m_infectionHash.size() < infectionTime;
 }
 
 double GraphHypothesis::getInfectionTime(int nodeId) const
@@ -45,7 +51,8 @@ double GraphHypothesis::getInfectionTime(int nodeId) const
   return INFECTED_FALSE;
 }
 
-bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
+bool GraphHypothesis::getTestOutcome(
+    const GraphTest& test, const vector<pair<double, int>>& prevTests) const
 {
   return m_infectionHash.find(test.getNodeId()) != m_infectionHash.end();
 }
@@ -195,23 +202,24 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
   return cluster;
 }
 
-void GraphHypothesisCluster::updateMassWithTest(const GraphTest& test)
+void GraphHypothesisCluster::updateMassWithTest(
+    const GraphTest& test, const vector<pair<double,int>>& prevTests)
 {
   double weight = 0.0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight *= (h.isConsistentWithTest(test) ? (1-EPS) : EPS);
+    h.weight *= (h.isConsistentWithTest(test, prevTests) ? (1-EPS) : EPS);
     weight += h.weight;
   }
   m_weight = weight;
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
-    const GraphTest& test) const
+    const GraphTest& test, const vector<pair<double, int>>& prevTests) const
 {
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
-    bool outcome = h.getTestOutcome(test);
+    bool outcome = h.getTestOutcome(test, prevTests);
     positiveMass += h.weight * (outcome ? (1-EPS) : EPS);
     negativeMass += h.weight * (outcome ? EPS : (1-EPS));
   }
