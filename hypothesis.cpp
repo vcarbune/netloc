@@ -202,26 +202,27 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
   return cluster;
 }
 
-void GraphHypothesisCluster::updateMassWithTest(
+void GraphHypothesisCluster::updateMassWithTest(const double eps,
     const GraphTest& test, const vector<pair<double,int>>& prevTests)
 {
   double weight = 0.0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight *= (h.isConsistentWithTest(test, prevTests) ? (1-EPS) : EPS);
+    h.weight *= (h.isConsistentWithTest(test, prevTests) ? (1-eps) : eps);
     weight += h.weight;
   }
   m_weight = weight;
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
-    const GraphTest& test, const vector<pair<double, int>>& prevTests) const
+    const double eps, const GraphTest& test,
+    const vector<pair<double, int>>& prevTests) const
 {
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
     bool outcome = h.getTestOutcome(test, prevTests);
-    positiveMass += h.weight * (outcome ? (1-EPS) : EPS);
-    negativeMass += h.weight * (outcome ? EPS : (1-EPS));
+    positiveMass += h.weight * (outcome ? (1-eps) : eps);
+    negativeMass += h.weight * (outcome ? eps : (1-eps));
   }
   return pair<double, double>(positiveMass, negativeMass);
 }

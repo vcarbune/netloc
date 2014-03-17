@@ -48,8 +48,8 @@ void WorkerNode::initializeClusters(int startNode, int endNode)
   m_clusters.clear();
   for (int src = startNode; src < endNode; src++)
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-          m_network, src, 1, m_config.beta, m_config.cascadeBound,
-          m_config.clusterSize));
+          m_network, src, 1, m_config.cluster.beta, m_config.cluster.bound,
+          m_config.cluster.size));
 }
 
 void WorkerNode::initializeTestHeap()
@@ -77,7 +77,7 @@ void WorkerNode::initializeTestHeap()
     for (const GraphHypothesisCluster& cluster : m_clusters) {
       GraphTest test(testNode);
       pair<double, double> mass =
-        cluster.computeMassWithTest(test, m_previousTests);
+        cluster.computeMassWithTest(m_config.eps, test, m_previousTests);
 
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[testNode] * mass.first +
@@ -125,7 +125,7 @@ void WorkerNode::simulate()
     test.setInfectionTime(infectionTime);
 
     for (GraphHypothesisCluster& cluster : m_clusters)
-      cluster.updateMassWithTest(test, m_previousTests);
+      cluster.updateMassWithTest(m_config.eps, test, m_previousTests);
 
     // This is wrong.
     m_previousTests.push_back(
@@ -185,7 +185,7 @@ void WorkerNode::recomputePartialTestScores()
     GraphTest test(currentTestNode);
     for (const GraphHypothesisCluster& cluster : m_clusters) {
       pair<double, double> mass =
-          cluster.computeMassWithTest(test, m_previousTests);
+          cluster.computeMassWithTest(m_config.eps, test, m_previousTests);
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[currentTestNode] * mass.first +
             (1 - m_testsPrior[currentTestNode]) * mass.second;

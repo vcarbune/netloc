@@ -19,10 +19,6 @@
 #define MPI_MASTER 0
 #define DBG 0
 
-/* Noisy Model Re-Weighing*/
-#define EPS 0.05
-
-
 /* MPI DEFINES */
 #define RANDOM_SUMS       0
 #define REGULAR_SUMS      2
@@ -37,9 +33,15 @@
 
 typedef std::pair<int, std::vector<double>> result_t;
 
-struct MPIConfig {
-  int rank;
-  int nodes;
+struct MPIClusterConfig {
+  int nodes;  // total number of nodes initialized and used by MPI.
+  int rank;   // rank of the current node.
+};
+
+struct HypothesisClusterConfig {
+  int size;     // number of hypothesis per node.
+  double beta;  // edge activation probability.
+  double bound; // percentage bound of the total network.
 };
 
 enum AlgorithmType {
@@ -54,13 +56,7 @@ class SimConfig {
   public:
     static SimConfig getSimConfigFromEnv(int argc, char *argv[], bool = true);
 
-    // Parameters changing from one step of the simulation to the other.
-    SimConfig& operator++();
-
     int nodes;
-    int clusterSize;      // cluster size, number of hypothesis in a cluster
-    double beta;          // edge selection probability
-    double cascadeBound;  // cascade size, percentage of the network
     int steps;
     TStr logfile;
     double testThreshold; // stop ec2 after a percentage of tests have run.
@@ -76,7 +72,15 @@ class SimConfig {
     double epflMiu;
     double epflSigma;
 
-    MPIConfig mpi;
+    // Noisy Model Re-weighing (tolerance to noisy measurements).
+    double eps;
+
+    MPIClusterConfig mpi;
+    HypothesisClusterConfig cluster;
+
+    // Parameters changing from one step of the simulation to the other.
+    SimConfig& operator++();
+
   private:
     SimConfig() {};
 };

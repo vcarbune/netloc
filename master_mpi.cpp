@@ -71,12 +71,12 @@ void MasterNode::initializeGroundTruths()
     if (m_config.objType == EPFL_ML) {
       m_realizations.push_back(
           GraphHypothesis::generateHypothesisUsingGaussianModel(
-            m_network, rand() % m_network->GetNodes(), m_config.cascadeBound,
+            m_network, rand() % m_network->GetNodes(), m_config.cluster.bound,
             m_config.epflMiu, m_config.epflSigma));
     } else {
       m_realizations.push_back(GraphHypothesis::generateHypothesis(
             m_network, rand() % m_network->GetNodes(),
-            m_config.cascadeBound, m_config.beta));
+            m_config.cluster.bound, m_config.cluster.beta));
     }
   }
 }
@@ -118,7 +118,7 @@ void MasterNode::initializeTestHeap()
   MPI::COMM_WORLD.Reduce(&nullVals, sums[0], m_config.nodes,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  int totalHypothesis = m_config.nodes * m_config.clusterSize;
+  int totalHypothesis = m_config.nodes * m_config.cluster.size;
   for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
     m_testsPrior[testNode] = sums[0][testNode] / totalHypothesis;
     sums[0][testNode] = m_testsPrior[testNode];
@@ -215,7 +215,7 @@ result_t MasterNode::simulateAdaptivePolicy(const GraphHypothesis& realization)
       continue;
 
     for (GraphTest& test : tests)
-      test.setScore((1-EPS) * (1-EPS) * test.getScore());
+      test.setScore((1-m_config.eps) * (1-m_config.eps) * test.getScore());
   }
 
   // Identify the cluster where the mass is concentrated.
@@ -435,8 +435,8 @@ void MasterNode::processResults(vector<result_t> *results,
       stderrs[var] = sqrt(stderrs[var]);
 
     // Dump to output streams.
-    cout << initialConfig.clusterSize << "\t";
-    dumpStream << initialConfig.clusterSize << "\t";
+    cout << initialConfig.cluster.size << "\t";
+    dumpStream << initialConfig.cluster.size << "\t";
     for (int var = 0; var < vars; ++var) {
       dumpStream << averages[var] << "\t" << stderrs[var] << "\t";
       cout << averages[var] << "\t" << stderrs[var] << "\t";

@@ -9,7 +9,7 @@
 using namespace std;
 
 SimConfig& SimConfig::operator++() {
-  clusterSize *= 2;
+  cluster.size *= 2;
   return *this;
 }
 
@@ -22,6 +22,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
       "-c=", 500, "Cluster size");
+  const double paramEps = Env.GetIfArgPrefixFlt(
+      "-eps=", 0.001, "Penalty factor");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
       "-s=", 0.4, "Ground truth size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
@@ -44,10 +46,13 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
   SimConfig config;
 
-  config.clusterSize = paramClusterSize.Val;
+  config.cluster.size = paramClusterSize.Val;
+  config.cluster.beta = paramBeta;
+  config.cluster.bound = paramCascadeSize;
+
+  config.eps = paramEps;
+
   config.steps = paramSteps.Val;
-  config.cascadeBound = paramCascadeSize;
-  config.beta = paramBeta;
   config.logfile = paramOutputLog;
   config.testThreshold = paramTestThreshold;
   config.netinFile = networkInFile;
@@ -83,7 +88,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
 ostream& operator<<(ostream& os, const SimConfig& config)
 {
-  os << config.clusterSize;
+  os << config.cluster.size;
   return os;
 }
 
