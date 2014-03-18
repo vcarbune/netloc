@@ -127,9 +127,13 @@ void MasterNode::initializeTestHeap()
   MPI::COMM_WORLD.Reduce(&nullVals, sums[0], m_config.nodes,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  int totalHypothesis = m_config.nodes * m_config.cluster.size;
+  double testCountSum = 0.0;
   for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
-    m_testsPrior[testNode] = sums[0][testNode] / totalHypothesis;
+    m_testsPrior[testNode] = sums[0][testNode];
+    testCountSum += m_testsPrior[testNode];
+  }
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
+    m_testsPrior[testNode] /= testCountSum;
     sums[0][testNode] = m_testsPrior[testNode];
   }
 
@@ -218,7 +222,7 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
-    bool outcome = realization.getTestOutcome(nextTest, m_previousTests);
+    bool outcome = realization.getTestOutcome(nextTest);
     int infection = realization.getInfectionTime(nextTest.getNodeId());
 
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);

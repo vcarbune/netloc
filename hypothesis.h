@@ -34,8 +34,6 @@ class GraphHypothesis {
         const GraphTest&, const std::vector<std::pair<double, int>>&) const;
     double getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
-    bool getTestOutcome(
-        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
     /* Properties */
     int getSize() const { return m_infectionHash.size(); }
@@ -45,6 +43,8 @@ class GraphHypothesis {
 
   private:
     GraphHypothesis(unsigned int, std::unordered_map<int, double>&);
+    bool getTestOutcome(
+        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
     std::unordered_map<int, double> m_infectionHash;
     int m_sourceId;

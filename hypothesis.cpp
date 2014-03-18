@@ -27,17 +27,15 @@ GraphHypothesis::GraphHypothesis(unsigned int sourceId,
 
 bool GraphHypothesis::isConsistentWithTest(
     const GraphTest& test, const vector<pair<double,int>>& prevTests) const {
-  // The test wasn't validated with the realization (so it's value is set to
-  // true/false, depending on the computation that needs to be done).
-  if (test.getInfectionTime() == INFECTED_UNDEFINED)
+  // The test wasn't validated with the realization (so it's value is only
+  // set to true/false, but no infection time is defined).
+  if (test.getInfectionTime() == INFECTED_UNDEFINED ||
+      test.getInfectionTime() == INFECTED_FALSE)
     return test.getOutcome() == this->getTestOutcome(test);
 
-  if (test.getInfectionTime() == INFECTED_FALSE)
-    return !this->getTestOutcome(test);
-
   double infectionTime = test.getInfectionTime();
-  return this->getTestOutcome(test, prevTests) ||
-      m_infectionHash.size() < infectionTime;
+  return m_infectionHash.size() < infectionTime ||
+      this->getTestOutcome(test, prevTests);
 }
 
 double GraphHypothesis::getInfectionTime(int nodeId) const
@@ -56,9 +54,6 @@ bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
 bool GraphHypothesis::getTestOutcome(
     const GraphTest& test, const vector<pair<double, int>>& prevTests) const
 {
-  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE)
-      return false;
-
   // Make sure the test keeps order with respect to other tests.
   for (size_t i = 0; i < prevTests.size(); ++i) {
     if (getInfectionTime(prevTests[i].second) == INFECTED_FALSE ||
@@ -240,9 +235,9 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
-    bool outcome = h.isConsistentWithTest(test, prevTests);
-    positiveMass += h.weight * (outcome ? (1-eps) : eps);
-    negativeMass += h.weight * (outcome ? eps : (1-eps));
+    bool isConsistent = h.isConsistentWithTest(test, prevTests);
+    positiveMass += h.weight * (isConsistent ? (1-eps) : eps);
+    negativeMass += h.weight * (isConsistent ? eps : (1-eps));
   }
   return pair<double, double>(positiveMass, negativeMass);
 }
