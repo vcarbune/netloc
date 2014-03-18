@@ -198,7 +198,11 @@ result_t MasterNode::simulate(int realizationIdx)
 
 result_t MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
-  return m_epflSolver.solve(m_realizations[realizationIdx]);
+  vector<pair<double, int>> clusterSortedScores;
+  result_t result =
+    m_epflSolver.solve(m_realizations[realizationIdx], clusterSortedScores);
+  result.second.push_back(computeNDCG(clusterSortedScores, realizationIdx));
+  return result;
 }
 
 result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
@@ -229,8 +233,7 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
   }
 
   // Identify the cluster where the mass is concentrated.
-  result_t solution = identifyCluster(realization.getSource(),
-      m_idToShortestPathsFromSource[realizationIdx]);
+  result_t solution = identifyCluster(realizationIdx);
   return solution;
 }
 
@@ -361,14 +364,44 @@ void MasterNode::recomputeTestScore(
     cout << "This part of the code should never be reached.." << endl;
 }
 
-result_t MasterNode::identifyCluster(int realSource, const TIntH& nodeRelevance)
+double MasterNode::computeNDCG(
+    const vector<pair<double, int>>& clusterSortedScores,
+    int realizationIdx) const
 {
+  const TIntH& nodeRelevance = m_idToShortestPathsFromSource[realizationIdx];
+
+  int maxDistance = 0;
+  for (int i = 0; i < m_config.nodes; ++i)
+    maxDistance = max(nodeRelevance.GetDat(i).Val, maxDistance);
+
+  double dcg = maxDistance - nodeRelevance.GetDat(clusterSortedScores[0].second);
+  for (int i = 1; i < m_config.ndcgN; ++i)
+    dcg += (double) (maxDistance -
+        nodeRelevance.GetDat(clusterSortedScores[i].second)) / log2(i+1);
+
+  vector<int> idealRelevanceOrdering;
+  for (int i = 0; i < m_config.nodes; ++i)
+    idealRelevanceOrdering.push_back(maxDistance - nodeRelevance.GetDat(i).Val);
+  sort(idealRelevanceOrdering.begin(), idealRelevanceOrdering.end(),
+       greater<int>());
+
+  double idcg = idealRelevanceOrdering[0];
+  for (int i = 1; i < m_config.ndcgN; ++i)
+    idcg += (double) idealRelevanceOrdering[i] / log2(i+1);
+
+  return dcg / idcg;
+}
+
+result_t MasterNode::identifyCluster(int realizationIdx)
+{
+  int realSource = m_realizations[realizationIdx].getSource();
+
   // Gather information from all processes.
   int clusterNodes[m_config.nodes];
   double clusterWeight[m_config.nodes];
   vector<pair<double, int>> allClusterWeights;
 
-  double realSourceMass;
+  double realSourceMass = numeric_limits<double>::max();
   int nodes;
   double mass = 0.0;
 
@@ -384,16 +417,13 @@ result_t MasterNode::identifyCluster(int realSource, const TIntH& nodeRelevance)
     }
   }
 
-  // Store the probability in the real source cluster.
-  realSourceMass = allClusterWeights[realSource].first * 100 / mass;
-
   // Sort to obtain relevance of each node.
-  TIntH retrievedNodeRelevance;
   sort(allClusterWeights.begin(), allClusterWeights.end(),
        greater<pair<double, int>>());
   for (size_t i = 0; i < allClusterWeights.size(); ++i) {
     allClusterWeights[i].first = allClusterWeights[i].first * 100 / mass;
-    retrievedNodeRelevance.AddDat(allClusterWeights[i].second, i);
+    if (allClusterWeights[i].second == realSource)
+      realSourceMass = allClusterWeights[i].first;
   }
 
   // Obtain rank of true solution.
@@ -411,29 +441,8 @@ result_t MasterNode::identifyCluster(int realSource, const TIntH& nodeRelevance)
   result.second.push_back(allClusterWeights[0].first - realSourceMass);
   // Rank of the correct solution.
   result.second.push_back(rank);
-
   // NDCG metric.
-  int maxDistance = 0;
-  for (int i = 0; i < m_config.nodes; ++i)
-    maxDistance = max(nodeRelevance.GetDat(i).Val, maxDistance);
-
-  double dcg = maxDistance - nodeRelevance.GetDat(allClusterWeights[0].second);
-  for (size_t i = 1; i < allClusterWeights.size(); ++i)
-    dcg += (double) (
-        maxDistance - nodeRelevance.GetDat(allClusterWeights[i].second)) / log(i+1);
-
-  vector<int> idealRelevanceOrdering;
-  for (int i = 0; i < m_config.nodes; ++i)
-    idealRelevanceOrdering.push_back(maxDistance - nodeRelevance.GetDat(i).Val);
-  sort(idealRelevanceOrdering.begin(), idealRelevanceOrdering.end(),
-       greater<int>());
-
-  double idcg = idealRelevanceOrdering[0];
-  for (size_t i = 1; i < idealRelevanceOrdering.size(); ++i)
-    idcg += (double) idealRelevanceOrdering[i] / log(i+1);
-
-  double ndcg = dcg / idcg;
-  result.second.push_back(ndcg);
+  result.second.push_back(computeNDCG(allClusterWeights, realizationIdx));
 
   return result;
 }

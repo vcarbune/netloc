@@ -21,7 +21,8 @@
 class EPFLSolver {
   public:
     EPFLSolver(PUNGraph, SimConfig);
-    result_t solve(const GraphHypothesis&);
+    result_t solve(const GraphHypothesis&,
+        std::vector<std::pair<double, int>>&);
 
   private:
     std::vector<int> m_observerNodes;

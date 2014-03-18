@@ -42,7 +42,8 @@ class MasterNode : public MPINode {
     void recomputeTestScore(GraphTest&, double);
 
     /* Results */
-    result_t identifyCluster(int, const TIntH&);
+    double computeNDCG(const std::vector<std::pair<double, int>>&, int) const;
+    result_t identifyCluster(int);
     void processResults(std::vector<result_t>*, SimConfig&);
 
     /* Variables */

@@ -37,7 +37,7 @@ class Test {
 class TestCompareFunction {
   public:
     bool operator() (const Test& p, const Test& q) const {
-      return p.getScore() < q.getScore();
+      return p.getScore() <= q.getScore();
     }
 };
 

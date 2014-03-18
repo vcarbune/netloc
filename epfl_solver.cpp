@@ -34,7 +34,8 @@ EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config)
     m_observerNodes.push_back(degrees[node].second);
 }
 
-result_t EPFLSolver::solve(const GraphHypothesis& realization)
+result_t EPFLSolver::solve(const GraphHypothesis& realization,
+    vector<pair<double, int>>& clusterSortedScores)
 {
   // Get infection times for all the observers and keep ascending.
   vector<pair<double, int>> observers;
@@ -100,7 +101,6 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization)
   for (size_t o = 0; o < observers.size() - 1; ++o)
     d[o] = observers[o+1].first - observers[0].first;
 
-  vector<pair<double, int>> scores;
   for (int s = 0; s < m_network->GetNodes(); ++s) {
     TIntH idToShortestPathsFromSource;
     TSnap::GetShortPath(m_network, s, idToShortestPathsFromSource);
@@ -115,20 +115,22 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization)
 
     // Estimator value.
     double estimator = miu_s.transpose() * invLambda * (d - 0.5 * miu_s);
-    scores.push_back(pair<double, int>(estimator, s));
+    clusterSortedScores.push_back(pair<double, int>(estimator, s));
   }
+  sort(clusterSortedScores.begin(), clusterSortedScores.end(),
+       std::greater<pair<double, int>>());
 
-  sort(scores.begin(), scores.end(), std::greater<pair<double, int>>());
   int realSourceIdx = 0;
-  for (size_t i = 0; i < scores.size(); ++i) {
-    if (scores[i].second == realization.getSource())
+  for (size_t i = 0; i < clusterSortedScores.size(); ++i) {
+    if (clusterSortedScores[i].second == realization.getSource())
       realSourceIdx = i;
   }
 
   result_t result;
-  result.first = scores[0].second;          // identified solution
-  result.second.push_back(scores[0].first); // solution score?
-  result.second.push_back(scores[0].first - scores[realSourceIdx].first);
+  result.first = clusterSortedScores[0].second;          // identified solution
+  result.second.push_back(clusterSortedScores[0].first); // solution score?
+  result.second.push_back(clusterSortedScores[0].first -
+      clusterSortedScores[realSourceIdx].first);
   result.second.push_back(realSourceIdx);   // rank
 
   return result;

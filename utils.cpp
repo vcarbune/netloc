@@ -45,6 +45,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-truths=", 20, "The total number of ground truths");
   const TInt paramSimulations = Env.GetIfArgPrefixInt(
       "-sim=", 5, "Simulation steps for cascades");
+  const TInt paramTopN = Env.GetIfArgPrefixInt(
+      "-ndcg=", 5, "TopN for NDCG@N");
 
   SimConfig config;
 
@@ -54,6 +56,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.cluster.bound = paramCascadeSize;
 
   config.eps = paramEps;
+  config.ndcgN = paramTopN;
 
   config.steps = paramSteps.Val;
   config.logfile = paramOutputLog;
