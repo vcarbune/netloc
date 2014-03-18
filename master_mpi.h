@@ -29,9 +29,9 @@ class MasterNode : public MPINode {
     void initializeTestVector();
 
     /* Simulate */
-    result_t simulate(const GraphHypothesis&);
-    result_t simulateAdaptivePolicy(const GraphHypothesis&);
-    result_t simulateEPFLPolicy(const GraphHypothesis&);
+    result_t simulate(int);
+    result_t simulateAdaptivePolicy(int);
+    result_t simulateEPFLPolicy(int);
 
     GraphTest selectRandomTest(std::vector<GraphTest>&);
     GraphTest selectNextTest(std::vector<GraphTest>&);
@@ -42,11 +42,13 @@ class MasterNode : public MPINode {
     void recomputeTestScore(GraphTest&, double);
 
     /* Results */
-    result_t identifyCluster(int);
+    result_t identifyCluster(int, const TIntH&);
     void processResults(std::vector<result_t>*, SimConfig&);
 
     /* Variables */
     std::vector<GraphHypothesis> m_realizations;
+    std::vector<TIntH> m_idToShortestPathsFromSource;
+
     std::vector<GraphTest> m_tests;
     std::vector<std::pair<double, int>> m_previousTests;
 

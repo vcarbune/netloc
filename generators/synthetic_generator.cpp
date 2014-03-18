@@ -64,9 +64,11 @@ int main(int argc, char* argv[]) {
       "-groundTruthSize=", 0.4, "Ground Truth Size");
   const double  edgeActivationProbability = Env.GetIfArgPrefixFlt(
       "-beta=", 0.06, "Activation probability on edges");
+  HypothesisClusterConfig cluster;
+  cluster.size = groundTruthSize;
+  cluster.beta = edgeActivationProbability;
   GraphHypothesis realization = GraphHypothesis::generateHypothesis(
-      network, rand() % network->GetNodes(), groundTruthSize,
-      edgeActivationProbability);
+      network, rand() % network->GetNodes(), cluster);
 
   const TStr groundTruthOutputFile = Env.GetIfArgPrefixStr(
       "-groundTruthOutputFile=",

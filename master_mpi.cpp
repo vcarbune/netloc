@@ -32,15 +32,17 @@ void MasterNode::run()
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
     initializeTests();
     double startTime = time(NULL);
-    for (const GraphHypothesis& realization : m_realizations) {
-      result_t result = simulate(realization);
+    for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
+      const GraphHypothesis& realization = m_realizations[idx];
+      result_t result = simulate(idx);
 
       cout << m_config << "-" << realization.getSource() << "\t";
       cout << result.first << "\t";
 
       // Add distance (in hops) to the source node.
-      result.second.push_back(TSnap::GetShortPath(m_network,
-            realization.getSource(), result.first));
+      result.second.push_back(
+          m_idToShortestPathsFromSource[idx].GetDat(result.first));
+
       // Keep a boolean, whether the source was identified or not.
       result.first = realization.getSource() == result.first ? 1 : 0;
       results[step].push_back(result);
@@ -61,26 +63,30 @@ void MasterNode::initializeGroundTruths()
   // Read from file, if ground truth is given.
   if (!m_config.groundTruthFile.Empty()) {
     cout << "Reading ground truth from " <<
-      m_config.groundTruthFile.CStr() << endl;
+        m_config.groundTruthFile.CStr() << endl;
 
-    m_realizations.push_back(
-        GraphHypothesis::readHypothesisFromFile(
-            m_config.groundTruthFile.CStr()));
-    return;
+    m_realizations.push_back(GraphHypothesis::readHypothesisFromFile(
+          m_config.groundTruthFile.CStr()));
+  } else {
+    // Generate artificially.
+    for (int truth = 0; truth < m_config.groundTruths; ++truth) {
+      if (m_config.objType == EPFL_ML) {
+        m_realizations.push_back(
+            GraphHypothesis::generateHypothesisUsingGaussianModel(
+              m_network, rand() % m_network->GetNodes(), m_config.cluster.bound,
+              m_config.epflMiu, m_config.epflSigma));
+      } else {
+        m_realizations.push_back(GraphHypothesis::generateHypothesis(
+              m_network, rand() % m_network->GetNodes(),
+              m_config.cluster));
+      }
+    }
   }
 
-  // Generate artificially.
-  for (int truth = 0; truth < m_config.groundTruths; ++truth) {
-    if (m_config.objType == EPFL_ML) {
-      m_realizations.push_back(
-          GraphHypothesis::generateHypothesisUsingGaussianModel(
-            m_network, rand() % m_network->GetNodes(), m_config.cluster.bound,
-            m_config.epflMiu, m_config.epflSigma));
-    } else {
-      m_realizations.push_back(GraphHypothesis::generateHypothesis(
-            m_network, rand() % m_network->GetNodes(),
-            m_config.cluster));
-    }
+  for (const GraphHypothesis& realization : m_realizations) {
+    TIntH idToShortestPathsFromSource;
+    TSnap::GetShortPath(m_network, realization.getSource(), idToShortestPathsFromSource);
+    m_idToShortestPathsFromSource.push_back(idToShortestPathsFromSource);
   }
 }
 
@@ -182,22 +188,23 @@ void MasterNode::initializeTestVector()
     m_tests.push_back(GraphTest(testNode));
 }
 
-result_t MasterNode::simulate(const GraphHypothesis& realization)
+result_t MasterNode::simulate(int realizationIdx)
 {
   if (m_config.objType == EPFL_ML)
-    return simulateEPFLPolicy(realization);
+    return simulateEPFLPolicy(realizationIdx);
 
-  return simulateAdaptivePolicy(realization);
+  return simulateAdaptivePolicy(realizationIdx);
 }
 
-result_t MasterNode::simulateEPFLPolicy(const GraphHypothesis& realization)
+result_t MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
-  return m_epflSolver.solve(realization);
+  return m_epflSolver.solve(m_realizations[realizationIdx]);
 }
 
-result_t MasterNode::simulateAdaptivePolicy(const GraphHypothesis& realization)
+result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
 {
   vector<GraphTest> tests(m_tests);
+  const GraphHypothesis& realization = m_realizations[realizationIdx];
 
   // Request scores for each of the tests.
   int totalTests = m_config.testThreshold * m_config.nodes;
@@ -222,7 +229,8 @@ result_t MasterNode::simulateAdaptivePolicy(const GraphHypothesis& realization)
   }
 
   // Identify the cluster where the mass is concentrated.
-  result_t solution = identifyCluster(realization.getSource());
+  result_t solution = identifyCluster(realization.getSource(),
+      m_idToShortestPathsFromSource[realizationIdx]);
   return solution;
 }
 
@@ -353,13 +361,14 @@ void MasterNode::recomputeTestScore(
     cout << "This part of the code should never be reached.." << endl;
 }
 
-result_t MasterNode::identifyCluster(int realSource)
+result_t MasterNode::identifyCluster(int realSource, const TIntH& nodeRelevance)
 {
   // Gather information from all processes.
   int clusterNodes[m_config.nodes];
   double clusterWeight[m_config.nodes];
-  double allClusterWeights[m_config.nodes];
+  vector<pair<double, int>> allClusterWeights;
 
+  double realSourceMass;
   int nodes;
   double mass = 0.0;
 
@@ -368,31 +377,63 @@ result_t MasterNode::identifyCluster(int realSource)
     MPI::COMM_WORLD.Recv(&nodes, 1, MPI::INT, worker, 0, status);
     MPI::COMM_WORLD.Recv(&clusterNodes, nodes, MPI::INT, worker, 0, status);
     MPI::COMM_WORLD.Recv(&clusterWeight, nodes, MPI::DOUBLE, worker, 0, status);
+
     for (int i = 0; i < nodes; ++i) {
       mass += clusterWeight[i];
-      allClusterWeights[clusterNodes[i]] = clusterWeight[i];
+      allClusterWeights.push_back(make_pair(clusterWeight[i], clusterNodes[i]));
     }
   }
 
-  int maxIndex = 0;
-  for (int i = 0; i < m_config.nodes; ++i) {
-    allClusterWeights[i] = allClusterWeights[i] * 100 / mass;
-    if (allClusterWeights[i] > allClusterWeights[maxIndex])
-      maxIndex = i;
+  // Store the probability in the real source cluster.
+  realSourceMass = allClusterWeights[realSource].first * 100 / mass;
+
+  // Sort to obtain relevance of each node.
+  TIntH retrievedNodeRelevance;
+  sort(allClusterWeights.begin(), allClusterWeights.end(),
+       greater<pair<double, int>>());
+  for (size_t i = 0; i < allClusterWeights.size(); ++i) {
+    allClusterWeights[i].first = allClusterWeights[i].first * 100 / mass;
+    retrievedNodeRelevance.AddDat(allClusterWeights[i].second, i);
   }
 
+  // Obtain rank of true solution.
   int rank = 0;
-  for (int i = 0; i < m_config.nodes; ++i) {
-    if (allClusterWeights[realSource] < allClusterWeights[i])
-      rank++;
-  }
+  for (; rank < m_config.nodes; ++rank)
+    if (allClusterWeights[rank].second == realSource)
+      break;
 
   pair<int, vector<double>> result;
-  result.first = maxIndex;  // identified solution
-  result.second.push_back(allClusterWeights[maxIndex]); // solution confidence
-  result.second.push_back(  // distance to the right solution.
-      allClusterWeights[maxIndex] - allClusterWeights[realSource]);
+  // Identified solution (source node id).
+  result.first = allClusterWeights[0].second;
+  // Confidence in the solution identified (probability)
+  result.second.push_back(allClusterWeights[0].first);
+  // Difference between the probability of solution and the correct one.
+  result.second.push_back(allClusterWeights[0].first - realSourceMass);
+  // Rank of the correct solution.
   result.second.push_back(rank);
+
+  // NDCG metric.
+  int maxDistance = 0;
+  for (int i = 0; i < m_config.nodes; ++i)
+    maxDistance = max(nodeRelevance.GetDat(i).Val, maxDistance);
+
+  double dcg = maxDistance - nodeRelevance.GetDat(allClusterWeights[0].second);
+  for (size_t i = 1; i < allClusterWeights.size(); ++i)
+    dcg += (double) (
+        maxDistance - nodeRelevance.GetDat(allClusterWeights[i].second)) / log(i+1);
+
+  vector<int> idealRelevanceOrdering;
+  for (int i = 0; i < m_config.nodes; ++i)
+    idealRelevanceOrdering.push_back(maxDistance - nodeRelevance.GetDat(i).Val);
+  sort(idealRelevanceOrdering.begin(), idealRelevanceOrdering.end(),
+       greater<int>());
+
+  double idcg = idealRelevanceOrdering[0];
+  for (size_t i = 1; i < idealRelevanceOrdering.size(); ++i)
+    idcg += (double) idealRelevanceOrdering[i] / log(i+1);
+
+  double ndcg = dcg / idcg;
+  result.second.push_back(ndcg);
 
   return result;
 }
