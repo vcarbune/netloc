@@ -214,7 +214,7 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
   int totalTests = m_config.testThreshold * m_config.nodes;
   for (int count = 0; count < totalTests; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    // cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
@@ -489,8 +489,8 @@ void MasterNode::processResults(vector<result_t> *results,
       stderrs[var] = sqrt(stderrs[var]);
 
     // Dump to output streams.
-    cout << initialConfig.cluster.size << "\t";
-    dumpStream << initialConfig.cluster.size << "\t";
+    cout << initialConfig << "\t";
+    dumpStream << initialConfig << "\t";
     for (int var = 0; var < vars; ++var) {
       dumpStream << averages[var] << "\t" << stderrs[var] << "\t";
       cout << averages[var] << "\t" << stderrs[var] << "\t";

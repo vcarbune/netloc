@@ -9,9 +9,18 @@
 using namespace std;
 
 SimConfig& SimConfig::operator++() {
-  cluster.size *= 2;
+  // cluster.size *= 2;
+  testThreshold += 0.05;
   return *this;
 }
+
+ostream& operator<<(ostream& os, const SimConfig& config)
+{
+  // os << config.cluster.size;
+  os << config.testThreshold;
+  return os;
+}
+
 
 SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 {
@@ -90,12 +99,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.epflSigma = 2;
 
   return config;
-}
-
-ostream& operator<<(ostream& os, const SimConfig& config)
-{
-  os << config.cluster.size;
-  return os;
 }
 
 MPINode::MPINode(SimConfig config)
