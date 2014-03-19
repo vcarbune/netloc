@@ -24,6 +24,8 @@ class EPFLSolver {
     result_t solve(const GraphHypothesis&,
         std::vector<std::pair<double, int>>&);
 
+    size_t countObservers() { return m_observerNodes.size(); }
+
   private:
     std::vector<int> m_observerNodes;
 

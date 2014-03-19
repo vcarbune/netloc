@@ -198,6 +198,11 @@ result_t MasterNode::simulate(int realizationIdx)
 
 result_t MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
+  // Check if the number of observers is the same.
+  size_t expectedObservers = m_config.testThreshold * m_config.nodes;
+  if (m_epflSolver.countObservers() != expectedObservers)
+    m_epflSolver = EPFLSolver(m_network, m_config);
+
   vector<pair<double, int>> clusterSortedScores;
   result_t result =
     m_epflSolver.solve(m_realizations[realizationIdx], clusterSortedScores);
