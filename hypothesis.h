@@ -23,7 +23,7 @@ class GraphHypothesis {
     static GraphHypothesis generateHypothesis(
         PUNGraph, int, HypothesisClusterConfig, std::vector<int>* = NULL);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
-        PUNGraph, int, double, double, double, std::vector<int>* = NULL);
+        PUNGraph, int, HypothesisClusterConfig, std::vector<int>* = NULL);
 
     /* Input/Output */
     static GraphHypothesis readHypothesisFromFile(const char*);

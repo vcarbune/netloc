@@ -95,8 +95,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   if (!paramGroundTruthFile.Empty())
     config.groundTruths = 1;
 
-  config.epflMiu = 8;
-  config.epflSigma = 2;
+  config.cluster.miu = 8;
+  config.cluster.sigma = 2;
 
   return config;
 }

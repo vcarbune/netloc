@@ -42,6 +42,8 @@ struct HypothesisClusterConfig {
   int simulations;  // number of simulations for hypothesis in cluster.
   double beta;      // edge activation probability.
   double bound;     // percentage bound of the total network.
+  double miu;       // for gaussian-generated cascades.
+  double sigma;
 };
 
 enum AlgorithmType {
@@ -68,9 +70,6 @@ class SimConfig {
 
     TStr groundTruthFile;
     int groundTruths;
-
-    double epflMiu;
-    double epflSigma;
 
     // Noisy Model Re-weighing (tolerance to noisy measurements).
     double eps;

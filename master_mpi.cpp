@@ -73,8 +73,7 @@ void MasterNode::initializeGroundTruths()
       if (m_config.objType == EPFL_ML) {
         m_realizations.push_back(
             GraphHypothesis::generateHypothesisUsingGaussianModel(
-              m_network, rand() % m_network->GetNodes(), m_config.cluster.bound,
-              m_config.epflMiu, m_config.epflSigma));
+              m_network, rand() % m_network->GetNodes(), m_config.cluster));
       } else {
         m_realizations.push_back(GraphHypothesis::generateHypothesis(
               m_network, rand() % m_network->GetNodes(),

@@ -18,6 +18,9 @@
 #ifndef EPFL_SOLVER_H_
 #define EPFL_SOLVER_H_
 
+// pair: (mean, variance)
+typedef std::pair<double, double> gaussian_t;
+
 class EPFLSolver {
   public:
     EPFLSolver(PUNGraph, SimConfig);
@@ -27,8 +30,11 @@ class EPFLSolver {
     size_t countObservers() { return m_observerNodes.size(); }
 
   private:
+    gaussian_t computeGaussianMoments(
+        const std::vector<std::pair<double, int>>&);
     std::vector<int> m_observerNodes;
 
+    gaussian_t m_gaussianParams;
     PUNGraph m_network;
     SimConfig m_config;
 };

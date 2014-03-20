@@ -47,6 +47,9 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   sort(observers.begin(), observers.end());
   int referenceObserver = observers[0].second;
 
+  // Compute gaussian moments.
+  gaussian_t moments = computeGaussianMoments(observers);
+
   TIntH idToShortestPathsFromReference;
   TSnap::GetShortPath(m_network, referenceObserver, idToShortestPathsFromReference);
 
@@ -84,7 +87,7 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   Eigen::MatrixXf lambda(observers.size() - 1, observers.size() - 1);
   for (size_t k = 0; k < observers.size() - 1; ++k) {
     for (size_t i = 0; i < observers.size() - 1; ++i) {
-      float value = m_config.epflSigma * m_config.epflSigma;
+      float value = moments.second * moments.second;
       if (k == i)
         value *= idToShortestPathsFromReference.GetDat(observers[k+1].second);
       else
@@ -108,7 +111,7 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
     // Deterministic Delay
     Eigen::VectorXf miu_s(observers.size() - 1);
     for (size_t o = 0; o < observers.size() - 1; ++o) {
-      miu_s[o] = m_config.epflMiu *
+      miu_s[o] = moments.first *
         (idToShortestPathsFromSource.GetDat(observers[o+1].second) -
          idToShortestPathsFromSource.GetDat(referenceObserver));
     }
@@ -135,3 +138,26 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
 
   return result;
 }
+
+gaussian_t EPFLSolver::computeGaussianMoments(
+    const vector<pair<double, int>>& observers)
+{
+  gaussian_t moments(0.0, 0.0);
+  vector<double> data;
+
+  // Mean
+  for (size_t i = 1; i < observers.size(); ++i) {
+    data.push_back(observers[i].first - observers[0].first);
+    moments.first += data[i-1];
+  }
+  moments.first /= data.size();
+
+  // Standard Deviation
+  for (size_t i = 0; i < data.size(); ++i)
+    moments.second += (data[i] - moments.first) * (data[i] - moments.first);
+  moments.second = sqrt(moments.second / (data.size() - 1));
+
+  cout << "Gaussian(" << moments.first << ", " << moments.second << ")\n";
+  return moments;
+}
+

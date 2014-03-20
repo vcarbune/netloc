@@ -124,20 +124,15 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
  * See paper "Locating the Source of Diffusion in Large-Scale Networks".
  */
 GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
-    PUNGraph network, int sourceId, double size,
-    double miu, double sigma, vector<int> *nodeCount)
+    PUNGraph network, int sourceId, HypothesisClusterConfig cluster,
+    vector<int> *nodeCount)
 {
-  /*
-  bool isTrueHypothesis = nodeCount == NULL;
-  unsigned int cascadeSize = size * network->GetNodes();
-  */
-
   // Assign propagation delays to all edges using a normal distribution.
   std::random_device rd;
   std::mt19937 gen(rd());
 
   // miu/sigma = 4 (synthetic data)
-  std::normal_distribution<> d(miu, sigma);
+  std::normal_distribution<> d(cluster.miu, cluster.sigma);
 
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
