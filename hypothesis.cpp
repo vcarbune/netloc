@@ -82,12 +82,10 @@ bool GraphHypothesis::getTestOutcome(
  * Extended from snap/examples/cascades.
  */
 GraphHypothesis GraphHypothesis::generateHypothesis(
-    PUNGraph network, int sourceId,
-    HypothesisClusterConfig config, vector<int> *nodeCount)
+    PUNGraph network, int sourceId, HypothesisClusterConfig config,
+    bool isTrueHypothesis)
 {
-  bool isTrueHypothesis = nodeCount == NULL;
-
-  unsigned int trueCascadeSize = config.size * network->GetNodes();
+  unsigned int trueCascadeSize = config.bound * network->GetNodes();
   int runTimes = isTrueHypothesis ? trueCascadeSize : config.simulations;
 
   // Add the source node (fixed for this cluster).
@@ -101,14 +99,11 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
       const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
         if (TInt::Rnd.GetUniDev() > config.beta) // Flip a coin!
-            continue;
+          continue;
 
         unsigned int neighbourId = crtIt.GetOutNId(neighbour);
         if (infectionTime.find(neighbourId) != infectionTime.end())
           continue;
-
-        if (nodeCount)
-          (*nodeCount)[neighbourId]++;
 
         infectionTime[neighbourId] = infectionTime.size();
         if (infectionTime.size() == trueCascadeSize)
@@ -125,7 +120,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
  */
 GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
     PUNGraph network, int sourceId, HypothesisClusterConfig cluster,
-    vector<int> *nodeCount)
+    bool)
 {
   // Assign propagation delays to all edges using a normal distribution.
   std::random_device rd;
@@ -198,7 +193,6 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
   , m_sourceId(sourceId)
   , m_weight(weight)
 {
-  m_nodeCount.resize(network->GetNodes(), 0);
 }
 
 /**
@@ -211,7 +205,7 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.size; h++) {
     cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
-          network, source, config, &cluster.m_nodeCount));
+          network, source, config, false));
     cluster.m_hypothesis[h].weight = weight / config.size;
   }
   return cluster;

@@ -12,12 +12,16 @@ using namespace std;
 WorkerNode::WorkerNode(SimConfig config)
   : MPINode(config)
 {
-  m_previousTests.clear();
 }
 
 void WorkerNode::run()
 {
   SimConfig initialConfig = m_config;
+  if (m_config.objType != -1) {
+    runWithCurrentConfig();
+    return;
+  }
+
   for (int obj = EC2; obj <= EPFL_ML; ++obj) {
     m_config = initialConfig;
     m_config.setObjType(static_cast<AlgorithmType>(obj));

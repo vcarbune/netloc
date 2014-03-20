@@ -54,6 +54,11 @@ enum AlgorithmType {
   EPFL_ML     // Non-adaptive EPFL Approach (using Maximum Likelihood)
 };
 
+enum InfectionType {
+  BETA = 0,   // SSI          Default model
+  GAUSSIAN    // Gaussian Distributed Delay (joint distribution for theta)
+};
+
 const char* algorithmTypeToString(AlgorithmType);
 
 class SimConfig {
@@ -71,6 +76,8 @@ class SimConfig {
 
     AlgorithmType objType;
     int objSums;
+
+    InfectionType infType;
 
     TStr groundTruthFile;
     int groundTruths;

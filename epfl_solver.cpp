@@ -39,9 +39,29 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
 {
   // Get infection times for all the observers and keep ascending.
   vector<pair<double, int>> observers;
-  for (int observer : m_observerNodes)
+  for (int observer : m_observerNodes) {
+    // If chosen observers are not infected, we just skip them.
+    if (realization.getInfectionTime(observer) == INFECTED_UNDEFINED ||
+        realization.getInfectionTime(observer) == INFECTED_FALSE)
+      continue;
+
     observers.push_back(
         pair<double, int>(realization.getInfectionTime(observer), observer));
+  }
+  cout << "EPFL approach uses only " << observers.size() << " observers" << endl;
+  if (observers.size() == 0) {
+    result_t empty;
+
+    empty.first = 0;
+    empty.second.push_back(0);    // mass
+    empty.second.push_back(100);    // diff
+    empty.second.push_back(0);    // correct mass
+
+    for (int s = 0; s < m_config.nodes; ++s)
+      clusterSortedScores.push_back(pair<double, int>(0.0, s));
+
+    return empty;
+  }
 
   // Everything is related to the reference observer (first infected).
   sort(observers.begin(), observers.end());
@@ -134,7 +154,7 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   result.second.push_back(clusterSortedScores[0].first); // solution score?
   result.second.push_back(clusterSortedScores[0].first -
       clusterSortedScores[realSourceIdx].first);
-  result.second.push_back(realSourceIdx);   // rank
+  result.second.push_back(realSourceIdx);                // rank
 
   return result;
 }

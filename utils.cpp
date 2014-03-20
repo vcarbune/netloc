@@ -65,6 +65,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", 0, "Objective Type: "
                   "EC2 - 0, GBS - 1, VoI - 2, Random - 3, EPFL - 4");
+  const TInt paramInfectionType = Env.GetIfArgPrefixInt(
+      "-inf=", 0, "Infection Type: 0 - Default, 1 - Gaussian");
   const TStr paramGroundTruthFile = Env.GetIfArgPrefixStr(
       "-truth=", "", "The ground truth to search for");
   const TInt paramGroundTruths = Env.GetIfArgPrefixInt(
@@ -90,6 +92,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.netinFile = networkInFile;
 
   config.setObjType(static_cast<AlgorithmType>(paramObjType.Val));
+  config.infType = static_cast<InfectionType>(paramInfectionType.Val);
 
   config.groundTruthFile = paramGroundTruthFile;
   config.groundTruths = paramGroundTruths;

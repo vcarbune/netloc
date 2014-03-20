@@ -21,9 +21,9 @@ class GraphHypothesis {
   public:
     /* Generators */
     static GraphHypothesis generateHypothesis(
-        PUNGraph, int, HypothesisClusterConfig, std::vector<int>* = NULL);
+        PUNGraph, int, HypothesisClusterConfig, bool = true);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
-        PUNGraph, int, HypothesisClusterConfig, std::vector<int>* = NULL);
+        PUNGraph, int, HypothesisClusterConfig, bool = true);
 
     /* Input/Output */
     static GraphHypothesis readHypothesisFromFile(const char*);
@@ -62,7 +62,6 @@ class GraphHypothesisCluster {
         const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
     /* Properties */
-    int getNodeCount(int nodeId) const { return m_nodeCount[nodeId]; }
     int getSource() const { return m_sourceId; }
     double getWeight() const { return m_weight; }
 
@@ -80,11 +79,6 @@ class GraphHypothesisCluster {
     double m_weight;
 
     std::vector<GraphHypothesis> m_hypothesis;
-
-    // Counts the number of times a particular node appears in all the generated
-    // hypothesis. This is used to speed up the computation of the probability
-    // of a test outcome to be positive.
-    std::vector<int> m_nodeCount;
 };
 
 #endif // HYPOTHESIS_H_

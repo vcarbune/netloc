@@ -17,7 +17,7 @@ using namespace std;
 
 MasterNode::MasterNode(SimConfig config)
   : MPINode(config)
-  , m_epflSolver(m_network, config)
+  , m_epflSolver(m_network, m_config)
 {
   srand(time(NULL));
   initializeGroundTruths();
@@ -26,6 +26,11 @@ MasterNode::MasterNode(SimConfig config)
 void MasterNode::run()
 {
   SimConfig initialConfig = m_config;
+  if (m_config.objType != -1) {
+    runWithCurrentConfig();
+    return;
+  }
+
   for (int obj = EC2; obj <= EPFL_ML; ++obj) {
     m_config = initialConfig;
     m_config.setObjType(static_cast<AlgorithmType>(obj));
@@ -85,14 +90,16 @@ void MasterNode::initializeGroundTruths()
   } else {
     // Generate artificially.
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
-      if (m_config.objType == EPFL_ML) {
-        m_realizations.push_back(
-            GraphHypothesis::generateHypothesisUsingGaussianModel(
-              m_network, rand() % m_network->GetNodes(), m_config.cluster));
-      } else {
-        m_realizations.push_back(GraphHypothesis::generateHypothesis(
-              m_network, rand() % m_network->GetNodes(),
-              m_config.cluster));
+      switch (m_config.infType) {
+        case BETA:
+          m_realizations.push_back(GraphHypothesis::generateHypothesis(
+                m_network, rand() % m_network->GetNodes(), m_config.cluster));
+          break;
+        case GAUSSIAN:
+          m_realizations.push_back(
+              GraphHypothesis::generateHypothesisUsingGaussianModel(
+                m_network, rand() % m_network->GetNodes(), m_config.cluster));
+          break;
       }
     }
   }
