@@ -25,6 +25,21 @@ MasterNode::MasterNode(SimConfig config)
 
 void MasterNode::run()
 {
+  SimConfig initialConfig = m_config;
+  for (int obj = EC2; obj <= EPFL_ML; ++obj) {
+    m_config = initialConfig;
+    m_config.setObjType(static_cast<AlgorithmType>(obj));
+    m_config.logfile = TStr::Fmt("%s%d_%s.log", m_config.logfile.CStr(),
+        m_config.nodes, algorithmTypeToString(static_cast<AlgorithmType>(obj)));
+
+    runWithCurrentConfig();
+  }
+}
+
+void MasterNode::runWithCurrentConfig()
+{
+  cout << "Running with objective: " << m_config.objType << endl;
+
   time_t startTime = time(NULL);
   SimConfig initialConfig = m_config;
 
@@ -89,6 +104,25 @@ void MasterNode::initializeGroundTruths()
   }
 }
 
+void MasterNode::computeCurrentTestPriors(double currentWeight)
+{
+  double testPriors[m_config.nodes];
+  double nullVals[m_config.nodes];
+  memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
+
+  // Get from workers the node count for each test node.
+  MPI::COMM_WORLD.Reduce(nullVals, testPriors, m_config.nodes,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
+    testPriors[testNode] /= currentWeight;
+    m_testsPrior[testNode] = testPriors[testNode];
+  }
+
+  // Broadcast back to workers computed test priors.
+  MPI::COMM_WORLD.Bcast(testPriors, m_config.nodes, MPI::DOUBLE, MPI_MASTER);
+}
+
 double MasterNode::computeCurrentWeight() {
   // Compute current mass of all the clusters.
   double currentMass = 0.0;
@@ -122,30 +156,19 @@ void MasterNode::initializeTestHeap()
   memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
   memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
 
-  // Get from workers the node count for each test node.
-  MPI::COMM_WORLD.Reduce(&nullVals, sums[0], m_config.nodes,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  int totalHypothesis = m_config.nodes * m_config.cluster.size;
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
-    m_testsPrior[testNode] = sums[0][testNode] / totalHypothesis;
-    sums[0][testNode] = m_testsPrior[testNode];
-  }
-
-  // Broadcast back to workers computed test priors.
-  MPI::COMM_WORLD.Bcast(sums[0], m_config.nodes, MPI::DOUBLE, MPI_MASTER);
-
   // Get from workers positive & negative mass of tests still in the loop.
   MPI::Op op = MPI::SUM;
   if (m_config.objType == VOI)
     op = MPI::MAX;
 
-  for (int s = 0; s < m_config.objSums; ++s)
-    MPI::COMM_WORLD.Reduce(&nullVals, sums[s], m_config.nodes,
-        MPI::DOUBLE, op, MPI_MASTER);
-
   // Compute current mass of all the clusters.
   double currentMass = computeCurrentWeight();
+  // Reinitialize test priors
+  computeCurrentTestPriors(currentMass);
+
+  for (int s = 0; s < m_config.objSums; ++s)
+    MPI::COMM_WORLD.Reduce(nullVals, sums[s], m_config.nodes,
+        MPI::DOUBLE, op, MPI_MASTER);
 
   // Store on the fly the test node probabilities.
   m_tests.clear();
@@ -357,6 +380,13 @@ void MasterNode::recomputeTestScore(
 
   double nullVals[m_config.objSums];
   memset(nullVals, 0, m_config.objSums * sizeof(*nullVals));
+
+  // Recompute test prior.
+  double junk = 0.0;
+  double positiveTestPrior;
+  MPI::COMM_WORLD.Reduce(&junk, &positiveTestPrior, 1,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  m_testsPrior[test.getNodeId()] = positiveTestPrior / currentMass;
 
   if (m_config.objType == 0)
     recomputeTestScoreEC2(test, currentMass, nullVals);

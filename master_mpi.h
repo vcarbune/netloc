@@ -20,8 +20,11 @@ class MasterNode : public MPINode {
     virtual void run();
 
   private:
+    void runWithCurrentConfig();
+
     /* Initialize */
     void initializeGroundTruths();
+    void computeCurrentTestPriors(double);
     double computeCurrentWeight();
 
     void initializeTests();

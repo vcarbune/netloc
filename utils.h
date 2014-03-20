@@ -54,9 +54,13 @@ enum AlgorithmType {
   EPFL_ML     // Non-adaptive EPFL Approach (using Maximum Likelihood)
 };
 
+const char* algorithmTypeToString(AlgorithmType);
+
 class SimConfig {
   public:
     static SimConfig getSimConfigFromEnv(int argc, char *argv[], bool = true);
+
+    void setObjType(AlgorithmType);
 
     int nodes;
     int steps;

@@ -229,6 +229,7 @@ void GraphHypothesisCluster::updateMassWithTest(const double eps,
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
+    double& positiveTestPrior,
     const double eps, const GraphTest& test,
     const vector<pair<double, int>>& prevTests) const
 {
@@ -238,6 +239,8 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
     bool outcome = h.isConsistentWithTest(test, prevTests);
     positiveMass += h.weight * (outcome ? (1-eps) : eps);
     negativeMass += h.weight * (outcome ? eps : (1-eps));
+    if (outcome)
+      positiveTestPrior += h.weight;
   }
   return pair<double, double>(positiveMass, negativeMass);
 }

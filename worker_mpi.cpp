@@ -17,6 +17,17 @@ WorkerNode::WorkerNode(SimConfig config)
 
 void WorkerNode::run()
 {
+  SimConfig initialConfig = m_config;
+  for (int obj = EC2; obj <= EPFL_ML; ++obj) {
+    m_config = initialConfig;
+    m_config.setObjType(static_cast<AlgorithmType>(obj));
+    runWithCurrentConfig();
+  }
+}
+
+
+void WorkerNode::runWithCurrentConfig()
+{
   // No reason for a distributed version EPFL max-likelihood (distributed
   // matrix computations are a different beast, so keeping, for now, algorithm
   // implementation on single machine, running on central MPI node only)
@@ -51,6 +62,29 @@ void WorkerNode::initializeClusters(int startNode, int endNode)
           m_network, src, 1, m_config.cluster));
 }
 
+void WorkerNode::computeTestPriors()
+{
+  double testPriors[m_config.nodes];
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
+    GraphTest test(testNode);
+    testPriors[testNode] = 0.0;
+    for (const GraphHypothesisCluster& cluster : m_clusters) {
+      // TODO(vcarbune): These are too many computations.
+      pair<double, double> mass = cluster.computeMassWithTest(
+          testPriors[testNode], m_config.eps, test, m_previousTests);
+    }
+  }
+
+  // Get from workers the node count for each test node.
+  MPI::COMM_WORLD.Reduce(testPriors, NULL, m_config.nodes,
+      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  // Broadcast back to workers computed test priors.
+  MPI::COMM_WORLD.Bcast(testPriors, m_config.nodes, MPI::DOUBLE, MPI_MASTER);
+  for (int testNode = 0; testNode < m_config.nodes; ++testNode)
+    m_testsPrior[testNode] = testPriors[testNode];
+}
+
 void WorkerNode::initializeTestHeap()
 {
   if (m_config.objType == RANDOM)
@@ -59,24 +93,17 @@ void WorkerNode::initializeTestHeap()
   double massBuffer[m_config.objSums][m_config.nodes];
   memset(massBuffer, 0, m_config.objSums * m_config.nodes * sizeof(**massBuffer));
 
-  // Compute partial test priors first and distribute them to master node.
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode)
-    for (const GraphHypothesisCluster& cluster : m_clusters)
-      massBuffer[0][testNode] += cluster.getNodeCount(testNode);
-  MPI::COMM_WORLD.Reduce(massBuffer[0], NULL, m_config.nodes,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  // Compute test priors.
+  computeCurrentWeight();
+  computeTestPriors();
 
-  // Get test priors computed at the central node.
-  MPI::COMM_WORLD.Bcast(massBuffer[0], m_config.nodes, MPI::DOUBLE, MPI_MASTER);
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode)
-    m_testsPrior[testNode] = massBuffer[0][testNode];
-
-  // Compute the positive & negative mass for the remaining testNodes.
+  // Compute the positive & negative mass for the test nodes.
+  double junk = 0.0;
   for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
     for (const GraphHypothesisCluster& cluster : m_clusters) {
       GraphTest test(testNode);
-      pair<double, double> mass =
-        cluster.computeMassWithTest(m_config.eps, test, m_previousTests);
+      pair<double, double> mass = cluster.computeMassWithTest(
+          junk, m_config.eps, test, m_previousTests);
 
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[testNode] * mass.first +
@@ -100,7 +127,6 @@ void WorkerNode::initializeTestHeap()
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, m_config.nodes,
         MPI::DOUBLE, op, MPI_MASTER);
-  computeCurrentWeight();
 }
 
 void WorkerNode::simulate()
@@ -176,14 +202,16 @@ void WorkerNode::recomputePartialTestScores()
   MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
 
   double massBuffer[m_config.objSums];
+  double positiveTestPrior;
   while (currentTestNode != -1) {
     memset(massBuffer, 0, m_config.objSums * sizeof(*massBuffer));
+    positiveTestPrior = 0.0;
 
     // Compute partial mass scores.
     GraphTest test(currentTestNode);
     for (const GraphHypothesisCluster& cluster : m_clusters) {
-      pair<double, double> mass =
-          cluster.computeMassWithTest(m_config.eps, test, m_previousTests);
+      pair<double, double> mass = cluster.computeMassWithTest(
+          positiveTestPrior, m_config.eps, test, m_previousTests);
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[currentTestNode] * mass.first +
             (1 - m_testsPrior[currentTestNode]) * mass.second;
@@ -197,6 +225,10 @@ void WorkerNode::recomputePartialTestScores()
         }
       }
     }
+
+    // Return the test prior information.
+    MPI::COMM_WORLD.Reduce(&positiveTestPrior, NULL, 1,
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
     // Return the information to the master node.
     MPI::Op op = MPI::SUM;

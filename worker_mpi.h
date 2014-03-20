@@ -19,8 +19,11 @@ class WorkerNode : public MPINode {
     virtual void run();
 
   private:
+    void runWithCurrentConfig();
+
     /* Initialize */
     void initializeClusters(int, int);
+    void computeTestPriors();
     void initializeTestHeap();
 
     /* Simulate */

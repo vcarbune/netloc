@@ -8,6 +8,23 @@
 
 using namespace std;
 
+const char* algorithmTypeToString(AlgorithmType obj) {
+  switch(obj) {
+    case EC2:
+      return "ec2";
+    case GBS:
+      return "gbs";
+    case VOI:
+      return "voi";
+    case RANDOM:
+      return "rand";
+    case EPFL_ML:
+      return "epfl";
+  }
+
+  return "huh";
+}
+
 SimConfig& SimConfig::operator++() {
   // cluster.size *= 2;
   testThreshold += 0.05;
@@ -72,23 +89,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.testThreshold = paramTestThreshold;
   config.netinFile = networkInFile;
 
-  config.objType = static_cast<AlgorithmType>(paramObjType.Val);
-  switch (config.objType) {
-    case EC2:
-      config.objSums = EC2_SUMS;
-      break;
-    case GBS:
-      config.objSums = GBS_SUMS;
-      break;
-    case VOI:
-      config.objSums = VOI_SUMS;
-      break;
-    case RANDOM:
-      config.objSums = RANDOM_SUMS;
-      break;
-    case EPFL_ML:
-      config.objSums = REGULAR_SUMS;
-  }
+  config.setObjType(static_cast<AlgorithmType>(paramObjType.Val));
 
   config.groundTruthFile = paramGroundTruthFile;
   config.groundTruths = paramGroundTruths;
@@ -99,6 +100,27 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.cluster.sigma = 2;
 
   return config;
+}
+
+void SimConfig::setObjType(AlgorithmType objType)
+{
+  this->objType = objType;
+  switch (this->objType) {
+    case EC2:
+      objSums = EC2_SUMS;
+      break;
+    case GBS:
+      objSums = GBS_SUMS;
+      break;
+    case VOI:
+      objSums = VOI_SUMS;
+      break;
+    case RANDOM:
+      objSums = RANDOM_SUMS;
+      break;
+    case EPFL_ML:
+      objSums = REGULAR_SUMS;
+  }
 }
 
 MPINode::MPINode(SimConfig config)
