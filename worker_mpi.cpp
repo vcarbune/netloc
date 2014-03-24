@@ -198,10 +198,9 @@ void WorkerNode::recomputePartialTestScores()
   if (m_config.objType == RANDOM)
     return;
 
-  if i(m_config.objType == VOI)
-
-  // Distribute partial sum for the mass.
-  computeCurrentWeight();
+  // Compute total mass for non-VOI policies.
+  if (!m_config.objType == VOI)
+    computeCurrentWeight();
 
   // Recompute requests coming from master.
   int currentTestNode = 0;

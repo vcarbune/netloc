@@ -282,6 +282,20 @@ GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
 
 GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests)
 {
+  double maxTestScore = -numeric_limits<double>::max();
+  size_t maxTestIndex = 0;
+  for (size_t i = 0; i < tests.size(); ++i) {
+    GraphTest& test = tests[i];
+    recomputeTestScore(test, 0.0);
+    if (test.getScore() > maxTestScore) {
+      maxTestScore = test.getScore();
+      maxTestIndex = i;
+    }
+  }
+
+  GraphTest test = tests[maxTestIndex];
+  tests.erase(tests.begin() + maxTestIndex);
+  return test;
 }
 
 GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
