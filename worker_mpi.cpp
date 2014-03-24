@@ -91,7 +91,7 @@ void WorkerNode::computeTestPriors()
 
 void WorkerNode::initializeTestHeap()
 {
-  if (m_config.objType == RANDOM)
+  if (m_config.objType == RANDOM || m_config.objType == VOI)
     return;
 
   double massBuffer[m_config.objSums][m_config.nodes];
@@ -199,8 +199,7 @@ void WorkerNode::recomputePartialTestScores()
     return;
 
   // Compute total mass for non-VOI policies.
-  if (!m_config.objType == VOI)
-    computeCurrentWeight();
+  computeCurrentWeight();
 
   // Recompute requests coming from master.
   int currentTestNode = 0;

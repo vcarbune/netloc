@@ -280,18 +280,22 @@ GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
   return test;
 }
 
-GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests)
+GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
+    double currentWeight)
 {
   double maxTestScore = -numeric_limits<double>::max();
   size_t maxTestIndex = 0;
   for (size_t i = 0; i < tests.size(); ++i) {
     GraphTest& test = tests[i];
-    recomputeTestScore(test, 0.0);
+    recomputeTestScore(test, currentWeight);
     if (test.getScore() > maxTestScore) {
       maxTestScore = test.getScore();
       maxTestIndex = i;
     }
   }
+
+  int invalidNode = -1;
+  MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
 
   GraphTest test = tests[maxTestIndex];
   tests.erase(tests.begin() + maxTestIndex);
@@ -303,10 +307,10 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
 
-  if (m_config.objType == VOI)
-    return selectVOITest(tests);
-
   double currentMass = computeCurrentWeight();
+  if (m_config.objType == VOI)
+    return selectVOITest(tests, currentMass);
+
   TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
@@ -416,11 +420,11 @@ void MasterNode::recomputeTestScore(
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
   m_testsPrior[test.getNodeId()] = positiveTestPrior / currentMass;
 
-  if (m_config.objType == 0)
+  if (m_config.objType == EC2)
     recomputeTestScoreEC2(test, currentMass, nullVals);
-  else if (m_config.objType == 1)
+  else if (m_config.objType == GBS)
     recomputeTestScoreGBS(test, currentMass, nullVals);
-  else if (m_config.objType == 2)
+  else if (m_config.objType == VOI)
     recomputeTestScoreVOI(test);
   else
     cout << "This part of the code should never be reached.." << endl;
