@@ -63,7 +63,7 @@ void WorkerNode::initializeClusters(int startNode, int endNode)
   m_clusters.clear();
   for (int src = startNode; src < endNode; src++)
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-          m_network, src, 1, m_config.cluster));
+          m_network, src, 1, m_config));
 }
 
 void WorkerNode::computeTestPriors()
