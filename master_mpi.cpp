@@ -50,8 +50,10 @@ void MasterNode::runWithCurrentConfig()
 
   vector<result_t> results[m_config.steps];
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
-    initializeTests();
     double startTime = time(NULL);
+    initializeTests();
+    cout << "Nodes were initialized in " <<
+        difftime(time(NULL), startTime) << "s." << endl;
     for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
       const GraphHypothesis& realization = m_realizations[idx];
       result_t result = simulate(idx);
@@ -248,7 +250,7 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
   int totalTests = m_config.testThreshold * m_config.nodes;
   for (int count = 0; count < totalTests; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-    // cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
@@ -311,6 +313,7 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   if (m_config.objType == VOI)
     return selectVOITest(tests, currentMass);
 
+  cout << "Current mass: " << currentMass << endl;
   TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
@@ -372,6 +375,11 @@ void MasterNode::recomputeTestScoreEC2(
   MPI::COMM_WORLD.Reduce(nullVals, sums, m_config.objSums,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
+  /*
+  if (m_testsPrior[test.getNodeId()] > 1 || m_testsPrior[test.getNodeId()] < 0)
+    cout << "BROKEN!!!" << endl;
+  */
+
   pair<double, double> mass(
       sums[POSITIVE_SUM] * sums[POSITIVE_SUM] - sums[POSITIVE_DIAG_SUM],
       sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] - sums[NEGATIVE_DIAG_SUM]);
@@ -418,6 +426,8 @@ void MasterNode::recomputeTestScore(
   double positiveTestPrior;
   MPI::COMM_WORLD.Reduce(&junk, &positiveTestPrior, 1,
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  cout << "Test prior: " << positiveTestPrior << endl;
+  cout << "Current mass: " << currentMass << endl;
   m_testsPrior[test.getNodeId()] = positiveTestPrior / currentMass;
 
   if (m_config.objType == EC2)

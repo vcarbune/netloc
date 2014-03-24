@@ -123,11 +123,10 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
     bool)
 {
   // Assign propagation delays to all edges using a normal distribution.
-  std::random_device rd;
-  std::mt19937 gen(rd());
+  std::default_random_engine generator;
 
   // miu/sigma = 4 (synthetic data)
-  std::normal_distribution<> d(cluster.miu, cluster.sigma);
+  std::normal_distribution<double> d(cluster.miu, cluster.sigma);
 
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
@@ -150,7 +149,7 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
         continue;
 
       q.push(neighbourId);
-      infectionTime[neighbourId] = infectionTime[crtNode] + d(gen);
+      infectionTime[neighbourId] = infectionTime[crtNode] + d(generator);
     }
   }
 
