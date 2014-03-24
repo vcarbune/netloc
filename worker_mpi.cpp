@@ -198,6 +198,8 @@ void WorkerNode::recomputePartialTestScores()
   if (m_config.objType == RANDOM)
     return;
 
+  if i(m_config.objType == VOI)
+
   // Distribute partial sum for the mass.
   computeCurrentWeight();
 

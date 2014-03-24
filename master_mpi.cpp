@@ -148,7 +148,7 @@ double MasterNode::computeCurrentWeight() {
 
 void MasterNode::initializeTests()
 {
-  if (m_config.objType == RANDOM)
+  if (m_config.objType == RANDOM || m_config.objType == VOI)
     initializeTestVector();
   else if (m_config.objType != EPFL_ML)
     initializeTestHeap();
@@ -280,10 +280,17 @@ GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
   return test;
 }
 
+GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests)
+{
+}
+
 GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 {
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
+
+  if (m_config.objType == VOI)
+    return selectVOITest(tests);
 
   double currentMass = computeCurrentWeight();
   TestCompareFunction tstCmpFcn;
