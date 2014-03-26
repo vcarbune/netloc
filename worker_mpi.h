@@ -22,11 +22,12 @@ class WorkerNode : public MPINode {
     void runWithCurrentConfig();
 
     /* Initialize */
-    void initializeClusters(int, int);
+    void initializeClusters();
     void computeTestPriors();
     void initializeTestHeap();
 
     /* Simulate */
+    void reset();
     void simulate();
 
     /* Computational Methods */
@@ -35,6 +36,7 @@ class WorkerNode : public MPINode {
 
     std::vector<GraphHypothesisCluster> m_clusters;
     std::vector<std::pair<double, int>> m_previousTests;
+    std::pair<int, int> m_nodeRange;
 };
 
 #endif

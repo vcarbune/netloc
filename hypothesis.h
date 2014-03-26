@@ -21,9 +21,9 @@ class GraphHypothesis {
   public:
     /* Generators */
     static GraphHypothesis generateHypothesis(
-        PUNGraph, int, HypothesisClusterConfig, bool = true);
+        PUNGraph, int, const HypothesisClusterConfig, bool = true);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
-        PUNGraph, int, HypothesisClusterConfig, bool = true);
+        PUNGraph, int, const HypothesisClusterConfig, bool = true);
 
     /* Input/Output */
     static GraphHypothesis readHypothesisFromFile(const char*);
@@ -53,7 +53,7 @@ class GraphHypothesis {
 class GraphHypothesisCluster {
   public:
     static GraphHypothesisCluster generateHypothesisCluster(
-        PUNGraph, int, double, HypothesisClusterConfig);
+        PUNGraph, int, double, const SimConfig& config);
 
     /* Tests */
     void updateMassWithTest(const double,

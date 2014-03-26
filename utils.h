@@ -44,6 +44,7 @@ struct HypothesisClusterConfig {
   double bound;     // percentage bound of the total network.
   double miu;       // for gaussian-generated cascades.
   double sigma;
+  bool keep;
 };
 
 enum AlgorithmType {

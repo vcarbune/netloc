@@ -82,7 +82,7 @@ bool GraphHypothesis::getTestOutcome(
  * Extended from snap/examples/cascades.
  */
 GraphHypothesis GraphHypothesis::generateHypothesis(
-    PUNGraph network, int sourceId, HypothesisClusterConfig config,
+    PUNGraph network, int sourceId, const HypothesisClusterConfig config,
     bool isTrueHypothesis)
 {
   unsigned int trueCascadeSize = config.bound * network->GetNodes();
@@ -119,15 +119,14 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
  * See paper "Locating the Source of Diffusion in Large-Scale Networks".
  */
 GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
-    PUNGraph network, int sourceId, HypothesisClusterConfig cluster,
+    PUNGraph network, int sourceId, const HypothesisClusterConfig cluster,
     bool)
 {
   // Assign propagation delays to all edges using a normal distribution.
-  std::random_device rd;
-  std::mt19937 gen(rd());
+  std::default_random_engine generator;
 
   // miu/sigma = 4 (synthetic data)
-  std::normal_distribution<> d(cluster.miu, cluster.sigma);
+  std::normal_distribution<double> d(cluster.miu, cluster.sigma);
 
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
@@ -150,7 +149,7 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
         continue;
 
       q.push(neighbourId);
-      infectionTime[neighbourId] = infectionTime[crtNode] + d(gen);
+      infectionTime[neighbourId] = infectionTime[crtNode] + d(generator);
     }
   }
 
@@ -199,14 +198,19 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
  * Internal generator for all the hypothesis in the cluster.
  */
 GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
-    PUNGraph network, int source, double weight,
-    HypothesisClusterConfig config)
+    PUNGraph network, int source, double weight, const SimConfig& config)
 {
   GraphHypothesisCluster cluster(network, source, weight);
-  for (int h = 0; h < config.size; h++) {
-    cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
-          network, source, config, false));
-    cluster.m_hypothesis[h].weight = weight / config.size;
+  for (int h = 0; h < config.cluster.size; h++) {
+    if (config.infType == BETA) {
+      cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
+            network, source, config.cluster, false));
+    } else if (config.infType == GAUSSIAN) {
+      cluster.m_hypothesis.push_back(
+          GraphHypothesis::generateHypothesisUsingGaussianModel(
+            network, source, config.cluster, false));
+    }
+    cluster.m_hypothesis[h].weight = weight / config.cluster.size;
   }
   return cluster;
 }
@@ -241,8 +245,8 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
 
 void GraphHypothesisCluster::resetWeight(double weight)
 {
-  m_weight = weight;
   double hWeight = (double) weight / m_hypothesis.size();
-  for (size_t i = 0; i < m_hypothesis.size(); ++i)
-    m_hypothesis[i].weight = hWeight;
+  for (GraphHypothesis& h : m_hypothesis)
+    h.weight = hWeight;
+  m_weight = weight;
 }

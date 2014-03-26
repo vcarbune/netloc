@@ -63,7 +63,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   const double paramTestThreshold = Env.GetIfArgPrefixFlt(
       "-testthr=", 0.25, "Tests Threshold (%)");
   const TInt paramObjType = Env.GetIfArgPrefixInt(
-      "-obj=", 0, "Objective Type: "
+      "-obj=", -1, "Objective Type: All(-1), "
                   "EC2 - 0, GBS - 1, VoI - 2, Random - 3, EPFL - 4");
   const TInt paramInfectionType = Env.GetIfArgPrefixInt(
       "-inf=", 0, "Infection Type: 0 - Default, 1 - Gaussian");
@@ -101,6 +101,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
   config.cluster.miu = 8;
   config.cluster.sigma = 2;
+  config.cluster.keep = true;
 
   return config;
 }

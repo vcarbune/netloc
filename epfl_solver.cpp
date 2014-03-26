@@ -48,14 +48,14 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
     observers.push_back(
         pair<double, int>(realization.getInfectionTime(observer), observer));
   }
-  cout << "EPFL approach uses only " << observers.size() << " observers" << endl;
+
   if (observers.size() == 0) {
     result_t empty;
 
     empty.first = 0;
-    empty.second.push_back(0);    // mass
+    empty.second.push_back(0);      // mass
     empty.second.push_back(100);    // diff
-    empty.second.push_back(0);    // correct mass
+    empty.second.push_back(0);      // correct mass
 
     for (int s = 0; s < m_config.nodes; ++s)
       clusterSortedScores.push_back(pair<double, int>(0.0, s));
@@ -177,7 +177,7 @@ gaussian_t EPFLSolver::computeGaussianMoments(
     moments.second += (data[i] - moments.first) * (data[i] - moments.first);
   moments.second = sqrt(moments.second / (data.size() - 1));
 
-  cout << "Gaussian(" << moments.first << ", " << moments.second << ")\n";
+  // cout << "Gaussian(" << moments.first << ", " << moments.second << ")\n";
   return moments;
 }
 

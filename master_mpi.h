@@ -24,8 +24,8 @@ class MasterNode : public MPINode {
 
     /* Initialize */
     void initializeGroundTruths();
-    void computeCurrentTestPriors(double);
-    double computeCurrentWeight();
+    void computeTestPriors(double);
+    double computeCurrentWeight(double*);
 
     void initializeTests();
     void initializeTestHeap();
@@ -37,13 +37,13 @@ class MasterNode : public MPINode {
     result_t simulateEPFLPolicy(int);
 
     GraphTest selectRandomTest(std::vector<GraphTest>&);
-    GraphTest selectVOITest(std::vector<GraphTest>&);
+    GraphTest selectVOITest(std::vector<GraphTest>&, double);
     GraphTest selectNextTest(std::vector<GraphTest>&);
 
     void recomputeTestScoreEC2(GraphTest&, double, double*);
     void recomputeTestScoreGBS(GraphTest&, double, double*);
     void recomputeTestScoreVOI(GraphTest&);
-    void recomputeTestScore(GraphTest&, double);
+    void recomputeTestScore(GraphTest&, double, double);
 
     /* Results */
     double computeNDCG(const std::vector<std::pair<double, int>>&, int) const;

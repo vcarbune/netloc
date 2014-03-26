@@ -30,7 +30,6 @@ void MasterNode::run()
     runWithCurrentConfig();
     return;
   }
-
   for (int obj = EC2; obj <= EPFL_ML; ++obj) {
     m_config = initialConfig;
     m_config.setObjType(static_cast<AlgorithmType>(obj));
@@ -50,8 +49,10 @@ void MasterNode::runWithCurrentConfig()
 
   vector<result_t> results[m_config.steps];
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
-    initializeTests();
     double startTime = time(NULL);
+    initializeTests();
+    cout << "Nodes were initialized in " <<
+        difftime(time(NULL), startTime) << "s." << endl;
     for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
       const GraphHypothesis& realization = m_realizations[idx];
       result_t result = simulate(idx);
@@ -112,7 +113,7 @@ void MasterNode::initializeGroundTruths()
   }
 }
 
-void MasterNode::computeCurrentTestPriors(double currentWeight)
+void MasterNode::computeTestPriors(double currentWeight)
 {
   double testPriors[m_config.nodes];
   double nullVals[m_config.nodes];
@@ -131,7 +132,7 @@ void MasterNode::computeCurrentTestPriors(double currentWeight)
   MPI::COMM_WORLD.Bcast(testPriors, m_config.nodes, MPI::DOUBLE, MPI_MASTER);
 }
 
-double MasterNode::computeCurrentWeight() {
+double MasterNode::computeCurrentWeight(double *weightSum) {
   // Compute current mass of all the clusters.
   double currentMass = 0.0;
   double crtSum[2] = {0.0, 0.0};
@@ -141,9 +142,12 @@ double MasterNode::computeCurrentWeight() {
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
   currentMass = crtSum[0];
-  if (m_config.objType == 0) // EC2
+  if (weightSum)
+    *weightSum = currentMass;
+  if (m_config.objType == EC2) // EC2
     currentMass = crtSum[0] * crtSum[0] - crtSum[1];
 
+  // cout << "Weight Sum: " << *weightSum << " Mass: " << currentMass << endl;
   return currentMass;
 }
 
@@ -164,23 +168,17 @@ void MasterNode::initializeTestHeap()
   memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
   memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
 
-  // Get from workers positive & negative mass of tests still in the loop.
-  MPI::Op op = MPI::SUM;
-  if (m_config.objType == VOI)
-    op = MPI::MAX;
-
   // Compute current mass of all the clusters.
-  double currentMass = computeCurrentWeight();
+  double weightSum = 0;
+  double currentMass = computeCurrentWeight(&weightSum);
   // Reinitialize test priors
-  computeCurrentTestPriors(currentMass);
+  computeTestPriors(weightSum);
 
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(nullVals, sums[s], m_config.nodes,
-        MPI::DOUBLE, op, MPI_MASTER);
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  // Store on the fly the test node probabilities.
   m_tests.clear();
-
   for (int test = 0; test < m_config.nodes; ++test) {
     double score = 0.0;
     double testPositivePb = m_testsPrior[test];
@@ -214,6 +212,7 @@ void MasterNode::initializeTestHeap()
 
 void MasterNode::initializeTestVector()
 {
+  m_tests.clear();
   for (int testNode = 0; testNode < m_config.nodes; ++testNode)
     m_tests.push_back(GraphTest(testNode));
 }
@@ -249,7 +248,7 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
   int totalTests = m_config.testThreshold * m_config.nodes;
   for (int count = 0; count < totalTests; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-    // cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
@@ -259,6 +258,8 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
+
+    m_previousTests.push_back(make_pair(infection, nodeId));
 
     if (m_config.objType == RANDOM)
       continue;
@@ -281,18 +282,24 @@ GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
   return test;
 }
 
-GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests)
+GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
+    double currentWeight)
 {
   double maxTestScore = -numeric_limits<double>::max();
   size_t maxTestIndex = 0;
+
+  computeTestPriors(currentWeight);
   for (size_t i = 0; i < tests.size(); ++i) {
     GraphTest& test = tests[i];
-    recomputeTestScore(test, 0.0);
+    recomputeTestScore(test, currentWeight, currentWeight);
     if (test.getScore() > maxTestScore) {
       maxTestScore = test.getScore();
       maxTestIndex = i;
     }
   }
+
+  int invalidNode = -1;
+  MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
 
   GraphTest test = tests[maxTestIndex];
   tests.erase(tests.begin() + maxTestIndex);
@@ -304,10 +311,11 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
 
+  double weightSum = 0;
+  double currentMass = computeCurrentWeight(&weightSum);
   if (m_config.objType == VOI)
-    return selectVOITest(tests);
+    return selectVOITest(tests, currentMass);
 
-  double currentMass = computeCurrentWeight();
   TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
@@ -333,7 +341,7 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
     }
 
     // Recompute its score and keep it if it stays on top.
-    recomputeTestScore(crtTop, currentMass);
+    recomputeTestScore(crtTop, weightSum, currentMass);
 
 #if DBG
     std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
@@ -402,7 +410,7 @@ void MasterNode::recomputeTestScoreVOI(GraphTest& test)
 
 
 void MasterNode::recomputeTestScore(
-    GraphTest& test, double currentMass)
+    GraphTest& test, double weightSum, double currentMass)
 {
   int currentTestNode = test.getNodeId();
   MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
@@ -415,13 +423,12 @@ void MasterNode::recomputeTestScore(
   double positiveTestPrior;
   MPI::COMM_WORLD.Reduce(&junk, &positiveTestPrior, 1,
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  m_testsPrior[test.getNodeId()] = positiveTestPrior / currentMass;
-
-  if (m_config.objType == 0)
+  m_testsPrior[test.getNodeId()] = positiveTestPrior / weightSum;
+  if (m_config.objType == EC2)
     recomputeTestScoreEC2(test, currentMass, nullVals);
-  else if (m_config.objType == 1)
+  else if (m_config.objType == GBS)
     recomputeTestScoreGBS(test, currentMass, nullVals);
-  else if (m_config.objType == 2)
+  else if (m_config.objType == VOI)
     recomputeTestScoreVOI(test);
   else
     cout << "This part of the code should never be reached.." << endl;
