@@ -30,7 +30,6 @@ void MasterNode::run()
     runWithCurrentConfig();
     return;
   }
-
   for (int obj = EC2; obj <= EPFL_ML; ++obj) {
     m_config = initialConfig;
     m_config.setObjType(static_cast<AlgorithmType>(obj));
@@ -147,6 +146,7 @@ double MasterNode::computeCurrentWeight(double *weightSum) {
   if (m_config.objType == EC2) // EC2
     currentMass = crtSum[0] * crtSum[0] - crtSum[1];
 
+  // cout << "Weight Sum: " << *weightSum << " Mass: " << currentMass << endl;
   return currentMass;
 }
 
@@ -167,11 +167,6 @@ void MasterNode::initializeTestHeap()
   memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
   memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
 
-  // Get from workers positive & negative mass of tests still in the loop.
-  MPI::Op op = MPI::SUM;
-  if (m_config.objType == VOI)
-    op = MPI::MAX;
-
   // Compute current mass of all the clusters.
   double weightSum = 0;
   double currentMass = computeCurrentWeight(&weightSum);
@@ -180,11 +175,9 @@ void MasterNode::initializeTestHeap()
 
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(nullVals, sums[s], m_config.nodes,
-        MPI::DOUBLE, op, MPI_MASTER);
+        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  // Store on the fly the test node probabilities.
   m_tests.clear();
-
   for (int test = 0; test < m_config.nodes; ++test) {
     double score = 0.0;
     double testPositivePb = m_testsPrior[test];
@@ -218,6 +211,7 @@ void MasterNode::initializeTestHeap()
 
 void MasterNode::initializeTestVector()
 {
+  m_tests.clear();
   for (int testNode = 0; testNode < m_config.nodes; ++testNode)
     m_tests.push_back(GraphTest(testNode));
 }
@@ -263,6 +257,8 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
+
+    m_previousTests.push_back(make_pair(infection, nodeId));
 
     if (m_config.objType == RANDOM)
       continue;

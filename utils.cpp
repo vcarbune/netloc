@@ -101,6 +101,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
   config.cluster.miu = 8;
   config.cluster.sigma = 2;
+  config.cluster.keep = true;
 
   return config;
 }

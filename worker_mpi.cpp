@@ -12,6 +12,19 @@ using namespace std;
 WorkerNode::WorkerNode(SimConfig config)
   : MPINode(config)
 {
+  // Note: This assumes the network has been read in the superclass constructor.
+
+  // Determine the node clusters for which this node is responsible.
+  int clustersPerNode = m_network->GetNodes() / (m_config.mpi.nodes - 1);
+  int startNode = (m_config.mpi.rank-1) * clustersPerNode;
+  int endNode = m_network->GetNodes();
+  if (m_config.mpi.rank < m_config.mpi.nodes - 1)
+    endNode = m_config.mpi.rank * clustersPerNode;
+  m_nodeRange.first = startNode;
+  m_nodeRange.second = endNode;
+
+  // Initialize clusters!
+  initializeClusters();
 }
 
 void WorkerNode::run()
@@ -40,16 +53,8 @@ void WorkerNode::runWithCurrentConfig()
     return;
   }
 
-  // Determine the node clusters for which this node is responsible.
-  int clustersPerNode = m_network->GetNodes() / (m_config.mpi.nodes - 1);
-  int startNode = (m_config.mpi.rank-1) * clustersPerNode;
-  int endNode = m_network->GetNodes();
-  if (m_config.mpi.rank < m_config.mpi.nodes - 1)
-    endNode = m_config.mpi.rank * clustersPerNode;
-
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
-    initializeClusters(startNode, endNode);
-    initializeTestHeap();
+    reset();
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
       simulate();
       for (GraphHypothesisCluster& cluster : m_clusters)
@@ -58,10 +63,10 @@ void WorkerNode::runWithCurrentConfig()
   }
 }
 
-void WorkerNode::initializeClusters(int startNode, int endNode)
+void WorkerNode::initializeClusters()
 {
   m_clusters.clear();
-  for (int src = startNode; src < endNode; src++)
+  for (int src = m_nodeRange.first; src < m_nodeRange.second; src++)
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
           m_network, src, 1, m_config));
 }
@@ -133,6 +138,14 @@ void WorkerNode::initializeTestHeap()
         MPI::DOUBLE, op, MPI_MASTER);
 }
 
+void WorkerNode::reset()
+{
+  if (!m_config.cluster.keep)
+    initializeClusters();
+  initializeTestHeap();
+  m_previousTests.clear();
+}
+
 void WorkerNode::simulate()
 {
   int totalTests = m_config.testThreshold * m_config.nodes;
@@ -156,7 +169,7 @@ void WorkerNode::simulate()
     for (GraphHypothesisCluster& cluster : m_clusters)
       cluster.updateMassWithTest(m_config.eps, test, m_previousTests);
 
-    // This is wrong.
+    // This is wrong ??.
     m_previousTests.push_back(
         make_pair(test.getInfectionTime(), test.getNodeId()));
   }
