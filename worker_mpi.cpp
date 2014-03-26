@@ -200,6 +200,8 @@ void WorkerNode::recomputePartialTestScores()
 
   // Compute total mass for non-VOI policies.
   computeCurrentWeight();
+  if (m_config.objType == VOI)
+    computeTestPriors();
 
   // Recompute requests coming from master.
   int currentTestNode = 0;

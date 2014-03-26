@@ -24,8 +24,8 @@ class MasterNode : public MPINode {
 
     /* Initialize */
     void initializeGroundTruths();
-    void computeCurrentTestPriors(double);
-    double computeCurrentWeight();
+    void computeTestPriors(double);
+    double computeCurrentWeight(double*);
 
     void initializeTests();
     void initializeTestHeap();
@@ -43,7 +43,7 @@ class MasterNode : public MPINode {
     void recomputeTestScoreEC2(GraphTest&, double, double*);
     void recomputeTestScoreGBS(GraphTest&, double, double*);
     void recomputeTestScoreVOI(GraphTest&);
-    void recomputeTestScore(GraphTest&, double);
+    void recomputeTestScore(GraphTest&, double, double);
 
     /* Results */
     double computeNDCG(const std::vector<std::pair<double, int>>&, int) const;

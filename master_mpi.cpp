@@ -113,7 +113,7 @@ void MasterNode::initializeGroundTruths()
   }
 }
 
-void MasterNode::computeCurrentTestPriors(double currentWeight)
+void MasterNode::computeTestPriors(double currentWeight)
 {
   double testPriors[m_config.nodes];
   double nullVals[m_config.nodes];
@@ -132,7 +132,7 @@ void MasterNode::computeCurrentTestPriors(double currentWeight)
   MPI::COMM_WORLD.Bcast(testPriors, m_config.nodes, MPI::DOUBLE, MPI_MASTER);
 }
 
-double MasterNode::computeCurrentWeight() {
+double MasterNode::computeCurrentWeight(double *weightSum) {
   // Compute current mass of all the clusters.
   double currentMass = 0.0;
   double crtSum[2] = {0.0, 0.0};
@@ -142,7 +142,9 @@ double MasterNode::computeCurrentWeight() {
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
   currentMass = crtSum[0];
-  if (m_config.objType == 0) // EC2
+  if (weightSum)
+    *weightSum = currentMass;
+  if (m_config.objType == EC2) // EC2
     currentMass = crtSum[0] * crtSum[0] - crtSum[1];
 
   return currentMass;
@@ -171,9 +173,10 @@ void MasterNode::initializeTestHeap()
     op = MPI::MAX;
 
   // Compute current mass of all the clusters.
-  double currentMass = computeCurrentWeight();
+  double weightSum = 0;
+  double currentMass = computeCurrentWeight(&weightSum);
   // Reinitialize test priors
-  computeCurrentTestPriors(currentMass);
+  computeTestPriors(weightSum);
 
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(nullVals, sums[s], m_config.nodes,
@@ -287,9 +290,11 @@ GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
 {
   double maxTestScore = -numeric_limits<double>::max();
   size_t maxTestIndex = 0;
+
+  computeTestPriors(currentWeight);
   for (size_t i = 0; i < tests.size(); ++i) {
     GraphTest& test = tests[i];
-    recomputeTestScore(test, currentWeight);
+    recomputeTestScore(test, currentWeight, currentWeight);
     if (test.getScore() > maxTestScore) {
       maxTestScore = test.getScore();
       maxTestIndex = i;
@@ -309,11 +314,11 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
 
-  double currentMass = computeCurrentWeight();
+  double weightSum = 0;
+  double currentMass = computeCurrentWeight(&weightSum);
   if (m_config.objType == VOI)
     return selectVOITest(tests, currentMass);
 
-  cout << "Current mass: " << currentMass << endl;
   TestCompareFunction tstCmpFcn;
 #if DBG
   int count = 0;
@@ -339,7 +344,7 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
     }
 
     // Recompute its score and keep it if it stays on top.
-    recomputeTestScore(crtTop, currentMass);
+    recomputeTestScore(crtTop, weightSum, currentMass);
 
 #if DBG
     std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
@@ -375,11 +380,6 @@ void MasterNode::recomputeTestScoreEC2(
   MPI::COMM_WORLD.Reduce(nullVals, sums, m_config.objSums,
       MPI::DOUBLE, MPI::SUM, MPI_MASTER);
 
-  /*
-  if (m_testsPrior[test.getNodeId()] > 1 || m_testsPrior[test.getNodeId()] < 0)
-    cout << "BROKEN!!!" << endl;
-  */
-
   pair<double, double> mass(
       sums[POSITIVE_SUM] * sums[POSITIVE_SUM] - sums[POSITIVE_DIAG_SUM],
       sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] - sums[NEGATIVE_DIAG_SUM]);
@@ -413,7 +413,7 @@ void MasterNode::recomputeTestScoreVOI(GraphTest& test)
 
 
 void MasterNode::recomputeTestScore(
-    GraphTest& test, double currentMass)
+    GraphTest& test, double weightSum, double currentMass)
 {
   int currentTestNode = test.getNodeId();
   MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
@@ -426,10 +426,7 @@ void MasterNode::recomputeTestScore(
   double positiveTestPrior;
   MPI::COMM_WORLD.Reduce(&junk, &positiveTestPrior, 1,
         MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  cout << "Test prior: " << positiveTestPrior << endl;
-  cout << "Current mass: " << currentMass << endl;
-  m_testsPrior[test.getNodeId()] = positiveTestPrior / currentMass;
-
+  m_testsPrior[test.getNodeId()] = positiveTestPrior / weightSum;
   if (m_config.objType == EC2)
     recomputeTestScoreEC2(test, currentMass, nullVals);
   else if (m_config.objType == GBS)
