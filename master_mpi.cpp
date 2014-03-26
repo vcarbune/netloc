@@ -90,8 +90,8 @@ void MasterNode::initializeGroundTruths()
           m_config.groundTruthFile.CStr()));
   } else {
     // Generate artificially.
-    int sourceId = rand() % m_network->GetNodes();
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
+      int sourceId = rand() % m_network->GetNodes();
       switch (m_config.infType) {
         case BETA:
           m_realizations.push_back(GraphHypothesis::generateHypothesis(
