@@ -89,16 +89,17 @@ void MasterNode::initializeGroundTruths()
           m_config.groundTruthFile.CStr()));
   } else {
     // Generate artificially.
+    int sourceId = rand() % m_network->GetNodes();
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
       switch (m_config.infType) {
         case BETA:
           m_realizations.push_back(GraphHypothesis::generateHypothesis(
-                m_network, rand() % m_network->GetNodes(), m_config.cluster));
+                m_network, sourceId, m_config.cluster));
           break;
         case GAUSSIAN:
           m_realizations.push_back(
               GraphHypothesis::generateHypothesisUsingGaussianModel(
-                m_network, rand() % m_network->GetNodes(), m_config.cluster));
+                m_network, sourceId, m_config.cluster));
           break;
       }
     }
