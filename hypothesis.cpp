@@ -92,9 +92,12 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
 
+  int infectionStep = 1;
+
   // Make sure worker nodes have different seeds.
   TInt::Rnd.PutSeed(0);
   for (int run = 0; run < runTimes; run++) {
+    infectionStep++;
     for (const auto& p : infectionTime) {
       const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
@@ -105,7 +108,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
         if (infectionTime.find(neighbourId) != infectionTime.end())
           continue;
 
-        infectionTime[neighbourId] = infectionTime.size();
+        infectionTime[neighbourId] = infectionStep;
         if (infectionTime.size() == trueCascadeSize)
           return GraphHypothesis(sourceId, infectionTime);
       }
@@ -202,14 +205,8 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
 {
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
-    if (config.infType == BETA) {
-      cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
-            network, source, config.cluster, false));
-    } else if (config.infType == GAUSSIAN) {
-      cluster.m_hypothesis.push_back(
-          GraphHypothesis::generateHypothesisUsingGaussianModel(
-            network, source, config.cluster, false));
-    }
+    cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
+          network, source, config.cluster, false));
     cluster.m_hypothesis[h].weight = weight / config.cluster.size;
   }
   return cluster;

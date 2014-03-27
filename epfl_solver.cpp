@@ -68,7 +68,13 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   int referenceObserver = observers[0].second;
 
   // Compute gaussian moments.
-  gaussian_t moments = computeGaussianMoments(observers);
+  gaussian_t moments;
+  if (m_config.infType == BETA) {
+    double beta = m_config.cluster.beta;
+    moments = make_pair(1.00/beta, sqrt((1.00 - beta)/(beta*beta)));
+  } else {
+    moments = computeGaussianMoments(observers);
+  }
 
   TIntH idToShortestPathsFromReference;
   TSnap::GetShortPath(m_network, referenceObserver, idToShortestPathsFromReference);
