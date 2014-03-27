@@ -16,12 +16,12 @@
 
 using namespace std;
 
-EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config)
+EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config, double pcnt)
   : m_network(network)
   , m_config(config)
 {
   // Keep top % of nodes as observers based on highest-degree policy.
-  int observers = m_config.testThreshold * m_network->GetNodes();
+  int observers = pcnt * m_network->GetNodes();
 
   // Sort by degrees (using default pair comparator).
   vector<pair<int, int>> degrees;

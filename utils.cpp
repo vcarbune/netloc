@@ -26,15 +26,13 @@ const char* algorithmTypeToString(AlgorithmType obj) {
 }
 
 SimConfig& SimConfig::operator++() {
-  // cluster.size *= 2;
-  testThreshold += 0.05;
+  cluster.size *= 2;
   return *this;
 }
 
 ostream& operator<<(ostream& os, const SimConfig& config)
 {
-  // os << config.cluster.size;
-  os << config.testThreshold;
+  os << config.cluster.size;
   return os;
 }
 
@@ -60,8 +58,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-dump=", "dump.log", "File where to dump the output");
   const TStr networkInFile = Env.GetIfArgPrefixStr(
       "-netin=", "", "File where to load the network from");
-  const double paramTestThreshold = Env.GetIfArgPrefixFlt(
-      "-testthr=", 0.25, "Tests Threshold (%)");
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", -1, "Objective Type: All(-1), "
                   "EC2 - 0, GBS - 1, VoI - 2, Random - 3, EPFL - 4");
@@ -73,8 +69,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
       "-truths=", 20, "The total number of ground truths");
   const TInt paramSimulations = Env.GetIfArgPrefixInt(
       "-sim=", 5, "Simulation steps for cascades");
-  const TInt paramTopN = Env.GetIfArgPrefixInt(
-      "-ndcg=", 5, "TopN for NDCG@N");
 
   SimConfig config;
 
@@ -84,11 +78,10 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.cluster.bound = paramCascadeSize;
 
   config.eps = paramEps;
-  config.ndcgN = paramTopN;
+  config.ndcgN = 5;
 
   config.steps = paramSteps.Val;
   config.logfile = paramOutputLog;
-  config.testThreshold = paramTestThreshold;
   config.netinFile = networkInFile;
 
   config.setObjType(static_cast<AlgorithmType>(paramObjType.Val));
@@ -144,4 +137,5 @@ void MPINode::readNetwork()
   TFIn FIn(m_config.netinFile);
   m_network = TUNGraph::Load(FIn);
   m_config.nodes = m_network->GetNodes();
+  m_config.ndcgN = static_cast<int>(0.05 * m_network->GetNodes());
 }

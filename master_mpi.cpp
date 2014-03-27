@@ -17,7 +17,7 @@ using namespace std;
 
 MasterNode::MasterNode(SimConfig config)
   : MPINode(config)
-  , m_epflSolver(m_network, m_config)
+  , m_epflSolver(m_network, m_config, 0.01)
 {
   srand(time(NULL));
   initializeGroundTruths();
@@ -58,9 +58,9 @@ void MasterNode::runWithCurrentConfig()
       const GraphHypothesis& realization = m_realizations[idx];
       vector<result_t> incrementalResults = simulate(idx);
 
-      cout << m_config << "-" << realization.getSource() << "\t";
-
+      double pcnt = 0.01;
       for (result_t& r : incrementalResults) {
+        cout << pcnt++ << "-" << realization.getSource() << "\t";
         cout << r.first << "\t";
 
         // Add distance (in hops) to the source node.
@@ -235,9 +235,8 @@ vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
   vector<result_t> results;
 
   SimConfig config = m_config;
-  for (config.testThreshold = 0.01; config.testThreshold < 1.00;
-       config.testThreshold += 0.01) {
-    m_epflSolver = EPFLSolver(m_network, config);
+  for (double pcnt = 0.01; pcnt < 1.00; pcnt += 0.01) {
+    m_epflSolver = EPFLSolver(m_network, config, pcnt);
 
     vector<pair<double, int>> clusterSortedScores;
     result_t result =

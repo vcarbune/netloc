@@ -71,8 +71,6 @@ class SimConfig {
     int nodes;
     int steps;
     TStr logfile;
-    double testThreshold; // stop ec2 after a percentage of tests have run.
-
     TStr netinFile;
 
     AlgorithmType objType;

@@ -23,7 +23,7 @@ typedef std::pair<double, double> gaussian_t;
 
 class EPFLSolver {
   public:
-    EPFLSolver(PUNGraph, SimConfig);
+    EPFLSolver(PUNGraph, SimConfig, double);
     result_t solve(const GraphHypothesis&,
         std::vector<std::pair<double, int>>&);
 
