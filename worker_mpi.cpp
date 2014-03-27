@@ -173,7 +173,7 @@ void WorkerNode::simulate()
     m_previousTests.push_back(
         make_pair(test.getInfectionTime(), test.getNodeId()));
 
-    if (count == static_cast<int>(nextPcnt * m_config.nodes)) {
+    if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
       sendClusterData();
       nextPcnt += 0.01;
     }

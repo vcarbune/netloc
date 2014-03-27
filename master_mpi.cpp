@@ -60,7 +60,7 @@ void MasterNode::runWithCurrentConfig()
 
       double pcnt = 0.01;
       for (result_t& r : incrementalResults) {
-        cout << pcnt++ << "-" << realization.getSource() << "\t";
+        cout << pcnt << "-" << realization.getSource() << "\t";
         cout << r.first << "\t";
 
         // Add distance (in hops) to the source node.
@@ -73,6 +73,8 @@ void MasterNode::runWithCurrentConfig()
         for (size_t i = 0; i < r.second.size(); ++i)
           cout << r.second[i] << "\t";
         cout << endl;
+
+        pcnt += 0.01;
       }
 
       results[step].push_back(incrementalResults);
@@ -271,8 +273,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
 
     m_previousTests.push_back(make_pair(infection, nodeId));
-
-    if (count == static_cast<int>(nextPcnt * m_config.nodes)) {
+    if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
       results.push_back(identifyCluster(realizationIdx));
       nextPcnt += 0.01;
     }
