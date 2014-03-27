@@ -47,7 +47,8 @@ void MasterNode::runWithCurrentConfig()
   time_t startTime = time(NULL);
   SimConfig initialConfig = m_config;
 
-  vector<result_t> results[m_config.steps];
+  // Description: results[configStep][groundTruth][observerPercentage]
+  vector<vector<result_t>> results[m_config.steps];
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
     double startTime = time(NULL);
     initializeTests();
@@ -55,22 +56,26 @@ void MasterNode::runWithCurrentConfig()
         difftime(time(NULL), startTime) << "s." << endl;
     for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
       const GraphHypothesis& realization = m_realizations[idx];
-      result_t result = simulate(idx);
+      vector<result_t> incrementalResults = simulate(idx);
 
       cout << m_config << "-" << realization.getSource() << "\t";
-      cout << result.first << "\t";
 
-      // Add distance (in hops) to the source node.
-      result.second.push_back(
-          m_idToShortestPathsFromSource[idx].GetDat(result.first));
+      for (result_t& r : incrementalResults) {
+        cout << r.first << "\t";
 
-      // Keep a boolean, whether the source was identified or not.
-      result.first = realization.getSource() == result.first ? 1 : 0;
-      results[step].push_back(result);
+        // Add distance (in hops) to the source node.
+        r.second.push_back(
+            m_idToShortestPathsFromSource[idx].GetDat(r.first));
 
-      for (size_t i = 0; i < result.second.size(); ++i)
-        cout << result.second[i] << "\t";
-      cout << endl;
+        // Keep a boolean, whether the source was identified or not.
+        r.first = realization.getSource() == r.first ? 1 : 0;
+
+        for (size_t i = 0; i < r.second.size(); ++i)
+          cout << r.second[i] << "\t";
+        cout << endl;
+      }
+
+      results[step].push_back(incrementalResults);
     }
     cout << "Time: " << difftime(time(NULL), startTime) << "s\n\n";
   }
@@ -217,7 +222,7 @@ void MasterNode::initializeTestVector()
     m_tests.push_back(GraphTest(testNode));
 }
 
-result_t MasterNode::simulate(int realizationIdx)
+vector<result_t> MasterNode::simulate(int realizationIdx)
 {
   if (m_config.objType == EPFL_ML)
     return simulateEPFLPolicy(realizationIdx);
@@ -225,28 +230,35 @@ result_t MasterNode::simulate(int realizationIdx)
   return simulateAdaptivePolicy(realizationIdx);
 }
 
-result_t MasterNode::simulateEPFLPolicy(int realizationIdx)
+vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
-  // Check if the number of observers is the same.
-  size_t expectedObservers = m_config.testThreshold * m_config.nodes;
-  if (m_epflSolver.countObservers() != expectedObservers)
-    m_epflSolver = EPFLSolver(m_network, m_config);
+  vector<result_t> results;
 
-  vector<pair<double, int>> clusterSortedScores;
-  result_t result =
-    m_epflSolver.solve(m_realizations[realizationIdx], clusterSortedScores);
-  result.second.push_back(computeNDCG(clusterSortedScores, realizationIdx));
-  return result;
+  SimConfig config = m_config;
+  for (config.testThreshold = 0.01; config.testThreshold < 1.00;
+       config.testThreshold += 0.01) {
+    m_epflSolver = EPFLSolver(m_network, config);
+
+    vector<pair<double, int>> clusterSortedScores;
+    result_t result =
+        m_epflSolver.solve(m_realizations[realizationIdx], clusterSortedScores);
+    result.second.push_back(computeNDCG(clusterSortedScores, realizationIdx));
+    results.push_back(result);
+  }
+
+  return results;
 }
 
-result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
+vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
 {
+  vector<result_t> results;
+
   vector<GraphTest> tests(m_tests);
   const GraphHypothesis& realization = m_realizations[realizationIdx];
 
   // Request scores for each of the tests.
-  int totalTests = m_config.testThreshold * m_config.nodes;
-  for (int count = 0; count < totalTests; ++count) {
+  double nextPcnt = 0.01;
+  for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
     cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
@@ -261,6 +273,11 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
 
     m_previousTests.push_back(make_pair(infection, nodeId));
 
+    if (count == static_cast<int>(nextPcnt * m_config.nodes)) {
+      results.push_back(identifyCluster(realizationIdx));
+      nextPcnt += 0.01;
+    }
+
     if (m_config.objType == RANDOM)
       continue;
 
@@ -268,9 +285,7 @@ result_t MasterNode::simulateAdaptivePolicy(int realizationIdx)
       test.setScore((1-m_config.eps) * (1-m_config.eps) * test.getScore());
   }
 
-  // Identify the cluster where the mass is concentrated.
-  result_t solution = identifyCluster(realizationIdx);
-  return solution;
+  return results;
 }
 
 GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
@@ -517,7 +532,7 @@ result_t MasterNode::identifyCluster(int realizationIdx)
   return result;
 }
 
-void MasterNode::processResults(vector<result_t> *results,
+void MasterNode::processResults(vector<vector<result_t>> *results,
     SimConfig& initialConfig)
 {
   ofstream dumpStream;
@@ -525,48 +540,54 @@ void MasterNode::processResults(vector<result_t> *results,
   dumpStream << fixed << std::setprecision(3);
 
   for (int step = 0; step < initialConfig.steps; ++step, ++initialConfig) {
-    int vars = results[step][0].second.size();
-    double identificationCount = 0.0;
-    double averages[vars];
+    int vars = results[step][0][0].second.size();
 
-    memset(averages, 0, vars * sizeof(*averages));
-    for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
-      identificationCount += results[step][truth].first;
-      for (int var = 0; var < vars; ++var) {
-        averages[var] += results[step][truth].second[var];
+    // For each observer percentage (1%, 2%, ..., 100%), compute averages.
+    double pcnt = 0.01;
+    for (size_t observers = 0; observers < results[step][0].size();
+         ++observers, pcnt += 0.01) {
+      double identificationCount = 0.0;
+      double averages[vars];
+
+      memset(averages, 0, vars * sizeof(*averages));
+      for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
+        identificationCount += results[step][truth][observers].first;
+        for (int var = 0; var < vars; ++var) {
+          averages[var] += results[step][truth][observers].second[var];
+        }
       }
-    }
 
-    // Normalize computations.
-    for (int var = 0; var < vars; ++var)
-      averages[var] /= initialConfig.groundTruths;
-    identificationCount /= initialConfig.groundTruths;
+      // Normalize computations.
+      for (int var = 0; var < vars; ++var)
+        averages[var] /= initialConfig.groundTruths;
+      identificationCount /= initialConfig.groundTruths;
 
-    // Compute standard error.
-    double stderrs[vars];
-    double squaredTruths =
-        initialConfig.groundTruths * initialConfig.groundTruths;
+      // Compute standard error.
+      double stderrs[vars];
+      double squaredTruths =
+          initialConfig.groundTruths * initialConfig.groundTruths;
 
-    memset(stderrs, 0, vars * sizeof(*stderrs));
-    for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
-      for (int var = 0; var < vars; ++var) {
-        double tmp = results[step][truth].second[var] - averages[var];
-        stderrs[var] += tmp * tmp / squaredTruths;
+      memset(stderrs, 0, vars * sizeof(*stderrs));
+      for (int truth = 0; truth < initialConfig.groundTruths; ++truth) {
+        for (int var = 0; var < vars; ++var) {
+          double tmp = results[step][truth][observers].second[var] - averages[var];
+          stderrs[var] += tmp * tmp / squaredTruths;
+        }
       }
-    }
 
-    for (int var = 0; var < vars; ++var)
-      stderrs[var] = sqrt(stderrs[var]);
+      for (int var = 0; var < vars; ++var)
+        stderrs[var] = sqrt(stderrs[var]);
 
-    // Dump to output streams.
-    cout << initialConfig << "\t";
-    dumpStream << initialConfig << "\t";
-    for (int var = 0; var < vars; ++var) {
-      dumpStream << averages[var] << "\t" << stderrs[var] << "\t";
-      cout << averages[var] << "\t" << stderrs[var] << "\t";
+      // Dump to output streams.
+      cout << pcnt << "\t";
+      dumpStream << pcnt << "\t";
+      for (int var = 0; var < vars; ++var) {
+        dumpStream << averages[var] << "\t" << stderrs[var] << "\t";
+        cout << averages[var] << "\t" << stderrs[var] << "\t";
+      }
+      dumpStream << identificationCount << endl;
+      cout << identificationCount << endl;
     }
-    dumpStream << identificationCount << endl;
-    cout << identificationCount << endl;
   }
 
   dumpStream.close();

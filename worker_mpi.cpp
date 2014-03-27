@@ -148,8 +148,8 @@ void WorkerNode::reset()
 
 void WorkerNode::simulate()
 {
-  int totalTests = m_config.testThreshold * m_config.nodes;
-  for (int count = 0; count < totalTests; ++count) {
+  double nextPcnt = 0.01;
+  for (int count = 0; count < m_config.nodes; ++count) {
     recomputePartialTestScores();
 
     // Receive from the master node the testNode that was selected to run.
@@ -172,8 +172,16 @@ void WorkerNode::simulate()
     // This is wrong ??.
     m_previousTests.push_back(
         make_pair(test.getInfectionTime(), test.getNodeId()));
-  }
 
+    if (count == static_cast<int>(nextPcnt * m_config.nodes)) {
+      sendClusterData();
+      nextPcnt += 0.01;
+    }
+  }
+}
+
+void WorkerNode::sendClusterData()
+{
   // Send the cluster masses to the central node.
   int clusterNodes[m_clusters.size()];
   double clusterWeight[m_clusters.size()];

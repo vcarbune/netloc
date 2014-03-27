@@ -29,6 +29,7 @@ class WorkerNode : public MPINode {
     /* Simulate */
     void reset();
     void simulate();
+    void sendClusterData();
 
     /* Computational Methods */
     void computeCurrentWeight();

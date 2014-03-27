@@ -32,9 +32,9 @@ class MasterNode : public MPINode {
     void initializeTestVector();
 
     /* Simulate */
-    result_t simulate(int);
-    result_t simulateAdaptivePolicy(int);
-    result_t simulateEPFLPolicy(int);
+    std::vector<result_t> simulate(int);
+    std::vector<result_t> simulateAdaptivePolicy(int);
+    std::vector<result_t> simulateEPFLPolicy(int);
 
     GraphTest selectRandomTest(std::vector<GraphTest>&);
     GraphTest selectVOITest(std::vector<GraphTest>&, double);
@@ -48,7 +48,7 @@ class MasterNode : public MPINode {
     /* Results */
     double computeNDCG(const std::vector<std::pair<double, int>>&, int) const;
     result_t identifyCluster(int);
-    void processResults(std::vector<result_t>*, SimConfig&);
+    void processResults(std::vector<std::vector<result_t>>*, SimConfig&);
 
     /* Variables */
     std::vector<GraphHypothesis> m_realizations;
