@@ -83,6 +83,7 @@ class SimConfig {
 
     // Noisy Model Re-weighing (tolerance to noisy measurements).
     double eps;
+    double sampling = 0.05;
     int ndcgN;
 
     MPIClusterConfig mpi;

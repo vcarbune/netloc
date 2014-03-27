@@ -148,7 +148,7 @@ void WorkerNode::reset()
 
 void WorkerNode::simulate()
 {
-  double nextPcnt = 0.01;
+  double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     recomputePartialTestScores();
 
@@ -169,15 +169,15 @@ void WorkerNode::simulate()
     for (GraphHypothesisCluster& cluster : m_clusters)
       cluster.updateMassWithTest(m_config.eps, test, m_previousTests);
 
-    // This is wrong ??.
     m_previousTests.push_back(
         make_pair(test.getInfectionTime(), test.getNodeId()));
 
     if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
       sendClusterData();
-      nextPcnt += 0.01;
+      nextPcnt += m_config.sampling;
     }
   }
+  sendClusterData();
 }
 
 void WorkerNode::sendClusterData()

@@ -17,7 +17,7 @@ using namespace std;
 
 MasterNode::MasterNode(SimConfig config)
   : MPINode(config)
-  , m_epflSolver(m_network, m_config, 0.01)
+  , m_epflSolver(m_network, m_config, config.sampling)
 {
   srand(time(NULL));
   initializeGroundTruths();
@@ -58,7 +58,7 @@ void MasterNode::runWithCurrentConfig()
       const GraphHypothesis& realization = m_realizations[idx];
       vector<result_t> incrementalResults = simulate(idx);
 
-      double pcnt = 0.01;
+      double pcnt = m_config.sampling;
       for (result_t& r : incrementalResults) {
         cout << pcnt << "-" << realization.getSource() << "\t";
         cout << r.first << "\t";
@@ -74,7 +74,7 @@ void MasterNode::runWithCurrentConfig()
           cout << r.second[i] << "\t";
         cout << endl;
 
-        pcnt += 0.01;
+        pcnt += m_config.sampling;
       }
 
       results[step].push_back(incrementalResults);
@@ -235,10 +235,9 @@ vector<result_t> MasterNode::simulate(int realizationIdx)
 vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
   vector<result_t> results;
-
-  SimConfig config = m_config;
-  for (double pcnt = 0.01; pcnt < 1.00; pcnt += 0.01) {
-    m_epflSolver = EPFLSolver(m_network, config, pcnt);
+  for (double pcnt = m_config.sampling; pcnt < (1.00 + m_config.sampling);
+       pcnt += m_config.sampling) {
+    m_epflSolver = EPFLSolver(m_network, m_config, pcnt);
 
     vector<pair<double, int>> clusterSortedScores;
     result_t result =
@@ -258,10 +257,10 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   const GraphHypothesis& realization = m_realizations[realizationIdx];
 
   // Request scores for each of the tests.
-  double nextPcnt = 0.01;
+  double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    // cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
@@ -275,7 +274,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
     m_previousTests.push_back(make_pair(infection, nodeId));
     if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
       results.push_back(identifyCluster(realizationIdx));
-      nextPcnt += 0.01;
+      nextPcnt += m_config.sampling;
     }
 
     if (m_config.objType == RANDOM)
@@ -284,6 +283,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
     for (GraphTest& test : tests)
       test.setScore((1-m_config.eps) * (1-m_config.eps) * test.getScore());
   }
+  results.push_back(identifyCluster(realizationIdx));
 
   return results;
 }
@@ -543,9 +543,9 @@ void MasterNode::processResults(vector<vector<result_t>> *results,
     int vars = results[step][0][0].second.size();
 
     // For each observer percentage (1%, 2%, ..., 100%), compute averages.
-    double pcnt = 0.01;
+    double pcnt = m_config.sampling;
     for (size_t observers = 0; observers < results[step][0].size();
-         ++observers, pcnt += 0.01) {
+         ++observers, pcnt += m_config.sampling) {
       double identificationCount = 0.0;
       double averages[vars];
 
