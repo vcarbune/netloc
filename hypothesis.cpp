@@ -19,8 +19,10 @@
 using namespace std;
 
 GraphHypothesis::GraphHypothesis(unsigned int sourceId,
-                                 unordered_map<int, double>& infectionTime)
+                                 unordered_map<int, double>& infectionTime,
+                                 int infectionStep)
   : m_sourceId(sourceId)
+  , m_infectionStep(infectionStep)
 {
   m_infectionHash.swap(infectionTime);
 }
@@ -37,7 +39,7 @@ bool GraphHypothesis::isConsistentWithTest(
 
   double infectionTime = test.getInfectionTime();
   return this->getTestOutcome(test, prevTests) ||
-      m_infectionHash.size() < infectionTime;
+      m_infectionStep < infectionTime;
 }
 
 double GraphHypothesis::getInfectionTime(int nodeId) const
@@ -87,12 +89,11 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
 {
   unsigned int trueCascadeSize = config.bound * network->GetNodes();
   int runTimes = isTrueHypothesis ? trueCascadeSize : config.simulations;
+  int infectionStep = 1;
 
   // Add the source node (fixed for this cluster).
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
-
-  int infectionStep = 1;
 
   // Make sure worker nodes have different seeds.
   TInt::Rnd.PutSeed(0);
@@ -110,11 +111,11 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
 
         infectionTime[neighbourId] = infectionStep;
         if (infectionTime.size() == trueCascadeSize)
-          return GraphHypothesis(sourceId, infectionTime);
+          return GraphHypothesis(sourceId, infectionTime, infectionStep);
       }
     }
   }
-  return GraphHypothesis(sourceId, infectionTime);
+  return GraphHypothesis(sourceId, infectionTime, infectionStep);
 }
 
 /**
@@ -134,13 +135,9 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
 
-  unordered_map<int, int> visited;
-  queue<int> q;
-
-  //int infectedNodes = 0;
-  q.push(sourceId);
-
   // bfs to mark infection times.
+  queue<int> q;
+  q.push(sourceId);
   while (!q.empty()) {
     int crtNode = q.front();
     q.pop();
@@ -156,12 +153,13 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
     }
   }
 
-  return GraphHypothesis(sourceId, infectionTime);
+  return GraphHypothesis(sourceId, infectionTime, infectionTime.size());
 }
 
 GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
 {
-  int node; 
+  int node;
+  int maxInfectionStep = -1;
   int infectionTime;
   int srcNode = -1;
   unordered_map<int, double> infectionTimeMap;
@@ -171,12 +169,13 @@ GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
     istringstream iss(line);
     iss >> node >> infectionTime;
     infectionTimeMap[node] = infectionTime;
+    maxInfectionStep = max(infectionTime, maxInfectionStep);
     if (srcNode == -1)
       srcNode = node;
   }
   inputfile.close();
 
-  return GraphHypothesis(srcNode, infectionTimeMap);
+  return GraphHypothesis(srcNode, infectionTimeMap, maxInfectionStep);
 }
 
 void GraphHypothesis::writeHypothesisToFile(const char* filename)
@@ -238,6 +237,14 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
       positiveTestPrior += h.weight;
   }
   return pair<double, double>(positiveMass, negativeMass);
+}
+
+double GraphHypothesisCluster::getAverageHypothesisSize() const
+{
+  double size = 0.0;
+  for (const GraphHypothesis& h : m_hypothesis)
+    size += h.getSize();
+  return size / m_hypothesis.size();
 }
 
 void GraphHypothesisCluster::resetWeight(double weight)

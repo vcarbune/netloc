@@ -69,6 +69,12 @@ void WorkerNode::initializeClusters()
   for (int src = m_nodeRange.first; src < m_nodeRange.second; src++)
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
           m_network, src, 1, m_config));
+
+  double avgSize = 0.0;
+  for (const GraphHypothesisCluster& c : m_clusters)
+    avgSize += c.getAverageHypothesisSize();
+  cout << "Worker " << m_config.mpi.rank << ": " <<
+      avgSize / m_clusters.size() << endl;
 }
 
 void WorkerNode::computeTestPriors()

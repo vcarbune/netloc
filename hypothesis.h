@@ -44,10 +44,11 @@ class GraphHypothesis {
     double weight;
 
   private:
-    GraphHypothesis(unsigned int, std::unordered_map<int, double>&);
+    GraphHypothesis(unsigned int, std::unordered_map<int, double>&, int);
 
     std::unordered_map<int, double> m_infectionHash;
     int m_sourceId;
+    int m_infectionStep;
 };
 
 class GraphHypothesisCluster {
@@ -64,6 +65,7 @@ class GraphHypothesisCluster {
     /* Properties */
     int getSource() const { return m_sourceId; }
     double getWeight() const { return m_weight; }
+    double getAverageHypothesisSize() const;
 
     void resetWeight(double);
 

@@ -520,8 +520,8 @@ result_t MasterNode::identifyCluster(int realizationIdx)
   pair<int, vector<double>> result;
   // Identified solution (source node id).
   result.first = allClusterWeights[0].second;
-  // Confidence in the solution identified (probability)
-  result.second.push_back(allClusterWeights[0].first);
+  // How much mass was in the solution cluster?
+  result.second.push_back(realSourceMass);
   // Difference between the probability of solution and the correct one.
   result.second.push_back(allClusterWeights[0].first - realSourceMass);
   // Rank of the correct solution.
