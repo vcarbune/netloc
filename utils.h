@@ -50,9 +50,9 @@ struct HypothesisClusterConfig {
 enum AlgorithmType {
   EC2 = 0,    // Adaptive     Edge Cutting Equivalence Class
   GBS,        // Adaptive     Generalized Binary Search
-  VOI,        // Adaptive     Value of Information
   RANDOM,     // Non-adaptive Random Selection
-  EPFL_ML     // Non-adaptive EPFL Approach (using Maximum Likelihood)
+  EPFL_ML,    // Non-adaptive EPFL Approach (using Maximum Likelihood)
+  VOI         // Adaptive     Value of Information
 };
 
 enum InfectionType {
