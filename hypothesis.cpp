@@ -156,6 +156,18 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
   return GraphHypothesis(sourceId, infectionTime, infectionTime.size());
 }
 
+/**
+ * Generates a hypothesis on top of a weighted directed graph,
+ * starting from a given source id.
+ */
+/*
+GraphHypothesis GraphHypothesis::generateHypothesisUsingWeightedGraph(
+  const TNodeEDatNet<int, double>& network, int sourceId,
+  const HypothesisClusterConfig cluster)
+{
+}
+*/
+
 GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
 {
   int node;

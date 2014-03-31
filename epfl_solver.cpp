@@ -23,7 +23,7 @@ EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config, double pcnt)
   // Keep top % of nodes as observers based on highest-degree policy.
   int observers = pcnt * m_network->GetNodes();
 
-  // Sort by degrees (using default pair comparator).
+  // Sort by degree (using default pair comparator).
   vector<pair<int, int>> degrees;
   for (int node = 0; node < m_network->GetNodes(); ++node)
     degrees.push_back(pair<int, int>(m_network->GetNI(node).GetOutDeg(), node));
@@ -32,6 +32,17 @@ EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config, double pcnt)
   // Store observer nodes locally.
   for (int node = 0; node < observers; ++node)
     m_observerNodes.push_back(degrees[node].second);
+}
+
+void EPFLSolver::setObserverList(const vector<int>& observers, double pcnt)
+{
+  int observersCount = pcnt * m_network->GetNodes();
+  m_observerNodes.clear();
+  for (int node = 0; node < observersCount; ++node) {
+    m_observerNodes.push_back(observers[node]);
+    // cout << observers[node] << " ";
+  }
+  // cout << endl;
 }
 
 result_t EPFLSolver::solve(const GraphHypothesis& realization,
@@ -72,6 +83,7 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   if (m_config.infType == BETA) {
     double beta = m_config.cluster.beta;
     moments = make_pair(1.00/beta, sqrt((1.00 - beta)/(beta*beta)));
+    cout << moments.first << " -- " << moments.second << endl;
   } else {
     moments = computeGaussianMoments(observers);
   }

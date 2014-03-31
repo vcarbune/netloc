@@ -51,7 +51,8 @@ enum AlgorithmType {
   EC2 = 0,    // Adaptive     Edge Cutting Equivalence Class
   GBS,        // Adaptive     Generalized Binary Search
   RANDOM,     // Non-adaptive Random Selection
-  EPFL_ML,    // Non-adaptive EPFL Approach (using Maximum Likelihood)
+  EPFL_ML,    // Non-adaptive EPFL Approach (using Highest Degree observers)
+  EPFL_EC2,   // Adaptive     EPFL Approach (using EC2 selected observers)
   VOI         // Adaptive     Value of Information
 };
 
@@ -101,10 +102,11 @@ std::ostream& operator<<(std::ostream& os, const SimConfig& config);
 class MPINode {
   public:
     MPINode(SimConfig);
-    virtual void run() = 0;
+    void run();
 
   protected:
     void readNetwork();
+    virtual void runWithCurrentConfig() = 0;
 
     PUNGraph m_network;
     SimConfig m_config;

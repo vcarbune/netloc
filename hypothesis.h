@@ -24,6 +24,10 @@ class GraphHypothesis {
         PUNGraph, int, const HypothesisClusterConfig, bool = true);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
         PUNGraph, int, const HypothesisClusterConfig, bool = true);
+    /*
+    static GraphHypothesis generateHypothesisUsingWeightedGraph(
+        const TNodeEDatNet<int, double>&, int, const HypothesisClusterConfig);
+    */
 
     /* Input/Output */
     static GraphHypothesis readHypothesisFromFile(const char*);

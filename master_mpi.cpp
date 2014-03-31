@@ -23,26 +23,10 @@ MasterNode::MasterNode(SimConfig config)
   initializeGroundTruths();
 }
 
-void MasterNode::run()
-{
-  SimConfig initialConfig = m_config;
-  if (m_config.objType != -1) {
-    runWithCurrentConfig();
-    return;
-  }
-  for (int obj = EC2; obj <= EPFL_ML; ++obj) {
-    m_config = initialConfig;
-    m_config.setObjType(static_cast<AlgorithmType>(obj));
-    m_config.logfile = TStr::Fmt("%s%d_%s.log", m_config.logfile.CStr(),
-        m_config.nodes, algorithmTypeToString(static_cast<AlgorithmType>(obj)));
-
-    runWithCurrentConfig();
-  }
-}
-
 void MasterNode::runWithCurrentConfig()
 {
-  cout << "Running with objective: " << m_config.objType << endl;
+  cout << "Running with objective: " <<
+      algorithmTypeToString(m_config.objType) << endl;
 
   time_t startTime = time(NULL);
   SimConfig initialConfig = m_config;
@@ -160,9 +144,11 @@ double MasterNode::computeCurrentWeight(double *weightSum) {
 
 void MasterNode::initializeTests()
 {
-  if (m_config.objType == RANDOM || m_config.objType == VOI)
+  if (m_config.objType == EPFL_ML || m_config.objType == EPFL_EC2)
+    return;
+  else if (m_config.objType == RANDOM || m_config.objType == VOI)
     initializeTestVector();
-  else if (m_config.objType != EPFL_ML)
+  else
     initializeTestHeap();
 }
 
@@ -226,7 +212,7 @@ void MasterNode::initializeTestVector()
 
 vector<result_t> MasterNode::simulate(int realizationIdx)
 {
-  if (m_config.objType == EPFL_ML)
+  if (m_config.objType == EPFL_ML || m_config.objType == EPFL_EC2)
     return simulateEPFLPolicy(realizationIdx);
 
   return simulateAdaptivePolicy(realizationIdx);
@@ -238,6 +224,9 @@ vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
   for (double pcnt = m_config.sampling; pcnt < (1.00 + m_config.sampling);
        pcnt += m_config.sampling) {
     m_epflSolver = EPFLSolver(m_network, m_config, pcnt);
+    if (m_config.objType == EPFL_EC2) {
+      m_epflSolver.setObserverList(m_ec2observers[realizationIdx], pcnt);
+    }
 
     vector<pair<double, int>> clusterSortedScores;
     result_t result =
@@ -252,15 +241,16 @@ vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
 vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
 {
   vector<result_t> results;
-
   vector<GraphTest> tests(m_tests);
+  m_previousTests.clear();
+
   const GraphHypothesis& realization = m_realizations[realizationIdx];
 
   // Request scores for each of the tests.
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-    // cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
@@ -284,6 +274,14 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
       test.setScore((1-m_config.eps) * (1-m_config.eps) * test.getScore());
   }
   results.push_back(identifyCluster(realizationIdx));
+
+  // Save observers for each ground truth so that they can be used for EPFL.
+  if (m_config.objType == EC2) {
+    vector<int> observers;
+    for (size_t i = 0; i < m_previousTests.size(); ++i)
+      observers.push_back(m_previousTests[i].second);
+    m_ec2observers.push_back(observers);
+  }
 
   return results;
 }

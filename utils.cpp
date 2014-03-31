@@ -19,7 +19,9 @@ const char* algorithmTypeToString(AlgorithmType obj) {
     case RANDOM:
       return "rand";
     case EPFL_ML:
-      return "epfl";
+      return "epfl_high";
+    case EPFL_EC2:
+      return "epfl_ec2";
   }
 
   return "huh";
@@ -125,6 +127,7 @@ void SimConfig::setObjType(AlgorithmType objType)
       objSums = RANDOM_SUMS;
       break;
     case EPFL_ML:
+    case EPFL_EC2:
       objSums = REGULAR_SUMS;
   }
 }
@@ -147,4 +150,38 @@ void MPINode::readNetwork()
   m_network = TUNGraph::Load(FIn);
   m_config.nodes = m_network->GetNodes();
   m_config.ndcgN = static_cast<int>(0.05 * m_network->GetNodes());
+}
+
+void MPINode::run()
+{
+  SimConfig initialConfig = m_config;
+  vector<AlgorithmType> objectives;
+
+  if (m_config.objType == EPFL_EC2) {
+    // First run classical EPFL approach, using highest degree nodes.
+    objectives.push_back(EPFL_ML);
+    // First run EC2 and store observers.
+    objectives.push_back(EC2);
+    // Then run EPFL approach using the stored EC2 observers.
+    objectives.push_back(EPFL_EC2);
+  } else if (m_config.objType == -1) {
+    // Run with all the objectives and compare everything.
+    for (int obj = EC2; obj <= EPFL_ML; ++obj)
+      objectives.push_back(static_cast<AlgorithmType>(obj));
+  } else {
+    // Run only with the specified objective.
+    objectives.push_back(static_cast<AlgorithmType>(m_config.objType));
+  }
+
+  for (AlgorithmType objType : objectives) {
+    // Reset configuration.
+    m_config = initialConfig;
+    // Set objective properly.
+    m_config.setObjType(static_cast<AlgorithmType>(objType));
+    // Set logfile properly.
+    m_config.logfile = TStr::Fmt("%s%d_%s.log", m_config.logfile.CStr(),
+        m_config.nodes, algorithmTypeToString(static_cast<AlgorithmType>(objType)));
+
+    runWithCurrentConfig();
+  }
 }

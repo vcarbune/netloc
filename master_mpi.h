@@ -17,10 +17,9 @@
 class MasterNode : public MPINode {
   public:
     MasterNode(SimConfig);
-    virtual void run();
 
   private:
-    void runWithCurrentConfig();
+    virtual void runWithCurrentConfig();
 
     /* Initialize */
     void initializeGroundTruths();
@@ -58,6 +57,9 @@ class MasterNode : public MPINode {
     std::vector<std::pair<double, int>> m_previousTests;
 
     EPFLSolver m_epflSolver;
+
+    /* m_ec2observers[TRUTH][PCNT]; */
+    std::vector<std::vector<int>> m_ec2observers;
 };
 
 #endif

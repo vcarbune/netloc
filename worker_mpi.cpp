@@ -27,28 +27,12 @@ WorkerNode::WorkerNode(SimConfig config)
   initializeClusters();
 }
 
-void WorkerNode::run()
-{
-  SimConfig initialConfig = m_config;
-  if (m_config.objType != -1) {
-    runWithCurrentConfig();
-    return;
-  }
-
-  for (int obj = EC2; obj <= EPFL_ML; ++obj) {
-    m_config = initialConfig;
-    m_config.setObjType(static_cast<AlgorithmType>(obj));
-    runWithCurrentConfig();
-  }
-}
-
-
 void WorkerNode::runWithCurrentConfig()
 {
   // No reason for a distributed version EPFL max-likelihood (distributed
   // matrix computations are a different beast, so keeping, for now, algorithm
   // implementation on single machine, running on central MPI node only)
-  if (m_config.objType == EPFL_ML) {
+  if (m_config.objType == EPFL_ML || m_config.objType == EPFL_EC2) {
     cout << "Note: EPFLSolver runs only on central MPI node" << endl;
     return;
   }

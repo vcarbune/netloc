@@ -16,10 +16,9 @@
 class WorkerNode : public MPINode {
   public:
     WorkerNode(SimConfig);
-    virtual void run();
 
   private:
-    void runWithCurrentConfig();
+    virtual void runWithCurrentConfig();
 
     /* Initialize */
     void initializeClusters();
