@@ -50,9 +50,11 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   const TInt paramClusterSize = Env.GetIfArgPrefixInt(
       "-c=", 500, "Cluster size");
   const double paramEps = Env.GetIfArgPrefixFlt(
-      "-eps=", 0.01, "EPS Noisy Measurement Probability");
+      "-eps=", 0.02, "EPS Noisy Measurement Probability");
   const double paramCascadeSize = Env.GetIfArgPrefixFlt(
       "-bound=", 1.0, "Ground truth size");
+  const double paramArtifCascadeSize = Env.GetIfArgPrefixFlt(
+      "-cbound=", 0.20, "Artif truths size");
   const double paramBeta = Env.GetIfArgPrefixFlt(
       "-beta=", 0.06, "Activation probability on edges)");
   const TInt paramSteps = Env.GetIfArgPrefixInt(
@@ -60,8 +62,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", -1, "Objective Type: All(-1), "
                   "EC2 - 0, GBS - 1, VoI - 2, Random - 3, EPFL - 4");
-  const TInt paramSimulations = Env.GetIfArgPrefixInt(
-      "-sim=", 5, "Simulation steps for cascades");
+
 
   /* The infection model of the ground truth */
   const TInt paramInfectionType = Env.GetIfArgPrefixInt(
@@ -80,9 +81,9 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   SimConfig config;
 
   config.cluster.size = paramClusterSize.Val;
-  config.cluster.simulations = paramSimulations;
   config.cluster.beta = paramBeta;
   config.cluster.bound = paramCascadeSize;
+  config.cluster.cbound = paramArtifCascadeSize;
 
   config.eps = paramEps;
 

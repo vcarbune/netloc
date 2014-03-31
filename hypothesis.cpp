@@ -88,7 +88,8 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
     bool isTrueHypothesis)
 {
   unsigned int trueCascadeSize = config.bound * network->GetNodes();
-  int runTimes = isTrueHypothesis ? trueCascadeSize : config.simulations;
+  unsigned int artifCascadeSize = config.cbound * network->GetNodes();
+  unsigned int maxCascadeSize = isTrueHypothesis ? trueCascadeSize : artifCascadeSize;
   int infectionStep = 1;
 
   // Add the source node (fixed for this cluster).
@@ -96,8 +97,8 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
   infectionTime[sourceId] = 0;
 
   // Make sure worker nodes have different seeds.
-  TInt::Rnd.PutSeed(0);
-  for (int run = 0; run < runTimes; run++) {
+  // TInt::Rnd.PutSeed(0);
+  for (unsigned int run = 0; run < maxCascadeSize; run++) {
     infectionStep++;
     for (const auto& p : infectionTime) {
       const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
@@ -110,7 +111,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
           continue;
 
         infectionTime[neighbourId] = infectionStep;
-        if (infectionTime.size() == trueCascadeSize)
+        if (infectionTime.size() == maxCascadeSize)
           return GraphHypothesis(sourceId, infectionTime, infectionStep);
       }
     }

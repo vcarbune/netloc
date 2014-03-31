@@ -39,9 +39,9 @@ struct MPIClusterConfig {
 
 struct HypothesisClusterConfig {
   int size;         // number of hypothesis per node.
-  int simulations;  // number of simulations for hypothesis in cluster.
   double beta;      // edge activation probability.
   double bound;     // percentage bound of the total network.
+  double cbound;    // percentage bound of each hypothesis in cluster.
   double miu;       // for gaussian-generated cascades.
   double sigma;
   bool keep;

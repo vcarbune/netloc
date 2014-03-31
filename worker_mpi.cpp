@@ -57,6 +57,7 @@ void WorkerNode::initializeClusters()
   double avgSize = 0.0;
   for (const GraphHypothesisCluster& c : m_clusters)
     avgSize += c.getAverageHypothesisSize();
+
   cout << "Worker " << m_config.mpi.rank << ": " <<
       avgSize / m_clusters.size() << endl;
 }
@@ -159,8 +160,7 @@ void WorkerNode::simulate()
     for (GraphHypothesisCluster& cluster : m_clusters)
       cluster.updateMassWithTest(m_config.eps, test, m_previousTests);
 
-    m_previousTests.push_back(
-        make_pair(test.getInfectionTime(), test.getNodeId()));
+    m_previousTests.push_back(make_pair(test.getInfectionTime(), test.getNodeId()));
 
     if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
       sendClusterData();
