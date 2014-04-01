@@ -20,26 +20,31 @@ using namespace std;
 
 GraphHypothesis::GraphHypothesis(unsigned int sourceId,
                                  unordered_map<int, double>& infectionTime,
-                                 int infectionStep)
+                                 double maxInfectionTime)
   : m_sourceId(sourceId)
-  , m_infectionStep(infectionStep)
+  , m_maxInfectionTime(maxInfectionTime)
 {
   m_infectionHash.swap(infectionTime);
 }
 
 bool GraphHypothesis::isConsistentWithTest(
     const GraphTest& test, const vector<pair<double,int>>& prevTests) const {
+  double infectionTime = test.getInfectionTime();
+
   // The test wasn't validated with the realization (so it's value is set to
   // true/false, depending on the computation that needs to be done).
-  if (test.getInfectionTime() == INFECTED_UNDEFINED)
+  if (fabs(infectionTime - INFECTED_UNDEFINED) < 1E-1)
     return test.getOutcome() == this->getTestOutcome(test);
 
-  if (test.getInfectionTime() == INFECTED_FALSE)
+  if (fabs(infectionTime - INFECTED_FALSE) < 1E-1)
     return !this->getTestOutcome(test);
 
-  double infectionTime = test.getInfectionTime();
-  return this->getTestOutcome(test, prevTests) ||
-      m_infectionStep < infectionTime;
+  // This cluster is irrelevant if the maximum infection time doesn't reach the
+  // infection time of the node. Just short-circuit and down-weight it.
+  if (m_maxInfectionTime < infectionTime)
+    return false;
+
+  return this->getTestOutcome(test, prevTests);
 }
 
 double GraphHypothesis::getInfectionTime(int nodeId) const
@@ -90,7 +95,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
   unsigned int trueCascadeSize = config.bound * network->GetNodes();
   unsigned int artifCascadeSize = config.cbound * network->GetNodes();
   unsigned int maxCascadeSize = isTrueHypothesis ? trueCascadeSize : artifCascadeSize;
-  int infectionStep = 1;
+  double maxInfectionTime = 1;
 
   // Add the source node (fixed for this cluster).
   unordered_map<int, double> infectionTime;
@@ -99,7 +104,7 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
   // Make sure worker nodes have different seeds.
   // TInt::Rnd.PutSeed(0);
   for (unsigned int run = 0; run < maxCascadeSize; run++) {
-    infectionStep++;
+    maxInfectionTime++;
     for (const auto& p : infectionTime) {
       const TUNGraph::TNodeI& crtIt = network->GetNI(p.first);
       for (int neighbour = 0; neighbour < crtIt.GetOutDeg(); ++neighbour) {
@@ -110,13 +115,13 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
         if (infectionTime.find(neighbourId) != infectionTime.end())
           continue;
 
-        infectionTime[neighbourId] = infectionStep;
+        infectionTime[neighbourId] = maxInfectionTime;
         if (infectionTime.size() == maxCascadeSize)
-          return GraphHypothesis(sourceId, infectionTime, infectionStep);
+          return GraphHypothesis(sourceId, infectionTime, maxInfectionTime);
       }
     }
   }
-  return GraphHypothesis(sourceId, infectionTime, infectionStep);
+  return GraphHypothesis(sourceId, infectionTime, maxInfectionTime);
 }
 
 /**
@@ -135,6 +140,7 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
 
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
+  double maxInfectionTime = 0;
 
   // bfs to mark infection times.
   queue<int> q;
@@ -151,10 +157,11 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
 
       q.push(neighbourId);
       infectionTime[neighbourId] = infectionTime[crtNode] + d(generator);
+      maxInfectionTime = max(infectionTime[neighbourId], maxInfectionTime);
     }
   }
 
-  return GraphHypothesis(sourceId, infectionTime, infectionTime.size());
+  return GraphHypothesis(sourceId, infectionTime, maxInfectionTime);
 }
 
 /**
@@ -169,25 +176,34 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingWeightedGraph(
 }
 */
 
-GraphHypothesis GraphHypothesis::readHypothesisFromFile(const char* filename)
+GraphHypothesis GraphHypothesis::readHypothesisFromFile(
+    PUNGraph network,
+    const char* filename)
 {
   int node;
   int maxInfectionStep = -1;
   int infectionTime;
   int srcNode = -1;
+  int skippedNodes = 0;
   unordered_map<int, double> infectionTimeMap;
 
   ifstream inputfile(filename);
   for(string line; getline(inputfile, line); ) {
     istringstream iss(line);
     iss >> node >> infectionTime;
+    if (!network->IsNode(node)) {
+      skippedNodes++;
+      continue;
+    }
     infectionTimeMap[node] = infectionTime;
     maxInfectionStep = max(infectionTime, maxInfectionStep);
-    if (srcNode == -1)
+    if (srcNode == -1 && infectionTime == 0.00) {
       srcNode = node;
+      cout << "SOURCE: " << srcNode << endl;
+    }
   }
   inputfile.close();
-
+  cout << "Warning: " << skippedNodes << " nodes were not in the network." << endl;
   return GraphHypothesis(srcNode, infectionTimeMap, maxInfectionStep);
 }
 

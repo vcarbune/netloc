@@ -57,7 +57,7 @@ enum AlgorithmType {
 };
 
 enum InfectionType {
-  BETA = 0,   // SSI          Default model
+  BETA = 0,   // SIS          Default model
   GAUSSIAN    // Gaussian Distributed Delay (joint distribution for theta)
 };
 

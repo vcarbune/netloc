@@ -30,7 +30,7 @@ class GraphHypothesis {
     */
 
     /* Input/Output */
-    static GraphHypothesis readHypothesisFromFile(const char*);
+    static GraphHypothesis readHypothesisFromFile(PUNGraph, const char*);
     void writeHypothesisToFile(const char*);
 
     /* Tests */
@@ -48,11 +48,11 @@ class GraphHypothesis {
     double weight;
 
   private:
-    GraphHypothesis(unsigned int, std::unordered_map<int, double>&, int);
+    GraphHypothesis(unsigned int, std::unordered_map<int, double>&, double);
 
     std::unordered_map<int, double> m_infectionHash;
     int m_sourceId;
-    int m_infectionStep;
+    double m_maxInfectionTime;
 };
 
 class GraphHypothesisCluster {

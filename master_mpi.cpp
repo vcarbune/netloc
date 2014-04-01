@@ -78,7 +78,7 @@ void MasterNode::initializeGroundTruths()
         m_config.groundTruthFile.CStr() << endl;
 
     m_realizations.push_back(GraphHypothesis::readHypothesisFromFile(
-          m_config.groundTruthFile.CStr()));
+          m_network, m_config.groundTruthFile.CStr()));
   } else {
     // Generate artificially.
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
@@ -99,6 +99,8 @@ void MasterNode::initializeGroundTruths()
 
   for (const GraphHypothesis& realization : m_realizations) {
     TIntH idToShortestPathsFromSource;
+    if (!m_network->IsNode(realization.getSource()))
+      cout << "WTF?" << realization.getSource() << endl;
     TSnap::GetShortPath(m_network, realization.getSource(), idToShortestPathsFromSource);
     m_idToShortestPathsFromSource.push_back(idToShortestPathsFromSource);
   }
@@ -250,7 +252,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-    // cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();

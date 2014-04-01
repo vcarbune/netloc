@@ -50,9 +50,15 @@ void WorkerNode::runWithCurrentConfig()
 void WorkerNode::initializeClusters()
 {
   m_clusters.clear();
-  for (int src = m_nodeRange.first; src < m_nodeRange.second; src++)
+
+  // Actual nodes in the network.
+  TIntV nid;
+  m_network->GetNIdV(nid);
+
+  for (int src = m_nodeRange.first; src < m_nodeRange.second; src++) {
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-          m_network, src, 1, m_config));
+          m_network, nid[src], 1, m_config));
+  }
 
   double avgSize = 0.0;
   for (const GraphHypothesisCluster& c : m_clusters)
