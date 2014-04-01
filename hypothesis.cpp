@@ -43,9 +43,10 @@ bool GraphHypothesis::isConsistentWithTest(
   // There are two ways of treating this:
   // - by default down-weight, because the cluster is definitely not the source.
   // - by default do nothing, because the point couldn't be reached in this  instance.
+  /*
   if (m_maxInfectionTime < infectionTime)
     return true;
-
+  */
   return this->getTestOutcome(test, prevTests);
 }
 
@@ -65,9 +66,6 @@ bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
 bool GraphHypothesis::getTestOutcome(
     const GraphTest& test, const vector<pair<double, int>>& prevTests) const
 {
-  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE)
-      return false;
-
   // Make sure the test keeps order with respect to other tests.
   for (size_t i = 0; i < prevTests.size(); ++i) {
     if (getInfectionTime(prevTests[i].second) == INFECTED_FALSE ||
