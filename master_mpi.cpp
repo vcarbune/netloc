@@ -201,7 +201,7 @@ void MasterNode::initializeTestHeap()
     m_tests.push_back(graphTest);
   }
 
-  std::make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+  make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
       m_tests.begin(), m_tests.end(), TestCompareFunction());
 }
 
@@ -268,12 +268,14 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
       results.push_back(identifyCluster(realizationIdx));
       nextPcnt += m_config.sampling;
     }
-
+/*
     if (m_config.objType == RANDOM)
       continue;
 
-    for (GraphTest& test : tests)
+    for (GraphTest& test : tests) {
       test.setScore((1-m_config.eps) * (1-m_config.eps) * test.getScore());
+    }
+*/
   }
   results.push_back(identifyCluster(realizationIdx));
 
@@ -332,9 +334,7 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
     return selectVOITest(tests, currentMass);
 
   TestCompareFunction tstCmpFcn;
-#if DBG
   int count = 0;
-#endif
   do {
     // Remove the top test from the heap.
     GraphTest crtTop = tests.front();
@@ -343,8 +343,8 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
     tests.pop_back();
 
 #if DBG
-    std::cout << "Top: " << crtTop.getScore() << " Next: " <<
-      tests.front().getScore() << std::endl;
+    cout << "Top: " << crtTop.getScore() << " Next: " <<
+      tests.front().getScore() << endl;
 #endif
 
     // Exit early if it's the last element in the heap.
@@ -359,13 +359,11 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
     recomputeTestScore(crtTop, weightSum, currentMass);
 
 #if DBG
-    std::cout << "Rescored Top: " << crtTop.getScore() << std::endl;
+    cout << "Rescored Top: " << crtTop.getScore() << endl;
 #endif
 
     if (tstCmpFcn(tests.front(), crtTop)) {
-#if DBG
-      std::cout << "Pushed " << count << " elems back to heap... " << std::endl;
-#endif
+      cout << "Heap cost: " << count << endl;
       int invalidNode = -1;
       MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
 
@@ -374,9 +372,7 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 
     // Otherwise push it back to the heap.
     tests.push_back(crtTop);
-#if DBG
     count++;
-#endif
     push_heap<vector<GraphTest>::iterator, TestCompareFunction>(
         tests.begin(), tests.end(), TestCompareFunction());
   } while (true);
@@ -537,7 +533,7 @@ void MasterNode::processResults(vector<vector<result_t>> *results,
 {
   ofstream dumpStream;
   dumpStream.open(initialConfig.logfile.CStr());
-  dumpStream << fixed << std::setprecision(3);
+  dumpStream << fixed << setprecision(3);
 
   for (int step = 0; step < initialConfig.steps; ++step, ++initialConfig) {
     int vars = results[step][0][0].second.size();

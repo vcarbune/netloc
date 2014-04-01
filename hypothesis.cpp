@@ -31,22 +31,15 @@ bool GraphHypothesis::isConsistentWithTest(
     const GraphTest& test, const vector<pair<double,int>>& prevTests) const
 {
   double infectionTime = test.getInfectionTime();
-
-  // The test wasn't validated with the realization (so it's value is set to
-  // true/false, depending on the computation that needs to be done).
-  if (fabs(infectionTime - INFECTED_UNDEFINED) < 1E-1)
-    return test.getOutcome() == this->getTestOutcome(test);
-
   if (fabs(infectionTime - INFECTED_FALSE) < 1E-1)
     return !this->getTestOutcome(test);
 
   // There are two ways of treating this:
-  // - by default down-weight, because the cluster is definitely not the source.
+  // - by default down-weight, because this cluster is definitely not the source.
   // - by default do nothing, because the point couldn't be reached in this  instance.
-  /*
   if (m_maxInfectionTime < infectionTime)
-    return true;
-  */
+    return false;
+
   return this->getTestOutcome(test, prevTests);
 }
 
@@ -102,7 +95,6 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
   infectionTime[sourceId] = 0;
 
   // Make sure worker nodes have different seeds.
-  // TInt::Rnd.PutSeed(0);
   for (unsigned int run = 0; run < maxCascadeSize; run++) {
     maxInfectionTime++;
     for (const auto& p : infectionTime) {
@@ -130,8 +122,12 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
  */
 GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
     PUNGraph network, int sourceId, const HypothesisClusterConfig cluster,
-    bool)
+    bool isTrueHypothesis)
 {
+  unsigned int trueCascadeSize = cluster.bound * network->GetNodes();
+  unsigned int artifCascadeSize = cluster.cbound * network->GetNodes();
+  unsigned int maxCascadeSize = isTrueHypothesis ? trueCascadeSize : artifCascadeSize;
+
   // Assign propagation delays to all edges using a normal distribution.
   std::default_random_engine generator;
 
@@ -145,7 +141,7 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
   // bfs to mark infection times.
   queue<int> q;
   q.push(sourceId);
-  while (!q.empty()) {
+  while (!q.empty() && infectionTime.size() < maxCascadeSize) {
     int crtNode = q.front();
     q.pop();
 
@@ -245,7 +241,9 @@ void GraphHypothesisCluster::updateMassWithTest(const double eps,
 {
   double weight = 0.0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight *= (h.isConsistentWithTest(test, prevTests) ? (1-eps) : eps);
+    h.weight *= (test.getOutcome() == h.getTestOutcome(test) ? 1 :
+        (eps/(1.00-eps)));
+    // h.weight *= (h.isConsistentWithTest(test, prevTests) ? 1 : (eps/(1.00-eps)));
     weight += h.weight;
   }
   m_weight = weight;
@@ -259,9 +257,9 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   double positiveMass = 0.0;
   double negativeMass = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
-    bool outcome = h.isConsistentWithTest(test, prevTests);
-    positiveMass += h.weight * (outcome ? (1-eps) : eps);
-    negativeMass += h.weight * (outcome ? eps : (1-eps));
+    bool outcome = (test.getOutcome() == h.getTestOutcome(test));
+    positiveMass += h.weight * (outcome ? 1 : (eps/(1.00-eps)));
+    negativeMass += h.weight * (outcome ? (eps/(1.00-eps)): 1);
     if (outcome)
       positiveTestPrior += h.weight;
   }
