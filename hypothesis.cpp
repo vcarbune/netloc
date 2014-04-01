@@ -28,7 +28,8 @@ GraphHypothesis::GraphHypothesis(unsigned int sourceId,
 }
 
 bool GraphHypothesis::isConsistentWithTest(
-    const GraphTest& test, const vector<pair<double,int>>& prevTests) const {
+    const GraphTest& test, const vector<pair<double,int>>& prevTests) const
+{
   double infectionTime = test.getInfectionTime();
 
   // The test wasn't validated with the realization (so it's value is set to

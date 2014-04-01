@@ -152,11 +152,11 @@ void WorkerNode::simulate()
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
     bool outcome;
-    int infectionTime;
+    double infectionTime;
 
     MPI::COMM_WORLD.Bcast(&selectedNode, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
-    MPI::COMM_WORLD.Bcast(&infectionTime, 1, MPI::INT, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&infectionTime, 1, MPI::DOUBLE, MPI_MASTER);
 
     // Update the inner hypothesis weights, by running the testNode.
     GraphTest test(selectedNode);

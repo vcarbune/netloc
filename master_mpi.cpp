@@ -257,11 +257,11 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
     bool outcome = realization.getTestOutcome(nextTest, m_previousTests);
-    int infection = realization.getInfectionTime(nextTest.getNodeId());
+    double infection = realization.getInfectionTime(nextTest.getNodeId());
 
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
-    MPI::COMM_WORLD.Bcast(&infection, 1, MPI::INT, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&infection, 1, MPI::DOUBLE, MPI_MASTER);
 
     m_previousTests.push_back(make_pair(infection, nodeId));
     if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
