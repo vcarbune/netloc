@@ -40,10 +40,11 @@ bool GraphHypothesis::isConsistentWithTest(
   if (fabs(infectionTime - INFECTED_FALSE) < 1E-1)
     return !this->getTestOutcome(test);
 
-  // This cluster is irrelevant if the maximum infection time doesn't reach the
-  // infection time of the node. Just short-circuit and down-weight it.
+  // There are two ways of treating this:
+  // - by default down-weight, because the cluster is definitely not the source.
+  // - by default do nothing, because the point couldn't be reached in this  instance.
   if (m_maxInfectionTime < infectionTime)
-    return false;
+    return true;
 
   return this->getTestOutcome(test, prevTests);
 }
