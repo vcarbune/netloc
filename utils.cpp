@@ -167,7 +167,7 @@ void MPINode::run()
     objectives.push_back(EPFL_EC2);
   } else if (m_config.objType == -1) {
     // Run with all the objectives and compare everything.
-    for (int obj = EC2; obj <= EPFL_ML; ++obj)
+    for (int obj = EC2; obj <= EPFL_EC2; ++obj)
       objectives.push_back(static_cast<AlgorithmType>(obj));
   } else {
     // Run only with the specified objective.

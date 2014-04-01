@@ -13,4 +13,5 @@ plot \
 	sprintf("%s_gbs.log", network) using 1:col title "GBS" with lines, \
 	sprintf("%s_voi.log", network) using 1:col title "VOI" with lines, \
 	sprintf("%s_rand.log", network) using 1:col title "RAND" with lines, \
-	sprintf("%s_epfl.log", network) using 1:col title "EPFL" with lines
+	sprintf("%s_epfl_high.log", network) using 1:col title "EPFL" with lines, \
+	sprintf("%s_epfl_ec2.log", network) using 1:col title "EPFL + EC2" with lines
