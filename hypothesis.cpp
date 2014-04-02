@@ -31,16 +31,19 @@ bool GraphHypothesis::isConsistentWithTest(
     const GraphTest& test, const vector<pair<double,int>>& prevTests) const
 {
   double infectionTime = test.getInfectionTime();
-  if (fabs(infectionTime - INFECTED_FALSE) < 1E-1)
-    return !this->getTestOutcome(test);
+
+  // If the test isn't infected in the true hypothesis, check and exit early.
+  if (infectionTime == INFECTED_FALSE)
+    return getInfectionTime(test.getNodeId()) == INFECTED_FALSE;
 
   // There are two ways of treating this:
   // - by default down-weight, because this cluster is definitely not the source.
   // - by default do nothing, because the point couldn't be reached in this  instance.
-  if (m_maxInfectionTime < infectionTime)
-    return false;
+  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE &&
+      m_maxInfectionTime < infectionTime)
+    return true;
 
-  return this->getTestOutcome(test, prevTests);
+  return this->isConsistentWithPreviousTests(test, prevTests);
 }
 
 double GraphHypothesis::getInfectionTime(int nodeId) const
@@ -56,11 +59,12 @@ bool GraphHypothesis::getTestOutcome(const GraphTest& test) const
   return m_infectionHash.find(test.getNodeId()) != m_infectionHash.end();
 }
 
-bool GraphHypothesis::getTestOutcome(
+bool GraphHypothesis::isConsistentWithPreviousTests(
     const GraphTest& test, const vector<pair<double, int>>& prevTests) const
 {
   // Make sure the test keeps order with respect to other tests.
   for (size_t i = 0; i < prevTests.size(); ++i) {
+    // Ignore previous test nodes that proved not to be infected.
     if (getInfectionTime(prevTests[i].second) == INFECTED_FALSE ||
         prevTests[i].first == INFECTED_FALSE)
       continue;
@@ -88,11 +92,11 @@ GraphHypothesis GraphHypothesis::generateHypothesis(
   unsigned int trueCascadeSize = config.bound * network->GetNodes();
   unsigned int artifCascadeSize = config.cbound * network->GetNodes();
   unsigned int maxCascadeSize = isTrueHypothesis ? trueCascadeSize : artifCascadeSize;
-  double maxInfectionTime = 1;
 
   // Add the source node (fixed for this cluster).
   unordered_map<int, double> infectionTime;
   infectionTime[sourceId] = 0;
+  double maxInfectionTime = 0;
 
   // Make sure worker nodes have different seeds.
   for (unsigned int run = 0; run < maxCascadeSize; run++) {
@@ -241,29 +245,27 @@ void GraphHypothesisCluster::updateMassWithTest(const double eps,
 {
   double weight = 0.0;
   for (GraphHypothesis& h : m_hypothesis) {
-    h.weight *= (test.getOutcome() == h.getTestOutcome(test) ? 1 :
-        (eps/(1.00-eps)));
-    // h.weight *= (h.isConsistentWithTest(test, prevTests) ? 1 : (eps/(1.00-eps)));
+    h.weight *=
+        (h.isConsistentWithTest(test, prevTests) ? 1 : (eps/(1.00-eps)));
     weight += h.weight;
   }
   m_weight = weight;
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
-    double& positiveTestPrior,
     const double eps, const GraphTest& test,
     const vector<pair<double, int>>& prevTests) const
 {
-  double positiveMass = 0.0;
-  double negativeMass = 0.0;
+  double mass = 0.0;
+  double prior = 0.0;
   for (const GraphHypothesis& h : m_hypothesis) {
-    bool outcome = (test.getOutcome() == h.getTestOutcome(test));
-    positiveMass += h.weight * (outcome ? 1 : (eps/(1.00-eps)));
-    negativeMass += h.weight * (outcome ? (eps/(1.00-eps)): 1);
-    if (outcome)
-      positiveTestPrior += h.weight;
+    bool isConsistent = h.isConsistentWithTest(test, prevTests);
+    mass += h.weight * (isConsistent ? 1 : (eps/(1.00-eps)));
+    if (h.getInfectionTime(test.getNodeId()) == test.getInfectionTime())
+      prior += h.weight;
   }
-  return pair<double, double>(positiveMass, negativeMass);
+
+  return make_pair(prior, mass);
 }
 
 double GraphHypothesisCluster::getAverageHypothesisSize() const
@@ -280,4 +282,24 @@ void GraphHypothesisCluster::resetWeight(double weight)
   for (GraphHypothesis& h : m_hypothesis)
     h.weight = hWeight;
   m_weight = weight;
+}
+
+void GraphHypothesisCluster::multiplyWeights(double factor)
+{
+  double weight = 0;
+  for (GraphHypothesis& h : m_hypothesis) {
+    h.weight *= factor;
+    weight += h.weight;
+  }
+  m_weight = weight;
+}
+
+void GraphHypothesisCluster::collectInfectionTimes(
+    int nodeId, vector<double>& times) const
+{
+  for (const GraphHypothesis& h : m_hypothesis) {
+    double infTime = h.getInfectionTime(nodeId);
+    if (find(times.begin(), times.end(), infTime) == times.end())
+      times.push_back(infTime);
+  }
 }

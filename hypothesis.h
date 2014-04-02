@@ -38,8 +38,6 @@ class GraphHypothesis {
         const GraphTest&, const std::vector<std::pair<double, int>>&) const;
     double getInfectionTime(int) const;
     bool getTestOutcome(const GraphTest&) const;
-    bool getTestOutcome(
-        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
     /* Properties */
     int getSize() const { return m_infectionHash.size(); }
@@ -49,6 +47,8 @@ class GraphHypothesis {
 
   private:
     GraphHypothesis(unsigned int, std::unordered_map<int, double>&, double);
+    bool isConsistentWithPreviousTests(
+        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
 
     std::unordered_map<int, double> m_infectionHash;
     int m_sourceId;
@@ -63,8 +63,9 @@ class GraphHypothesisCluster {
     /* Tests */
     void updateMassWithTest(const double,
         const GraphTest&, const std::vector<std::pair<double, int>>&);
-    std::pair<double, double> computeMassWithTest(double&, const double,
-        const GraphTest&, const std::vector<std::pair<double, int>>&) const;
+    std::pair<double, double> computeMassWithTest(
+        const double, const GraphTest&,
+        const std::vector<std::pair<double, int>>&) const;
 
     /* Properties */
     int getSource() const { return m_sourceId; }
@@ -72,6 +73,10 @@ class GraphHypothesisCluster {
     double getAverageHypothesisSize() const;
 
     void resetWeight(double);
+    void multiplyWeights(double);
+
+    /* Time Info */
+    void collectInfectionTimes(int, std::vector<double>&) const;
 
     bool operator< (const GraphHypothesisCluster& o) const {
       return m_weight > o.m_weight;
@@ -87,4 +92,4 @@ class GraphHypothesisCluster {
     std::vector<GraphHypothesis> m_hypothesis;
 };
 
-#endif // HYPOTHESIS_H_
+#endif

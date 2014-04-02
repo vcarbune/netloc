@@ -25,6 +25,7 @@ WorkerNode::WorkerNode(SimConfig config)
 
   // Initialize clusters!
   initializeClusters();
+  initializeNodeInfectionTimeMap();
 }
 
 void WorkerNode::runWithCurrentConfig()
@@ -52,12 +53,9 @@ void WorkerNode::initializeClusters()
   m_clusters.clear();
 
   // Actual nodes in the network.
-  TIntV nid;
-  m_network->GetNIdV(nid);
-
   for (int src = m_nodeRange.first; src < m_nodeRange.second; src++) {
     m_clusters.push_back(GraphHypothesisCluster::generateHypothesisCluster(
-          m_network, nid[src], 1, m_config));
+          m_network, src, 1, m_config));
   }
 
   double avgSize = 0.0;
@@ -68,27 +66,32 @@ void WorkerNode::initializeClusters()
       avgSize / m_clusters.size() << endl;
 }
 
-void WorkerNode::computeTestPriors()
+void WorkerNode::initializeNodeInfectionTimeMap()
 {
-  double testPriors[m_config.nodes];
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
-    GraphTest test(testNode);
-    testPriors[testNode] = 0.0;
-    for (const GraphHypothesisCluster& cluster : m_clusters) {
-      // TODO(vcarbune): These are too many computations.
-      pair<double, double> mass = cluster.computeMassWithTest(
-          testPriors[testNode], m_config.eps, test, m_previousTests);
-    }
+  m_nodeInfectionTimes.clear();
+
+  // Collect the infection times of nodes.
+  for (int node = 0; node < m_network->GetNodes(); ++node) {
+    m_nodeInfectionTimes.push_back(vector<double>());
+    for (const GraphHypothesisCluster& cluster : m_clusters)
+      cluster.collectInfectionTimes(node, m_nodeInfectionTimes[node]);
+    sort(m_nodeInfectionTimes[node].begin(), m_nodeInfectionTimes[node].end());
+
+    // Send to the central node.
+    int size = m_nodeInfectionTimes[node].size();
+    MPI::COMM_WORLD.Gather(&size, 1, MPI::INT, NULL, 0, MPI::INT, MPI_MASTER);
+
+    // Send the actual infection times.
+    MPI::COMM_WORLD.Send(&m_nodeInfectionTimes[node].front(),
+        m_nodeInfectionTimes[node].size(), MPI::DOUBLE, MPI_MASTER, 0);
+
+    // Gather the centralized vector.
+    MPI::COMM_WORLD.Bcast(&size, 1, MPI::INT, MPI_MASTER);
+    double infectionTimes[size];
+    MPI::COMM_WORLD.Bcast(infectionTimes, size, MPI::DOUBLE, MPI_MASTER);
+    m_nodeInfectionTimes[node] = vector<double>(
+        infectionTimes, infectionTimes + size);
   }
-
-  // Get from workers the node count for each test node.
-  MPI::COMM_WORLD.Reduce(testPriors, NULL, m_config.nodes,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  // Broadcast back to workers computed test priors.
-  MPI::COMM_WORLD.Bcast(testPriors, m_config.nodes, MPI::DOUBLE, MPI_MASTER);
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode)
-    m_testsPrior[testNode] = testPriors[testNode];
 }
 
 void WorkerNode::initializeTestHeap()
@@ -96,6 +99,8 @@ void WorkerNode::initializeTestHeap()
   if (m_config.objType == RANDOM || m_config.objType == VOI)
     return;
 
+  recomputePartialTestScores();
+  /*
   double massBuffer[m_config.objSums][m_config.nodes];
   memset(massBuffer, 0, m_config.objSums * m_config.nodes * sizeof(**massBuffer));
 
@@ -106,10 +111,16 @@ void WorkerNode::initializeTestHeap()
   // Compute the positive & negative mass for the test nodes.
   double junk = 0.0;
   for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
-    for (const GraphHypothesisCluster& cluster : m_clusters) {
-      GraphTest test(testNode);
+    GraphTest test(testNode);
+    for (int i = 0; i < m_nodeInfectionTime[testNode].size(); ++i) {
+      test.setInfectionTime(m_nodeInfectionTimes[testNode][i]);
+      for (const GraphHypothesisCluster& cluster : m_clusters) {
+        // (prior, mass)
+        pair<double, double> expected =
+            cluster.computeMassWithTest(test, m_config.eps);
+    }
       pair<double, double> mass = cluster.computeMassWithTest(
-          junk, m_config.eps, test, m_previousTests);
+          junk, m_config.eps, test);
 
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[testNode] * mass.first +
@@ -133,38 +144,45 @@ void WorkerNode::initializeTestHeap()
   for (int s = 0; s < m_config.objSums; ++s)
     MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, m_config.nodes,
         MPI::DOUBLE, op, MPI_MASTER);
+  */
 }
 
 void WorkerNode::reset()
 {
-  if (!m_config.cluster.keep)
+  if (!m_config.cluster.keep) {
     initializeClusters();
+    initializeNodeInfectionTimeMap();
+  }
   initializeTestHeap();
-  m_previousTests.clear();
 }
 
 void WorkerNode::simulate()
 {
+  m_previousTests.clear();
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     recomputePartialTestScores();
 
     // Receive from the master node the testNode that was selected to run.
     int selectedNode;
-    bool outcome;
+    double score;
     double infectionTime;
 
     MPI::COMM_WORLD.Bcast(&selectedNode, 1, MPI::INT, MPI_MASTER);
-    MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infectionTime, 1, MPI::DOUBLE, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&score, 1, MPI::DOUBLE, MPI_MASTER);
 
     // Update the inner hypothesis weights, by running the testNode.
     GraphTest test(selectedNode);
-    test.setOutcome(outcome);
     test.setInfectionTime(infectionTime);
 
-    for (GraphHypothesisCluster& cluster : m_clusters)
+    for (GraphHypothesisCluster& cluster : m_clusters) {
       cluster.updateMassWithTest(m_config.eps, test, m_previousTests);
+      /*
+      if (score < RESET_SCORE_THRESHOLD)
+        cluster.multiplyWeights(RESET_SCORE_FACTOR);
+      */
+    }
 
     m_previousTests.push_back(make_pair(test.getInfectionTime(), test.getNodeId()));
 
@@ -217,24 +235,54 @@ void WorkerNode::recomputePartialTestScores()
 
   // Compute total mass for non-VOI policies.
   computeCurrentWeight();
+
+  /*
   if (m_config.objType == VOI)
     computeTestPriors();
+  */
 
   // Recompute requests coming from master.
   int currentTestNode = 0;
   MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
-
-  double massBuffer[m_config.objSums];
-  double positiveTestPrior;
   while (currentTestNode != -1) {
-    memset(massBuffer, 0, m_config.objSums * sizeof(*massBuffer));
-    positiveTestPrior = 0.0;
+    int totalInfectionTimes = m_nodeInfectionTimes[currentTestNode].size();
 
+    double mass[totalInfectionTimes];
+    memset(mass, 0, totalInfectionTimes * sizeof(*mass));
+
+    double sqMass[totalInfectionTimes];
+    memset(sqMass, 0, totalInfectionTimes * sizeof(*sqMass));
+
+    double priors[totalInfectionTimes];
+    memset(priors, 0, totalInfectionTimes * sizeof(*priors));
+
+    // For each infection time, compute mass and prior.
+    GraphTest test(currentTestNode);
+    for (const GraphHypothesisCluster& cluster : m_clusters) {
+      for (size_t i = 0; i < m_nodeInfectionTimes[currentTestNode].size(); ++i) {
+        test.setInfectionTime(m_nodeInfectionTimes[currentTestNode][i]);
+        pair<double, double> vals = cluster.computeMassWithTest(
+            m_config.eps, test, m_previousTests);
+        priors[i] += vals.first;
+        mass[i] += vals.second;
+        sqMass[i] += vals.second * vals.second;
+      }
+    }
+
+    // Priors, mass, squared mass..
+    MPI::COMM_WORLD.Reduce(
+      priors, NULL, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(
+      mass, NULL, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Reduce(
+      sqMass, NULL, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+    /*
     // Compute partial mass scores.
     GraphTest test(currentTestNode);
     for (const GraphHypothesisCluster& cluster : m_clusters) {
       pair<double, double> mass = cluster.computeMassWithTest(
-          positiveTestPrior, m_config.eps, test, m_previousTests);
+          positiveTestPrior, m_config.eps, test);
       if (m_config.objType == VOI) {
         double expectedMass = m_testsPrior[currentTestNode] * mass.first +
             (1 - m_testsPrior[currentTestNode]) * mass.second;
@@ -259,6 +307,7 @@ void WorkerNode::recomputePartialTestScores()
       op = MPI::MAX;
     MPI::COMM_WORLD.Reduce(massBuffer, NULL, m_config.objSums,
         MPI::DOUBLE, op, MPI_MASTER);
+    */
 
     // Get the next node to be evaluated.
     MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);

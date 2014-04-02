@@ -52,8 +52,7 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   vector<pair<double, int>> observers;
   for (int observer : m_observerNodes) {
     // If chosen observers are not infected, we just skip them.
-    if (realization.getInfectionTime(observer) == INFECTED_UNDEFINED ||
-        realization.getInfectionTime(observer) == INFECTED_FALSE)
+    if (realization.getInfectionTime(observer) == INFECTED_FALSE)
       continue;
 
     observers.push_back(

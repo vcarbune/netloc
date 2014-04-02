@@ -149,6 +149,8 @@ void MPINode::readNetwork()
 
   TFIn FIn(m_config.netinFile);
   m_network = TUNGraph::Load(FIn);
+  m_network->GetNIdV(m_nid);
+
   m_config.nodes = m_network->GetNodes();
   m_config.ndcgN = static_cast<int>(0.05 * m_network->GetNodes());
 }

@@ -9,7 +9,7 @@
 #include <limits>
 #include <utility>
 
-#define INFECTED_FALSE        -2
+#define INFECTED_FALSE        numeric_limits<double>::max()
 #define INFECTED_UNDEFINED    -1
 
 /**

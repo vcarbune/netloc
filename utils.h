@@ -16,7 +16,7 @@
 #define UTILS_H_
 
 #define MPI_MASTER 0
-#define DBG 0
+#define DBG 1
 
 /* MPI DEFINES */
 #define RANDOM_SUMS       0
@@ -29,6 +29,10 @@
 #define NEGATIVE_SUM      1
 #define POSITIVE_DIAG_SUM 2
 #define NEGATIVE_DIAG_SUM 3
+
+/* MASS RESET THRESHOLD */
+#define RESET_SCORE_THRESHOLD         1
+#define RESET_SCORE_FACTOR            1
 
 typedef std::pair<int, std::vector<double>> result_t;
 
@@ -112,6 +116,7 @@ class MPINode {
     SimConfig m_config;
 
     std::vector<double> m_testsPrior;
+    TIntV m_nid;
 };
 
 #endif // UTILS_H_

@@ -22,7 +22,8 @@ class WorkerNode : public MPINode {
 
     /* Initialize */
     void initializeClusters();
-    void computeTestPriors();
+    void initializeNodeInfectionTimeMap();
+    // void computeTestPriors();
     void initializeTestHeap();
 
     /* Simulate */
@@ -37,6 +38,9 @@ class WorkerNode : public MPINode {
     std::vector<GraphHypothesisCluster> m_clusters;
     std::vector<std::pair<double, int>> m_previousTests;
     std::pair<int, int> m_nodeRange;
+
+    /* List of infection times to be considered per node */
+    std::vector<std::vector<double>> m_nodeInfectionTimes;
 };
 
 #endif

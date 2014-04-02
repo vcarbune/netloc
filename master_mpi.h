@@ -23,9 +23,11 @@ class MasterNode : public MPINode {
 
     /* Initialize */
     void initializeGroundTruths();
-    void computeTestPriors(double);
+    // void computeTestPriors(double);
     double computeCurrentWeight(double*);
 
+    void reset();
+    void initializeNodeInfectionTimeMap();
     void initializeTests();
     void initializeTestHeap();
     void initializeTestVector();
@@ -60,6 +62,7 @@ class MasterNode : public MPINode {
 
     /* m_ec2observers[TRUTH][PCNT]; */
     std::vector<std::vector<int>> m_ec2observers;
+    std::vector<std::vector<double>> m_nodeInfectionTimes;
 };
 
 #endif

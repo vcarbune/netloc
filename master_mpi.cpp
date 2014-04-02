@@ -21,6 +21,7 @@ MasterNode::MasterNode(SimConfig config)
 {
   srand(time(NULL));
   initializeGroundTruths();
+  initializeNodeInfectionTimeMap();
 }
 
 void MasterNode::runWithCurrentConfig()
@@ -35,7 +36,7 @@ void MasterNode::runWithCurrentConfig()
   vector<vector<result_t>> results[m_config.steps];
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
     double startTime = time(NULL);
-    initializeTests();
+    reset();
     cout << "Nodes were initialized in " <<
         difftime(time(NULL), startTime) << "s." << endl;
     for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
@@ -106,25 +107,6 @@ void MasterNode::initializeGroundTruths()
   }
 }
 
-void MasterNode::computeTestPriors(double currentWeight)
-{
-  double testPriors[m_config.nodes];
-  double nullVals[m_config.nodes];
-  memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
-
-  // Get from workers the node count for each test node.
-  MPI::COMM_WORLD.Reduce(nullVals, testPriors, m_config.nodes,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
-    testPriors[testNode] /= currentWeight;
-    m_testsPrior[testNode] = testPriors[testNode];
-  }
-
-  // Broadcast back to workers computed test priors.
-  MPI::COMM_WORLD.Bcast(testPriors, m_config.nodes, MPI::DOUBLE, MPI_MASTER);
-}
-
 double MasterNode::computeCurrentWeight(double *weightSum) {
   // Compute current mass of all the clusters.
   double currentMass = 0.0;
@@ -144,8 +126,60 @@ double MasterNode::computeCurrentWeight(double *weightSum) {
   return currentMass;
 }
 
+void MasterNode::reset()
+{
+  if (!m_config.cluster.keep)
+    initializeNodeInfectionTimeMap();
+  initializeTests();
+}
+
+void MasterNode::initializeNodeInfectionTimeMap()
+{
+  m_nodeInfectionTimes.clear();
+
+  int junk = 0;
+  MPI::Status status;
+  for (int node = 0; node < m_network->GetNodes(); ++node) {
+    int infectionTimeVectorSize[m_config.mpi.nodes];
+
+    MPI::COMM_WORLD.Gather(&junk, 1, MPI::INT,
+        infectionTimeVectorSize, 1, MPI::INT, MPI_MASTER);
+
+    vector<double> uniqueInfectionTimes;
+    for (int worker = 1; worker <  m_config.mpi.nodes; ++worker) {
+      int items = infectionTimeVectorSize[worker];
+      double infectionTimes[items];
+      MPI::COMM_WORLD.Recv(
+          infectionTimes, items, MPI::DOUBLE, worker, 0, status);
+
+      vector<double> result(items + uniqueInfectionTimes.size());
+      vector<double>::iterator it = set_union(
+          uniqueInfectionTimes.begin(), uniqueInfectionTimes.end(),
+          infectionTimes, infectionTimes + items, result.begin());
+      result.resize(it - result.begin());
+
+      uniqueInfectionTimes.swap(result);
+    }
+
+/*
+    cout << node << ": ";
+    for (size_t i = 0; i < uniqueInfectionTimes.size(); ++i)
+      cout << uniqueInfectionTimes[i] << " ";
+    cout << endl;
+*/
+
+    // Is it really useful to store this?
+    m_nodeInfectionTimes.push_back(uniqueInfectionTimes);
+
+    int size = uniqueInfectionTimes.size();
+    MPI::COMM_WORLD.Bcast(&size, 1, MPI::INT, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&uniqueInfectionTimes.front(), size, MPI::DOUBLE, MPI_MASTER);
+  }
+}
+
 void MasterNode::initializeTests()
 {
+  m_tests.clear();
   if (m_config.objType == EPFL_ML || m_config.objType == EPFL_EC2)
     return;
   else if (m_config.objType == RANDOM || m_config.objType == VOI)
@@ -156,6 +190,21 @@ void MasterNode::initializeTests()
 
 void MasterNode::initializeTestHeap()
 {
+  double weightSum = 0;
+  double currentGraphWeight = computeCurrentWeight(&weightSum);
+  for (int node = 0; node < m_config.nodes; ++node) {
+    GraphTest test(node);
+    recomputeTestScore(test, weightSum, currentGraphWeight);
+    m_tests.push_back(test);
+  }
+
+  // Inform worker nodes to stop processing requests for recomputations.
+  int invalidNode = -1;
+  MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
+
+  make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
+      m_tests.begin(), m_tests.end(), TestCompareFunction());
+  /*
   double nullVals[m_config.nodes];
   double sums[m_config.objSums][m_config.nodes];
 
@@ -203,6 +252,7 @@ void MasterNode::initializeTestHeap()
 
   make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
       m_tests.begin(), m_tests.end(), TestCompareFunction());
+  */
 }
 
 void MasterNode::initializeTestVector()
@@ -252,28 +302,42 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
+#if DBG
     cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+#endif
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
-    bool outcome = realization.getTestOutcome(nextTest, m_previousTests);
+    double score = nextTest.getScore();
+
+    // Use the observer.
     double infection = realization.getInfectionTime(nextTest.getNodeId());
 
     MPI::COMM_WORLD.Bcast(&nodeId, 1, MPI::INT, MPI_MASTER);
-    MPI::COMM_WORLD.Bcast(&outcome, 1, MPI::BOOL, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&infection, 1, MPI::DOUBLE, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&score, 1, MPI::DOUBLE, MPI_MASTER);
 
     m_previousTests.push_back(make_pair(infection, nodeId));
+
     if (fabs(count - nextPcnt * m_config.nodes) < 0.5) {
       results.push_back(identifyCluster(realizationIdx));
       nextPcnt += m_config.sampling;
     }
-/*
+
     if (m_config.objType == RANDOM)
       continue;
+/*
+    if (score < RESET_SCORE_THRESHOLD) {
+      double resetFactor = 1.00;
+      if (m_config.objType == EC2) {
+        resetFactor = RESET_SCORE_FACTOR * RESET_SCORE_FACTOR;
+      } else if (m_config.objType == GBS) {
+        resetFactor = RESET_SCORE_FACTOR;
+      }
 
-    for (GraphTest& test : tests) {
-      test.setScore((1-m_config.eps) * (1-m_config.eps) * test.getScore());
+      for (GraphTest& test : tests) {
+        test.setScore(resetFactor * test.getScore());
+      }
     }
 */
   }
@@ -305,7 +369,7 @@ GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
   double maxTestScore = -numeric_limits<double>::max();
   size_t maxTestIndex = 0;
 
-  computeTestPriors(currentWeight);
+  // computeTestPriors(currentWeight);
   for (size_t i = 0; i < tests.size(); ++i) {
     GraphTest& test = tests[i];
     recomputeTestScore(test, currentWeight, currentWeight);
@@ -330,22 +394,22 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 
   double weightSum = 0;
   double currentMass = computeCurrentWeight(&weightSum);
+  /*
   if (m_config.objType == VOI)
     return selectVOITest(tests, currentMass);
+  */
 
   TestCompareFunction tstCmpFcn;
+#if DBG
   int count = 0;
+  cout << "Current Mass: " << currentMass << endl;
+#endif
   do {
     // Remove the top test from the heap.
     GraphTest crtTop = tests.front();
     pop_heap<vector<GraphTest>::iterator, TestCompareFunction>(
         tests.begin(), tests.end(), TestCompareFunction());
     tests.pop_back();
-
-#if DBG
-    cout << "Top: " << crtTop.getScore() << " Next: " <<
-      tests.front().getScore() << endl;
-#endif
 
     // Exit early if it's the last element in the heap.
     if (!tests.size()) {
@@ -357,13 +421,10 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 
     // Recompute its score and keep it if it stays on top.
     recomputeTestScore(crtTop, weightSum, currentMass);
-
-#if DBG
-    cout << "Rescored Top: " << crtTop.getScore() << endl;
-#endif
-
     if (tstCmpFcn(tests.front(), crtTop)) {
+#if DBG
       cout << "Heap cost: " << count << endl;
+#endif
       int invalidNode = -1;
       MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
 
@@ -372,7 +433,9 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 
     // Otherwise push it back to the heap.
     tests.push_back(crtTop);
+#if DBG
     count++;
+#endif
     push_heap<vector<GraphTest>::iterator, TestCompareFunction>(
         tests.begin(), tests.end(), TestCompareFunction());
   } while (true);
@@ -423,12 +486,43 @@ void MasterNode::recomputeTestScoreVOI(GraphTest& test)
 void MasterNode::recomputeTestScore(
     GraphTest& test, double weightSum, double currentMass)
 {
+  // Broadcast current node for which scores are recomputed.
   int currentTestNode = test.getNodeId();
   MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
 
-  double nullVals[m_config.objSums];
-  memset(nullVals, 0, m_config.objSums * sizeof(*nullVals));
+  // For each infection time, a different prior, a different mass.
+  int totalInfectionTimes = m_nodeInfectionTimes[currentTestNode].size();
 
+  double nullVals[totalInfectionTimes];
+  memset(nullVals, 0, totalInfectionTimes * sizeof(*nullVals));
+
+  // Recompute test priors, for each infection time!
+  double priors[totalInfectionTimes];
+  MPI::COMM_WORLD.Reduce(
+      nullVals, priors, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  // Recompute masses.
+  double mass[totalInfectionTimes];
+  double sqMass[totalInfectionTimes];
+  MPI::COMM_WORLD.Reduce(
+      nullVals, mass, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+  MPI::COMM_WORLD.Reduce(
+      nullVals, sqMass, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+
+  double expectedMass = 0.0;
+  for (int i = 0; i < totalInfectionTimes; ++i) {
+    priors[i] = priors[i] / weightSum;
+    if (m_config.objType == EC2)
+      expectedMass += priors[i] * (mass[i] * mass[i] - sqMass[i]);
+    else if (m_config.objType == GBS)
+      expectedMass += priors[i] * mass[i];
+    else
+      cout << "Warning: not yet supported :(" << endl;
+  }
+
+  test.setScore(currentMass - expectedMass);
+
+/*
   // Recompute test prior.
   double junk = 0.0;
   double positiveTestPrior;
@@ -443,6 +537,7 @@ void MasterNode::recomputeTestScore(
     recomputeTestScoreVOI(test);
   else
     cout << "This part of the code should never be reached.." << endl;
+*/
 }
 
 double MasterNode::computeNDCG(
