@@ -204,55 +204,6 @@ void MasterNode::initializeTestHeap()
 
   make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
       m_tests.begin(), m_tests.end(), TestCompareFunction());
-  /*
-  double nullVals[m_config.nodes];
-  double sums[m_config.objSums][m_config.nodes];
-
-  MPI::Status status;
-  memset(sums, 0, m_config.objSums * m_config.nodes * sizeof(**sums));
-  memset(nullVals, 0, m_config.nodes * sizeof(*nullVals));
-
-  // Compute current mass of all the clusters.
-  double weightSum = 0;
-  double currentMass = computeCurrentWeight(&weightSum);
-  // Reinitialize test priors
-  computeTestPriors(weightSum);
-
-  for (int s = 0; s < m_config.objSums; ++s)
-    MPI::COMM_WORLD.Reduce(nullVals, sums[s], m_config.nodes,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  m_tests.clear();
-  for (int test = 0; test < m_config.nodes; ++test) {
-    double score = 0.0;
-    double testPositivePb = m_testsPrior[test];
-
-    if (m_config.objType == EC2) {
-      double positiveMass = sums[POSITIVE_SUM][test] * sums[POSITIVE_SUM][test] -
-          sums[POSITIVE_DIAG_SUM][test];
-      double negativeMass = sums[NEGATIVE_SUM][test] * sums[NEGATIVE_SUM][test] -
-          sums[NEGATIVE_DIAG_SUM][test];
-      score = currentMass -
-          (testPositivePb * positiveMass + (1 - testPositivePb) * negativeMass);
-    } else if (m_config.objType == GBS) {   // GBS
-      score = testPositivePb * sums[POSITIVE_SUM][test] +
-        (1 - testPositivePb) * sums[NEGATIVE_SUM][test];
-      score = currentMass - score;
-    } else if (m_config.objType == VOI) {   // VOI
-      score = sums[0][test];
-    } else {
-      cout << "Code path should not get here!" << endl;
-    }
-
-    GraphTest graphTest(test);
-    graphTest.setScore(score);
-
-    m_tests.push_back(graphTest);
-  }
-
-  make_heap<vector<GraphTest>::iterator, TestCompareFunction>(
-      m_tests.begin(), m_tests.end(), TestCompareFunction());
-  */
 }
 
 void MasterNode::initializeTestVector()
@@ -369,7 +320,6 @@ GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
   double maxTestScore = -numeric_limits<double>::max();
   size_t maxTestIndex = 0;
 
-  // computeTestPriors(currentWeight);
   for (size_t i = 0; i < tests.size(); ++i) {
     GraphTest& test = tests[i];
     recomputeTestScore(test, currentWeight, currentWeight);
@@ -521,23 +471,6 @@ void MasterNode::recomputeTestScore(
   }
 
   test.setScore(currentMass - expectedMass);
-
-/*
-  // Recompute test prior.
-  double junk = 0.0;
-  double positiveTestPrior;
-  MPI::COMM_WORLD.Reduce(&junk, &positiveTestPrior, 1,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-  m_testsPrior[test.getNodeId()] = positiveTestPrior / weightSum;
-  if (m_config.objType == EC2)
-    recomputeTestScoreEC2(test, currentMass, nullVals);
-  else if (m_config.objType == GBS)
-    recomputeTestScoreGBS(test, currentMass, nullVals);
-  else if (m_config.objType == VOI)
-    recomputeTestScoreVOI(test);
-  else
-    cout << "This part of the code should never be reached.." << endl;
-*/
 }
 
 double MasterNode::computeNDCG(

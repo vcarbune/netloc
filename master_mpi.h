@@ -23,7 +23,6 @@ class MasterNode : public MPINode {
 
     /* Initialize */
     void initializeGroundTruths();
-    // void computeTestPriors(double);
     double computeCurrentWeight(double*);
 
     void reset();

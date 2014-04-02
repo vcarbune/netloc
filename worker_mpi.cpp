@@ -100,51 +100,6 @@ void WorkerNode::initializeTestHeap()
     return;
 
   recomputePartialTestScores();
-  /*
-  double massBuffer[m_config.objSums][m_config.nodes];
-  memset(massBuffer, 0, m_config.objSums * m_config.nodes * sizeof(**massBuffer));
-
-  // Compute test priors.
-  computeCurrentWeight();
-  computeTestPriors();
-
-  // Compute the positive & negative mass for the test nodes.
-  double junk = 0.0;
-  for (int testNode = 0; testNode < m_config.nodes; ++testNode) {
-    GraphTest test(testNode);
-    for (int i = 0; i < m_nodeInfectionTime[testNode].size(); ++i) {
-      test.setInfectionTime(m_nodeInfectionTimes[testNode][i]);
-      for (const GraphHypothesisCluster& cluster : m_clusters) {
-        // (prior, mass)
-        pair<double, double> expected =
-            cluster.computeMassWithTest(test, m_config.eps);
-    }
-      pair<double, double> mass = cluster.computeMassWithTest(
-          junk, m_config.eps, test);
-
-      if (m_config.objType == VOI) {
-        double expectedMass = m_testsPrior[testNode] * mass.first +
-            (1 - m_testsPrior[testNode]) * mass.second;
-        massBuffer[0][testNode] = max(massBuffer[0][testNode], expectedMass);
-      } else {
-        massBuffer[POSITIVE_SUM][testNode] += mass.first;
-        massBuffer[NEGATIVE_SUM][testNode] += mass.second;
-        if (m_config.objType == EC2) { // Only for EC2
-          massBuffer[POSITIVE_DIAG_SUM][testNode] += mass.first * mass.first;
-          massBuffer[NEGATIVE_DIAG_SUM][testNode] += mass.second * mass.second;
-        }
-      }
-    }
-  }
-
-  // Send to the master node the computed masses.
-  MPI::Op op = MPI::SUM;
-  if (m_config.objType == VOI)
-    op = MPI::MAX;
-  for (int s = 0; s < m_config.objSums; ++s)
-    MPI::COMM_WORLD.Reduce(massBuffer[s], NULL, m_config.nodes,
-        MPI::DOUBLE, op, MPI_MASTER);
-  */
 }
 
 void WorkerNode::reset()
@@ -276,38 +231,6 @@ void WorkerNode::recomputePartialTestScores()
       mass, NULL, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
     MPI::COMM_WORLD.Reduce(
       sqMass, NULL, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-    /*
-    // Compute partial mass scores.
-    GraphTest test(currentTestNode);
-    for (const GraphHypothesisCluster& cluster : m_clusters) {
-      pair<double, double> mass = cluster.computeMassWithTest(
-          positiveTestPrior, m_config.eps, test);
-      if (m_config.objType == VOI) {
-        double expectedMass = m_testsPrior[currentTestNode] * mass.first +
-            (1 - m_testsPrior[currentTestNode]) * mass.second;
-        massBuffer[0] = max(massBuffer[0], expectedMass);
-      } else {
-        massBuffer[POSITIVE_SUM] += mass.first;
-        massBuffer[NEGATIVE_SUM] += mass.second;
-        if (m_config.objType == EC2) {
-          massBuffer[POSITIVE_DIAG_SUM] += mass.first * mass.first;
-          massBuffer[NEGATIVE_DIAG_SUM] += mass.second * mass.second;
-        }
-      }
-    }
-
-    // Return the test prior information.
-    MPI::COMM_WORLD.Reduce(&positiveTestPrior, NULL, 1,
-        MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-    // Return the information to the master node.
-    MPI::Op op = MPI::SUM;
-    if (m_config.objType == VOI)
-      op = MPI::MAX;
-    MPI::COMM_WORLD.Reduce(massBuffer, NULL, m_config.objSums,
-        MPI::DOUBLE, op, MPI_MASTER);
-    */
 
     // Get the next node to be evaluated.
     MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);

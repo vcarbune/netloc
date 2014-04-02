@@ -23,7 +23,6 @@ class WorkerNode : public MPINode {
     /* Initialize */
     void initializeClusters();
     void initializeNodeInfectionTimeMap();
-    // void computeTestPriors();
     void initializeTestHeap();
 
     /* Simulate */
