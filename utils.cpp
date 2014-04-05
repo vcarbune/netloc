@@ -100,8 +100,9 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
   config.setObjType(static_cast<AlgorithmType>(paramObjType.Val));
   config.infType = static_cast<InfectionType>(paramInfectionType.Val);
-  if (config.infType == GAUSSIAN)
+  if (config.infType == GAUSSIAN) {
     config.cluster.beta = 1.00 / config.cluster.miu;
+  }
 
   config.groundTruthFile = paramGroundTruthFile;
   config.groundTruths = paramGroundTruths;

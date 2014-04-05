@@ -16,7 +16,7 @@
 #define UTILS_H_
 
 #define MPI_MASTER 0
-#define DBG 1
+#define DBG 0
 
 /* MPI DEFINES */
 #define RANDOM_SUMS       0
@@ -88,7 +88,7 @@ class SimConfig {
 
     // Noisy Model Re-weighing (tolerance to noisy measurements).
     double eps;
-    double sampling = 0.05;
+    double sampling = 0.04;
     int ndcgN;
 
     MPIClusterConfig mpi;

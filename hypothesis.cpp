@@ -133,7 +133,8 @@ GraphHypothesis GraphHypothesis::generateHypothesisUsingGaussianModel(
   unsigned int maxCascadeSize = isTrueHypothesis ? trueCascadeSize : artifCascadeSize;
 
   // Assign propagation delays to all edges using a normal distribution.
-  std::default_random_engine generator;
+  double seed = isTrueHypothesis ? network->GetMxNId() : sourceId;
+  std::default_random_engine generator(seed);
 
   // miu/sigma = 4 (synthetic data)
   std::normal_distribution<double> d(cluster.miu, cluster.sigma);
@@ -233,8 +234,13 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
 {
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
-    cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
-          network, source, config.cluster, false));
+    if (config.infType == BETA)
+      cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
+            network, source, config.cluster, false));
+    else if (config.infType == GAUSSIAN)
+      cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesisUsingGaussianModel(
+            network, source, config.cluster, false));
+
     cluster.m_hypothesis[h].weight = weight / config.cluster.size;
   }
   return cluster;

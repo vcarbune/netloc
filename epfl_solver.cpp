@@ -84,7 +84,8 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
     moments = make_pair(1.00/beta, sqrt((1.00 - beta)/(beta*beta)));
     cout << moments.first << " -- " << moments.second << endl;
   } else {
-    moments = computeGaussianMoments(observers);
+    moments = make_pair(m_config.cluster.miu, m_config.cluster.beta);
+    // moments = computeGaussianMoments(observers);
   }
 
   TIntH idToShortestPathsFromReference;
