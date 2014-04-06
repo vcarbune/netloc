@@ -186,14 +186,18 @@ void MPINode::run()
     objectives.push_back(static_cast<AlgorithmType>(m_config.objType));
   }
 
-  for (AlgorithmType objType : objectives) {
+  for (size_t i = 0; i < objectives.size(); ++i) {
+    AlgorithmType objType = objectives[i];
+
     // Reset configuration.
     m_config = initialConfig;
     // Set objective properly.
     m_config.setObjType(static_cast<AlgorithmType>(objType));
     // Set logfile properly.
-    m_config.logfile = TStr::Fmt("%s%d_%s.log", m_config.logfile.CStr(),
-        m_config.nodes, algorithmTypeToString(static_cast<AlgorithmType>(objType)));
+    m_config.logfile = TStr::Fmt("%s%d_%s%d.log", m_config.logfile.CStr(),
+        m_config.nodes,
+        algorithmTypeToString(static_cast<AlgorithmType>(objType)),
+        i);
 
     runWithCurrentConfig();
   }
