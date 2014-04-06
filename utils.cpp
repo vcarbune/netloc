@@ -173,8 +173,8 @@ void MPINode::run()
     objectives.push_back(EPFL_EC2);
   } else if (m_config.objType == -1) {
     // Run with all the objectives and compare everything.
-    objectives.push_back(RANDOM);
     objectives.push_back(GBS);
+    objectives.push_back(RANDOM);
     objectives.push_back(EC2);
     objectives.push_back(EPFL_ML);
     objectives.push_back(EPFL_EC2);
