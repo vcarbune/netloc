@@ -253,9 +253,9 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-//#if DBG
+#if DBG
     cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
-//#endif
+#endif
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
