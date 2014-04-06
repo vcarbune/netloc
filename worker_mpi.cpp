@@ -104,6 +104,8 @@ void WorkerNode::initializeTestHeap()
 
 void WorkerNode::reset()
 {
+  // cout << "WorkerNode::reset()" << endl;
+  m_previousTests.clear();
   if (!m_config.cluster.keep) {
     initializeClusters();
     initializeNodeInfectionTimeMap();
@@ -114,6 +116,7 @@ void WorkerNode::reset()
 void WorkerNode::simulate()
 {
   m_previousTests.clear();
+
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     recomputePartialTestScores();

@@ -37,8 +37,6 @@ void MasterNode::runWithCurrentConfig()
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
     double startTime = time(NULL);
     reset();
-    cout << "Nodes were initialized in " <<
-        difftime(time(NULL), startTime) << "s." << endl;
     for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
       const GraphHypothesis& realization = m_realizations[idx];
       vector<result_t> incrementalResults = simulate(idx);
@@ -128,6 +126,7 @@ double MasterNode::computeCurrentWeight(double *weightSum) {
 
 void MasterNode::reset()
 {
+  // cout << "MasterNode::reset()" << endl;
   if (!m_config.cluster.keep)
     initializeNodeInfectionTimeMap();
   initializeTests();
@@ -190,6 +189,7 @@ void MasterNode::initializeTests()
 
 void MasterNode::initializeTestHeap()
 {
+  // cout << "MasterNode::initializeTestHeap()" << endl;
   double weightSum = 0;
   double currentGraphWeight = computeCurrentWeight(&weightSum);
   for (int node = 0; node < m_config.nodes; ++node) {
@@ -253,9 +253,9 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
-#if DBG
+//#if DBG
     cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
-#endif
+//#endif
 
     // Inform the workers about the selected test.
     int nodeId = nextTest.getNodeId();
@@ -339,11 +339,14 @@ GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
 
 GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 {
+  // cout << "MasterNode::selectNextTest()" << endl;
+
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
 
   double weightSum = 0;
   double currentMass = computeCurrentWeight(&weightSum);
+
   /*
   if (m_config.objType == VOI)
     return selectVOITest(tests, currentMass);
@@ -469,7 +472,6 @@ void MasterNode::recomputeTestScore(
     else
       cout << "Warning: not yet supported :(" << endl;
   }
-
   test.setScore(currentMass - expectedMass);
 }
 
