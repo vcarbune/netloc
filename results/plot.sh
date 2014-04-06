@@ -1,4 +1,4 @@
-#!:/bin/bash
+#!/bin/bash
 
 echo "Plotting Logs in $1"
 

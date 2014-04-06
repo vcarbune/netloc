@@ -39,9 +39,8 @@ bool GraphHypothesis::isConsistentWithTest(
   // There are two ways of treating this:
   // - by default down-weight, because this cluster is definitely not the source.
   // - by default do nothing, because the point couldn't be reached in this  instance.
-  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE &&
-      m_maxInfectionTime < infectionTime)
-    return true;
+  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE)
+    return false;
 
   return this->isConsistentWithPreviousTests(test, prevTests);
 }
