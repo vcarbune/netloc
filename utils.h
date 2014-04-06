@@ -57,7 +57,8 @@ enum AlgorithmType {
   RANDOM,     // Non-adaptive Random Selection
   EPFL_ML,    // Non-adaptive EPFL Approach (using Highest Degree observers)
   EPFL_EC2,   // Adaptive     EPFL Approach (using EC2 selected observers)
-  VOI         // Adaptive     Value of Information
+  VOI,        // Adaptive     Value of Information
+  DEBUG       // Debugging    EC2 x 2
 };
 
 enum InfectionType {

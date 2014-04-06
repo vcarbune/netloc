@@ -22,6 +22,8 @@ const char* algorithmTypeToString(AlgorithmType obj) {
       return "epfl_high";
     case EPFL_EC2:
       return "epfl_ec2";
+    case DEBUG:
+      return "debug";
   }
 
   return "huh";
@@ -116,6 +118,7 @@ void SimConfig::setObjType(AlgorithmType objType)
 {
   this->objType = objType;
   switch (this->objType) {
+    case DEBUG:
     case EC2:
       objSums = EC2_SUMS;
       break;
@@ -175,6 +178,9 @@ void MPINode::run()
     objectives.push_back(EC2);
     objectives.push_back(EPFL_ML);
     objectives.push_back(EPFL_EC2);
+  } else if (m_config.objType == DEBUG) {
+    objectives.push_back(EC2);
+    objectives.push_back(EC2);
   } else {
     // Run only with the specified objective.
     objectives.push_back(static_cast<AlgorithmType>(m_config.objType));
