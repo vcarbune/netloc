@@ -194,10 +194,9 @@ void MPINode::run()
     // Set objective properly.
     m_config.setObjType(static_cast<AlgorithmType>(objType));
     // Set logfile properly.
-    m_config.logfile = TStr::Fmt("%s%d_%s%d.log", m_config.logfile.CStr(),
+    m_config.logfile = TStr::Fmt("%s%d_%s.log", m_config.logfile.CStr(),
         m_config.nodes,
-        algorithmTypeToString(static_cast<AlgorithmType>(objType)),
-        i);
+        algorithmTypeToString(static_cast<AlgorithmType>(objType)));
 
     runWithCurrentConfig();
   }
