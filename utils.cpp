@@ -12,6 +12,8 @@ const char* algorithmTypeToString(AlgorithmType obj) {
   switch(obj) {
     case EC2:
       return "ec2";
+    case EC2_HIGH:
+      return "ec2_high";
     case GBS:
       return "gbs";
     case VOI:
@@ -119,6 +121,7 @@ void SimConfig::setObjType(AlgorithmType objType)
   this->objType = objType;
   switch (this->objType) {
     case DEBUG:
+    case EC2_HIGH:
     case EC2:
       objSums = EC2_SUMS;
       break;

@@ -37,6 +37,7 @@ class MasterNode : public MPINode {
     std::vector<result_t> simulateEPFLPolicy(int);
 
     GraphTest selectRandomTest(std::vector<GraphTest>&);
+    GraphTest selectHighestDegreeTest(std::vector<GraphTest>&);
     GraphTest selectVOITest(std::vector<GraphTest>&, double);
     GraphTest selectNextTest(std::vector<GraphTest>&);
 

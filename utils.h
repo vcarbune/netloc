@@ -53,6 +53,7 @@ struct HypothesisClusterConfig {
 
 enum AlgorithmType {
   EC2 = 0,    // Adaptive     Edge Cutting Equivalence Class
+  EC2_HIGH,   // Non-adaptive Hypothesis Weighing using High-Degree
   GBS,        // Adaptive     Generalized Binary Search
   RANDOM,     // Non-adaptive Random Selection
   EPFL_ML,    // Non-adaptive EPFL Approach (using Highest Degree observers)

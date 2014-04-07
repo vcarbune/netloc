@@ -96,7 +96,8 @@ void WorkerNode::initializeNodeInfectionTimeMap()
 
 void WorkerNode::initializeTestHeap()
 {
-  if (m_config.objType == RANDOM || m_config.objType == VOI)
+  if (m_config.objType == RANDOM || m_config.objType == VOI ||
+      m_config.objType == EC2_HIGH)
     return;
 
   recomputePartialTestScores();
@@ -188,7 +189,7 @@ void WorkerNode::computeCurrentWeight()
 void WorkerNode::recomputePartialTestScores()
 {
   // No requests will come for random policy.
-  if (m_config.objType == RANDOM)
+  if (m_config.objType == RANDOM || m_config.objType == EC2_HIGH)
     return;
 
   // Compute total mass for non-VOI policies.

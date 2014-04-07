@@ -181,7 +181,8 @@ void MasterNode::initializeTests()
   m_tests.clear();
   if (m_config.objType == EPFL_ML || m_config.objType == EPFL_EC2)
     return;
-  else if (m_config.objType == RANDOM || m_config.objType == VOI)
+  else if (m_config.objType == RANDOM || m_config.objType == VOI ||
+           m_config.objType == EC2_HIGH)
     initializeTestVector();
   else
     initializeTestHeap();
@@ -314,6 +315,25 @@ GraphTest MasterNode::selectRandomTest(vector<GraphTest>& tests)
   return test;
 }
 
+GraphTest MasterNode::selectHighestDegreeTest(vector<GraphTest>& tests)
+{
+  size_t idx = 0;
+  int highestDegree = m_network->GetNI(tests[idx].getNodeId()).GetOutDeg();
+
+  for (size_t i = 1; i < tests.size(); ++i) {
+    int nodeDegree = m_network->GetNI(tests[i].getNodeId()).GetOutDeg();
+    if (nodeDegree > highestDegree) {
+      idx = i;
+      highestDegree = nodeDegree;
+    }
+  }
+
+  GraphTest test = tests[idx];
+  test.setScore(highestDegree);
+  tests.erase(tests.begin() + idx);
+  return test;
+}
+
 GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
     double currentWeight)
 {
@@ -343,6 +363,8 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
 
   if (m_config.objType == RANDOM)
     return selectRandomTest(tests);
+  if (m_config.objType == EC2_HIGH)
+    return selectHighestDegreeTest(tests);
 
   double weightSum = 0;
   double currentMass = computeCurrentWeight(&weightSum);
