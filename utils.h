@@ -16,7 +16,7 @@
 #define UTILS_H_
 
 #define MPI_MASTER 0
-#define DBG 0
+#define DBG 1
 
 /* MPI DEFINES */
 #define RANDOM_SUMS       0

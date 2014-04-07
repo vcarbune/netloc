@@ -32,6 +32,7 @@ class WorkerNode : public MPINode {
 
     /* Computational Methods */
     void computeCurrentWeight();
+    void recomputeVoIScores();
     void recomputePartialTestScores();
 
     std::vector<GraphHypothesisCluster> m_clusters;

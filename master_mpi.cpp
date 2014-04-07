@@ -285,20 +285,6 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
 
     if (m_config.objType == RANDOM)
       continue;
-/*
-    if (score < RESET_SCORE_THRESHOLD) {
-      double resetFactor = 1.00;
-      if (m_config.objType == EC2) {
-        resetFactor = RESET_SCORE_FACTOR * RESET_SCORE_FACTOR;
-      } else if (m_config.objType == GBS) {
-        resetFactor = RESET_SCORE_FACTOR;
-      }
-
-      for (GraphTest& test : tests) {
-        test.setScore(resetFactor * test.getScore());
-      }
-    }
-*/
   }
   results.push_back(identifyCluster(realizationIdx));
 
@@ -341,26 +327,46 @@ GraphTest MasterNode::selectHighestDegreeTest(vector<GraphTest>& tests)
   return test;
 }
 
-GraphTest MasterNode::selectVOITest(vector<GraphTest>& tests,
-    double currentWeight)
+GraphTest MasterNode::selectVoITest(vector<GraphTest>& tests)
 {
-  double maxTestScore = -numeric_limits<double>::max();
-  size_t maxTestIndex = 0;
+  double weightSum = 0;
+  computeCurrentWeight(&weightSum);
 
-  for (size_t i = 0; i < tests.size(); ++i) {
-    GraphTest& test = tests[i];
-    recomputeTestScore(test, currentWeight, currentWeight);
-    if (test.getScore() > maxTestScore) {
-      maxTestScore = test.getScore();
-      maxTestIndex = i;
-    }
+  size_t maxIdx = 0;
+  for (size_t idx = 0; idx < tests.size(); ++idx) {
+    int currentTestNode = tests[idx].getNodeId();
+    MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
+
+    // For each infection time, a different prior, a different mass.
+    int totalInfectionTimes = m_nodeInfectionTimes[currentTestNode].size();
+
+    double nullVals[totalInfectionTimes];
+    memset(nullVals, 0, totalInfectionTimes * sizeof(*nullVals));
+
+    double priors[totalInfectionTimes];
+    MPI::COMM_WORLD.Reduce(
+        nullVals, priors, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    for (int i = 0; i < totalInfectionTimes; ++i)
+      priors[i] = priors[i] / weightSum;
+
+    // Broadcast priors back to workers.
+    MPI::COMM_WORLD.Bcast(priors, totalInfectionTimes, MPI::DOUBLE, MPI_MASTER);
+
+    double score;
+    double nullVal = 0;
+    MPI::COMM_WORLD.Reduce(&nullVal, &score, 1, MPI::DOUBLE, MPI::MAX,
+        MPI_MASTER);
+
+    tests[idx].setScore(score);
+    if (tests[idx].getScore() > tests[maxIdx].getScore())
+      maxIdx = idx;
   }
 
-  int invalidNode = -1;
-  MPI::COMM_WORLD.Bcast(&invalidNode, 1, MPI::INT, MPI_MASTER);
+  int currentTestNode = -1;
+  MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
 
-  GraphTest test = tests[maxTestIndex];
-  tests.erase(tests.begin() + maxTestIndex);
+  GraphTest test = tests[maxIdx];
+  tests.erase(tests.begin() + maxIdx);
   return test;
 }
 
@@ -372,14 +378,11 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
     return selectRandomTest(tests);
   if (m_config.objType == EC2_HIGH)
     return selectHighestDegreeTest(tests);
+  if (m_config.objType == VOI)
+    return selectVoITest(tests);
 
   double weightSum = 0;
   double currentMass = computeCurrentWeight(&weightSum);
-
-  /*
-  if (m_config.objType == VOI)
-    return selectVOITest(tests, currentMass);
-  */
 
   TestCompareFunction tstCmpFcn;
 #if DBG
@@ -425,45 +428,6 @@ GraphTest MasterNode::selectNextTest(vector<GraphTest>& tests)
   cout << "SHOULD NOT BE REACHED" << endl;
   return tests.front();
 }
-
-void MasterNode::recomputeTestScoreEC2(
-    GraphTest& test, double currentMass, double* nullVals)
-{
-  double sums[m_config.objSums];
-  MPI::COMM_WORLD.Reduce(nullVals, sums, m_config.objSums,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  pair<double, double> mass(
-      sums[POSITIVE_SUM] * sums[POSITIVE_SUM] - sums[POSITIVE_DIAG_SUM],
-      sums[NEGATIVE_SUM] * sums[NEGATIVE_SUM] - sums[NEGATIVE_DIAG_SUM]);
-  double expectedMass = m_testsPrior[test.getNodeId()] * mass.first +
-      (1 - m_testsPrior[test.getNodeId()]) * mass.second;
-
-  test.setScore(currentMass - expectedMass);
-}
-
-void MasterNode::recomputeTestScoreGBS(
-    GraphTest& test, double currentMass, double* nullVals)
-{
-  double sums[m_config.objSums];
-  MPI::COMM_WORLD.Reduce(nullVals, sums, m_config.objSums,
-      MPI::DOUBLE, MPI::SUM, MPI_MASTER);
-
-  double expectedMass = m_testsPrior[test.getNodeId()] * sums[POSITIVE_SUM] +
-    (1 - m_testsPrior[test.getNodeId()]) * sums[NEGATIVE_SUM];
-
-  test.setScore(currentMass - expectedMass);
-}
-
-void MasterNode::recomputeTestScoreVOI(GraphTest& test)
-{
-  double nullVal = 0;
-  double maxClusterMassWithTest;
-  MPI::COMM_WORLD.Reduce(&nullVal, &maxClusterMassWithTest, 1,
-      MPI::DOUBLE, MPI::MAX, MPI_MASTER);
-  test.setScore(maxClusterMassWithTest);
-}
-
 
 void MasterNode::recomputeTestScore(
     GraphTest& test, double weightSum, double currentMass)

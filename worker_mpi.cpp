@@ -137,10 +137,6 @@ void WorkerNode::simulate()
 
     for (GraphHypothesisCluster& cluster : m_clusters) {
       cluster.updateMassWithTest(m_config.eps, test, m_previousTests);
-      /*
-      if (score < RESET_SCORE_THRESHOLD)
-        cluster.multiplyWeights(RESET_SCORE_FACTOR);
-      */
     }
 
     m_previousTests.push_back(make_pair(test.getInfectionTime(), test.getNodeId()));
@@ -186,19 +182,64 @@ void WorkerNode::computeCurrentWeight()
       MPI::SUM, MPI_MASTER);
 }
 
+void WorkerNode::recomputeVoIScores()
+{
+  computeCurrentWeight();
+
+  int currentTestNode = 0;
+  MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
+  while (currentTestNode != -1) {
+    int totalInfectionTimes = m_nodeInfectionTimes[currentTestNode].size();
+    double priors[totalInfectionTimes];
+    memset(priors, 0, totalInfectionTimes * sizeof(*priors));
+
+    // Cache cluster masses with infection time.
+    vector<vector<double>> clusterMassTestInfection;
+
+    // For each infection time, compute mass and prior.
+    GraphTest test(currentTestNode);
+    for (const GraphHypothesisCluster& cluster : m_clusters) {
+      vector<double> clusterMasses;
+      for (size_t i = 0; i < m_nodeInfectionTimes[currentTestNode].size(); ++i) {
+        pair<double, double> vals = cluster.computeMassWithTest(
+            m_config.eps, test, m_config.ignoreTime, m_previousTests);
+        priors[i] += vals.first;
+        clusterMasses.push_back(vals.second);
+      }
+      clusterMassTestInfection.push_back(clusterMasses);
+    }
+
+    // Centralize priors to master node.
+    MPI::COMM_WORLD.Reduce(
+      priors, NULL, totalInfectionTimes, MPI::DOUBLE, MPI::SUM, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(priors, totalInfectionTimes, MPI::DOUBLE, MPI_MASTER);
+
+    // Compute maximum score for this test.
+    double maxScore = -numeric_limits<double>::max();
+    for (size_t c = 0; c < m_clusters.size(); ++c) {
+      double expectedWeight = 0;
+      for (size_t i = 0; i < m_nodeInfectionTimes[currentTestNode].size(); ++i)
+        expectedWeight += priors[i] * clusterMassTestInfection[c][i];
+      maxScore = max(maxScore, m_clusters[c].getWeight() - expectedWeight);
+    }
+
+    MPI::COMM_WORLD.Reduce(&maxScore, NULL, 1, MPI::DOUBLE, MPI::MAX, MPI_MASTER);
+    MPI::COMM_WORLD.Bcast(&currentTestNode, 1, MPI::INT, MPI_MASTER);
+  }
+}
+
 void WorkerNode::recomputePartialTestScores()
 {
   // No requests will come for random policy.
   if (m_config.objType == RANDOM || m_config.objType == EC2_HIGH)
     return;
 
-  // Compute total mass for non-VOI policies.
-  computeCurrentWeight();
+  if (m_config.objType == VOI) {
+    recomputeVoIScores();
+    return;
+  }
 
-  /*
-  if (m_config.objType == VOI)
-    computeTestPriors();
-  */
+  computeCurrentWeight();
 
   // Recompute requests coming from master.
   int currentTestNode = 0;

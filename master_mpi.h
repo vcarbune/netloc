@@ -38,12 +38,9 @@ class MasterNode : public MPINode {
 
     GraphTest selectRandomTest(std::vector<GraphTest>&);
     GraphTest selectHighestDegreeTest(std::vector<GraphTest>&);
-    GraphTest selectVOITest(std::vector<GraphTest>&, double);
+    GraphTest selectVoITest(std::vector<GraphTest>&);
     GraphTest selectNextTest(std::vector<GraphTest>&);
 
-    void recomputeTestScoreEC2(GraphTest&, double, double*);
-    void recomputeTestScoreGBS(GraphTest&, double, double*);
-    void recomputeTestScoreVOI(GraphTest&);
     void recomputeTestScore(GraphTest&, double, double);
 
     /* Results */
