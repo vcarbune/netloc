@@ -258,7 +258,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   const GraphHypothesis& realization = m_realizations[realizationIdx];
 
   // Request scores for each of the tests.
-  double nextPcnt = m_config.sampling;
+  double nextPcnt = 0.00;
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
 #if DBG

@@ -64,7 +64,7 @@ class GraphHypothesisCluster {
     void updateMassWithTest(const double,
         const GraphTest&, const std::vector<std::pair<double, int>>&);
     std::pair<double, double> computeMassWithTest(
-        const double, const GraphTest&,
+        const double, const GraphTest&, bool,
         const std::vector<std::pair<double, int>>&) const;
 
     /* Properties */

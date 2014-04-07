@@ -118,7 +118,7 @@ void WorkerNode::simulate()
 {
   m_previousTests.clear();
 
-  double nextPcnt = m_config.sampling;
+  double nextPcnt = 0.00;
   for (int count = 0; count < m_config.nodes; ++count) {
     recomputePartialTestScores();
 
@@ -221,7 +221,7 @@ void WorkerNode::recomputePartialTestScores()
       for (size_t i = 0; i < m_nodeInfectionTimes[currentTestNode].size(); ++i) {
         test.setInfectionTime(m_nodeInfectionTimes[currentTestNode][i]);
         pair<double, double> vals = cluster.computeMassWithTest(
-            m_config.eps, test, m_previousTests);
+            m_config.eps, test, m_config.ignoreTime, m_previousTests);
         priors[i] += vals.first;
         mass[i] += vals.second;
         sqMass[i] += vals.second * vals.second;

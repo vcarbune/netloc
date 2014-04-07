@@ -42,10 +42,12 @@ bool GraphHypothesis::isConsistentWithTest(
   // If the node was infected, but not in this hypothesis, there two ways:
   // (done) - by default down-weight, because this cluster is definitely not the source.
   // - by default do nothing, because the point couldn't be reached in this instance.
-  if (localInfectionTime == INFECTED_FALSE)
+  if (localInfectionTime == INFECTED_FALSE &&
+      m_maxInfectionTime > infectionTime)
     return false;
 
-  return this->isConsistentWithPreviousTests(test, prevTests);
+  return m_maxInfectionTime < infectionTime ||
+      this->isConsistentWithPreviousTests(test, prevTests);
 }
 
 double GraphHypothesis::getInfectionTime(int nodeId) const
@@ -261,7 +263,7 @@ void GraphHypothesisCluster::updateMassWithTest(const double eps,
 }
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
-    const double eps, const GraphTest& test,
+    const double eps, const GraphTest& test, bool ignoreTime,
     const vector<pair<double, int>>& prevTests) const
 {
   double mass = 0.0;
@@ -269,8 +271,13 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
   for (const GraphHypothesis& h : m_hypothesis) {
     bool isConsistent = h.isConsistentWithTest(test, prevTests);
     mass += h.weight * (isConsistent ? 1 : (eps/(1.00-eps)));
-    if (h.getInfectionTime(test.getNodeId()) == test.getInfectionTime())
-      prior += h.weight;
+    if (ignoreTime) {
+      if(isConsistent)
+        prior += h.weight;
+    } else {
+      if (h.getInfectionTime(test.getNodeId()) == test.getInfectionTime())
+        prior += h.weight;
+    }
   }
 
   return make_pair(prior, mass);
