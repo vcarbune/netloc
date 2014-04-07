@@ -179,6 +179,7 @@ void MPINode::run()
     objectives.push_back(GBS);
     objectives.push_back(RANDOM);
     objectives.push_back(EC2);
+    objectives.push_back(EC2_HIGH);
     objectives.push_back(EPFL_ML);
     objectives.push_back(EPFL_EC2);
   } else if (m_config.objType == DEBUG) {
