@@ -167,10 +167,12 @@ void MasterNode::initializeNodeInfectionTimeMap()
       uniqueInfectionTimes.push_back(INFECTED_FALSE);
     }
 
+/*
     cout << node << ": ";
     for (size_t i = 0; i < uniqueInfectionTimes.size(); ++i)
       cout << uniqueInfectionTimes[i] << " ";
     cout << endl;
+*/
 
     // Is it really useful to store this?
     m_nodeInfectionTimes.push_back(uniqueInfectionTimes);
