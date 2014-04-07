@@ -31,15 +31,18 @@ bool GraphHypothesis::isConsistentWithTest(
     const GraphTest& test, const vector<pair<double,int>>& prevTests) const
 {
   double infectionTime = test.getInfectionTime();
+  double localInfectionTime = getInfectionTime(test.getNodeId());
 
-  // If the test isn't infected in the true hypothesis, check and exit early.
-  if (infectionTime == INFECTED_FALSE)
-    return getInfectionTime(test.getNodeId()) == INFECTED_FALSE;
+  // If there's no exact time information available about the node.
+  if (infectionTime == INFECTED_FALSE || infectionTime == INFECTED_TRUE) {
+    return (localInfectionTime == INFECTED_FALSE) ==
+      (infectionTime == INFECTED_FALSE);
+  }
 
-  // There are two ways of treating this:
-  // - by default down-weight, because this cluster is definitely not the source.
-  // - by default do nothing, because the point couldn't be reached in this  instance.
-  if (getInfectionTime(test.getNodeId()) == INFECTED_FALSE)
+  // If the node was infected, but not in this hypothesis, there two ways:
+  // (done) - by default down-weight, because this cluster is definitely not the source.
+  // - by default do nothing, because the point couldn't be reached in this instance.
+  if (localInfectionTime == INFECTED_FALSE)
     return false;
 
   return this->isConsistentWithPreviousTests(test, prevTests);

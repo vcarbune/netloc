@@ -66,7 +66,9 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   const TInt paramObjType = Env.GetIfArgPrefixInt(
       "-obj=", -1, "Objective Type: All(-1), "
                   "EC2 - 0, GBS - 1, VoI - 2, Random - 3, EPFL - 4");
-
+  const bool paramIgnoreTime = Env.GetIfArgPrefixBool(
+      "-time=", false,
+      "Ignore Time: Boolean Vals (true), Discrete Values(false)");
 
   /* The infection model of the ground truth */
   const TInt paramInfectionType = Env.GetIfArgPrefixInt(
@@ -101,6 +103,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
 
   /* Keep clusters from one iteration to another. */
   config.cluster.keep = true;
+  config.ignoreTime = paramIgnoreTime;
 
   config.setObjType(static_cast<AlgorithmType>(paramObjType.Val));
   config.infType = static_cast<InfectionType>(paramInfectionType.Val);
@@ -121,7 +124,6 @@ void SimConfig::setObjType(AlgorithmType objType)
   this->objType = objType;
   switch (this->objType) {
     case DEBUG:
-    case EC2_HIGH:
     case EC2:
       objSums = EC2_SUMS;
       break;
@@ -131,6 +133,7 @@ void SimConfig::setObjType(AlgorithmType objType)
     case VOI:
       objSums = VOI_SUMS;
       break;
+    case EC2_HIGH:
     case RANDOM:
       objSums = RANDOM_SUMS;
       break;

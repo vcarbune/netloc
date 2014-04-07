@@ -93,6 +93,9 @@ class SimConfig {
     double sampling = 0.04;
     int ndcgN;
 
+    // Ignore precise time?
+    bool ignoreTime;
+
     MPIClusterConfig mpi;
     HypothesisClusterConfig cluster;
 

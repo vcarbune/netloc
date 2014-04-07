@@ -10,6 +10,7 @@ set xrange [-0.05:1.05]
 
 plot \
 	sprintf("%s_ec2.log", network) using 1:col title "EC2" with lines, \
+	sprintf("%s_ec2_high.log", network) using 1:col title "HIGH DEGREE" with lines, \
 	sprintf("%s_gbs.log", network) using 1:col title "GBS" with lines, \
 	sprintf("%s_voi.log", network) using 1:col title "VOI" with lines, \
 	sprintf("%s_rand.log", network) using 1:col title "RAND" with lines, \

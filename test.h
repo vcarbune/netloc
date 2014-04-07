@@ -9,8 +9,8 @@
 #include <limits>
 #include <utility>
 
-#define INFECTED_FALSE        numeric_limits<double>::max()
-#define INFECTED_UNDEFINED    -1
+#define INFECTED_FALSE        std::numeric_limits<double>::max()
+#define INFECTED_TRUE         -1
 
 /**
  * Base Class (Generic)
@@ -50,7 +50,7 @@ class GraphTest : public Test {
   public:
     explicit GraphTest(int source) : Test()
         , m_nodeId(source)
-        , m_infectionTime(INFECTED_UNDEFINED) {}
+        , m_infectionTime(INFECTED_FALSE) {}
 
     int getNodeId() const { return m_nodeId; }
     double getInfectionTime() const { return m_infectionTime; }
