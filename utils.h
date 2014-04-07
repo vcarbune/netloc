@@ -15,7 +15,7 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-#define MPI_MASTER 
+#define MPI_MASTER 1
 #define DBG 0
 
 typedef std::pair<int, std::vector<double>> result_t;
