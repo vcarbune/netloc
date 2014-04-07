@@ -15,24 +15,8 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-#define MPI_MASTER 0
-#define DBG 1
-
-/* MPI DEFINES */
-#define RANDOM_SUMS       0
-#define REGULAR_SUMS      2
-#define EC2_SUMS          4
-#define GBS_SUMS          2
-#define VOI_SUMS          1
-
-#define POSITIVE_SUM      0
-#define NEGATIVE_SUM      1
-#define POSITIVE_DIAG_SUM 2
-#define NEGATIVE_DIAG_SUM 3
-
-/* MASS RESET THRESHOLD */
-#define RESET_SCORE_THRESHOLD         1
-#define RESET_SCORE_FACTOR            1
+#define MPI_MASTER 
+#define DBG 0
 
 typedef std::pair<int, std::vector<double>> result_t;
 
@@ -72,8 +56,6 @@ const char* algorithmTypeToString(AlgorithmType);
 class SimConfig {
   public:
     static SimConfig getSimConfigFromEnv(int argc, char *argv[], bool = true);
-
-    void setObjType(AlgorithmType);
 
     int nodes;
     int steps;

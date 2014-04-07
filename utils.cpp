@@ -104,8 +104,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   /* Keep clusters from one iteration to another. */
   config.cluster.keep = true;
   config.ignoreTime = paramIgnoreTime;
-
-  config.setObjType(static_cast<AlgorithmType>(paramObjType.Val));
+  config.objType = static_cast<AlgorithmType>(paramObjType.Val);
   config.infType = static_cast<InfectionType>(paramInfectionType.Val);
   if (config.infType == GAUSSIAN) {
     config.cluster.beta = 1.00 / config.cluster.miu;
@@ -117,30 +116,6 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
     config.groundTruths = 1;
 
   return config;
-}
-
-void SimConfig::setObjType(AlgorithmType objType)
-{
-  this->objType = objType;
-  switch (this->objType) {
-    case DEBUG:
-    case EC2:
-      objSums = EC2_SUMS;
-      break;
-    case GBS:
-      objSums = GBS_SUMS;
-      break;
-    case VOI:
-      objSums = VOI_SUMS;
-      break;
-    case EC2_HIGH:
-    case RANDOM:
-      objSums = RANDOM_SUMS;
-      break;
-    case EPFL_ML:
-    case EPFL_EC2:
-      objSums = REGULAR_SUMS;
-  }
 }
 
 MPINode::MPINode(SimConfig config)
@@ -179,6 +154,7 @@ void MPINode::run()
     objectives.push_back(EPFL_EC2);
   } else if (m_config.objType == -1) {
     // Run with all the objectives and compare everything.
+    objectives.push_back(VOI);
     objectives.push_back(GBS);
     objectives.push_back(RANDOM);
     objectives.push_back(EC2);
@@ -194,16 +170,13 @@ void MPINode::run()
   }
 
   for (size_t i = 0; i < objectives.size(); ++i) {
-    AlgorithmType objType = objectives[i];
-
     // Reset configuration.
     m_config = initialConfig;
     // Set objective properly.
-    m_config.setObjType(static_cast<AlgorithmType>(objType));
+    m_config.objType = objectives[i];
     // Set logfile properly.
     m_config.logfile = TStr::Fmt("%s%d_%s.log", m_config.logfile.CStr(),
-        m_config.nodes,
-        algorithmTypeToString(static_cast<AlgorithmType>(objType)));
+        m_config.nodes, algorithmTypeToString(objectives[i]));
 
     runWithCurrentConfig();
   }
