@@ -238,12 +238,12 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
 {
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
-    if (config.infType == BETA)
+    // if (config.infType == BETA)
       cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
             network, source, config.cluster, false));
-    else if (config.infType == GAUSSIAN)
+    /* else if (config.infType == GAUSSIAN)
       cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesisUsingGaussianModel(
-            network, source, config.cluster, false));
+            network, source, config.cluster, false)); */
 
     cluster.m_hypothesis[h].weight = weight / config.cluster.size;
   }
