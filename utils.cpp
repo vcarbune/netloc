@@ -24,8 +24,6 @@ const char* algorithmTypeToString(AlgorithmType obj) {
       return "epfl_high";
     case EPFL_EC2:
       return "epfl_ec2";
-    case DEBUG:
-      return "debug";
   }
 
   return "huh";
@@ -161,9 +159,7 @@ void MPINode::run()
     objectives.push_back(EC2_HIGH);
     objectives.push_back(EPFL_ML);
     objectives.push_back(EPFL_EC2);
-  } else if (m_config.objType == DEBUG) {
-    objectives.push_back(EC2);
-    objectives.push_back(EC2);
+    objectives.push_back(VOI);
   } else {
     // Run only with the specified objective.
     objectives.push_back(static_cast<AlgorithmType>(m_config.objType));
