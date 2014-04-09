@@ -126,7 +126,7 @@ void WorkerNode::simulate()
 {
   m_previousTests.clear();
 
-  double nextPcnt = 0.00;
+  double nextPcnt = m_config.sampling;
   for (int count = 0; count < m_config.nodes; ++count) {
     recomputePartialTestScores();
 

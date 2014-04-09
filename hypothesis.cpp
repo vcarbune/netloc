@@ -236,16 +236,28 @@ GraphHypothesisCluster::GraphHypothesisCluster(PUNGraph network,
 GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
     PUNGraph network, int source, double weight, const SimConfig& config)
 {
+  HypothesisClusterConfig newClusterConfig = config.cluster;
+
+  mt19937 eng((random_device())());
+  // Sample beta on the fly, using specified beta as maximum.
+  uniform_real_distribution<> beta_dist(0.05, config.cluster.beta);
+
+  // Sample size on the fly, using specified size as maximum.
+  uniform_real_distribution<> size_dist(0.02, config.cluster.cbound);
+
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
+    newClusterConfig.beta = beta_dist(eng);
+    newClusterConfig.cbound = size_dist(eng);
+
+    cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
+          network, source, newClusterConfig, false));
+    cluster.m_hypothesis[h].weight = weight / config.cluster.size;
+
     // if (config.infType == BETA)
-      cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
-            network, source, config.cluster, false));
     /* else if (config.infType == GAUSSIAN)
       cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesisUsingGaussianModel(
             network, source, config.cluster, false)); */
-
-    cluster.m_hypothesis[h].weight = weight / config.cluster.size;
   }
   return cluster;
 }
