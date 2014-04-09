@@ -38,13 +38,18 @@ void MasterNode::runWithCurrentConfig()
     double startTime = time(NULL);
     reset();
     for (size_t idx = 0; idx < m_realizations.size(); ++idx) {
+      double startTime = time(NULL);
       const GraphHypothesis& realization = m_realizations[idx];
       vector<result_t> incrementalResults = simulate(idx);
+      cout << "Progress: " << 100 * idx / m_realizations.size() << "\% ("
+          << difftime(time(NULL), startTime) << "s)" << endl;
 
       double pcnt = m_config.sampling;
       for (result_t& r : incrementalResults) {
+#if DBG
         cout << pcnt << "-" << realization.getSource() << "\t";
         cout << r.first << "\t";
+#endif
 
         // Add distance (in hops) to the source node.
         r.second.push_back(
@@ -53,16 +58,18 @@ void MasterNode::runWithCurrentConfig()
         // Keep a boolean, whether the source was identified or not.
         r.first = realization.getSource() == r.first ? 1 : 0;
 
+#if DBG
         for (size_t i = 0; i < r.second.size(); ++i)
           cout << r.second[i] << "\t";
         cout << endl;
+#endif
 
         pcnt += m_config.sampling;
       }
 
       results[step].push_back(incrementalResults);
     }
-    cout << "Time: " << difftime(time(NULL), startTime) << "s\n\n";
+    cout << "Total Time: " << difftime(time(NULL), startTime) << "s\n\n";
   }
 
   processResults(results, initialConfig);
@@ -81,7 +88,7 @@ void MasterNode::initializeGroundTruths()
   } else {
     // Generate artificially.
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {
-      int sourceId = rand() % m_network->GetNodes();
+      int sourceId = m_nid[rand() % m_network->GetNodes()];
       switch (m_config.infType) {
         case BETA:
           m_realizations.push_back(GraphHypothesis::generateHypothesis(
@@ -134,52 +141,63 @@ void MasterNode::reset()
 
 void MasterNode::initializeNodeInfectionTimeMap()
 {
-  m_nodeInfectionTimes.clear();
+  m_histogramInfo.clear();
 
   int junk = 0;
   MPI::Status status;
   for (int node = 0; node < m_network->GetNodes(); ++node) {
-    int infectionTimeVectorSize[m_config.mpi.nodes];
-
-    MPI::COMM_WORLD.Gather(&junk, 1, MPI::INT,
-        infectionTimeVectorSize, 1, MPI::INT, MPI_MASTER);
-
     vector<double> uniqueInfectionTimes;
-    for (int worker = 1; worker <  m_config.mpi.nodes; ++worker) {
-      int items = infectionTimeVectorSize[worker];
-      double infectionTimes[items];
-      MPI::COMM_WORLD.Recv(
-          infectionTimes, items, MPI::DOUBLE, worker, 0, status);
+    if (!m_config.ignoreTime) {
+      int infectionTimeVectorSize[m_config.mpi.nodes];
+      MPI::COMM_WORLD.Gather(&junk, 1, MPI::INT,
+          infectionTimeVectorSize, 1, MPI::INT, MPI_MASTER);
 
-      vector<double> result(items + uniqueInfectionTimes.size());
-      vector<double>::iterator it = set_union(
-          uniqueInfectionTimes.begin(), uniqueInfectionTimes.end(),
-          infectionTimes, infectionTimes + items, result.begin());
-      result.resize(it - result.begin());
+      for (int worker = 1; worker <  m_config.mpi.nodes; ++worker) {
+        int items = infectionTimeVectorSize[worker];
+        double infectionTimes[items];
+        MPI::COMM_WORLD.Recv(
+            infectionTimes, items, MPI::DOUBLE, worker, 0, status);
 
-      uniqueInfectionTimes.swap(result);
-    }
+        vector<double> result(items + uniqueInfectionTimes.size());
+        vector<double>::iterator it = set_union(
+            uniqueInfectionTimes.begin(), uniqueInfectionTimes.end(),
+            infectionTimes, infectionTimes + items, result.begin());
+        result.resize(it - result.begin());
 
-    if (m_config.ignoreTime) {
-      uniqueInfectionTimes.clear();
+        uniqueInfectionTimes.swap(result);
+      }
 
+      // The infection time vector has the following structure:
+      // Nbins, minT1, minT2, ..., minNbins[, infty]
+      uniqueInfectionTimes = createHistograms(uniqueInfectionTimes);
+    } else {
       uniqueInfectionTimes.push_back(INFECTED_TRUE);
       uniqueInfectionTimes.push_back(INFECTED_FALSE);
     }
 
-/*
-    cout << node << ": ";
+#if DBG
+    cout << node << "(" << m_nid[node] << "): ";
     for (size_t i = 0; i < uniqueInfectionTimes.size(); ++i)
       cout << uniqueInfectionTimes[i] << " ";
     cout << endl;
-*/
+#endif
 
-    // Is it really useful to store this?
-    m_nodeInfectionTimes.push_back(uniqueInfectionTimes);
+    // Is it really useful to store this in the master node?
+    m_histogramInfo.push_back(uniqueInfectionTimes);
 
     int size = uniqueInfectionTimes.size();
     MPI::COMM_WORLD.Bcast(&size, 1, MPI::INT, MPI_MASTER);
     MPI::COMM_WORLD.Bcast(&uniqueInfectionTimes.front(), size, MPI::DOUBLE, MPI_MASTER);
+
+    m_nodeInfectionTimes.push_back(
+        createDiscreteTimeValuesFromHistogramBounds(uniqueInfectionTimes));
+
+#if DBG
+    cout << node << "(" << m_nid[node] << "): ";
+    for (size_t i = 0; i < m_nodeInfectionTimes[node].size(); ++i)
+      cout << m_nodeInfectionTimes[node][i] << " ";
+    cout << endl;
+#endif
   }
 }
 
@@ -262,7 +280,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
   for (int count = 0; count < m_config.nodes; ++count) {
     GraphTest nextTest = selectNextTest(tests);
 #if DBG
-    cout << count << ". " << nextTest.getNodeId() << " " << nextTest.getScore() << endl;
+    cout << count << ". " << m_nid[nextTest.getNodeId()] << " " << nextTest.getScore() << endl;
 #endif
 
     // Inform the workers about the selected test.
@@ -528,6 +546,8 @@ result_t MasterNode::identifyCluster(int realizationIdx)
     allClusterWeights[i].first = allClusterWeights[i].first * 100 / mass;
     if (allClusterWeights[i].second == realSource)
       realSourceMass = allClusterWeights[i].first;
+    if (!m_network->IsNode(allClusterWeights[i].second))
+      cerr << "Whoa, not in the network!?" << allClusterWeights[i].second;
   }
 
   // Obtain rank of true solution.

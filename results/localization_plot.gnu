@@ -9,10 +9,10 @@ set key left top
 set xrange [-0.05:1.05]
 
 plot \
-	sprintf("%s_ec2.log", network) using 1:col title "EC2" with lines, \
-	sprintf("%s_ec2_high.log", network) using 1:col title "HD" with lines, \
-	sprintf("%s_gbs.log", network) using 1:col title "GBS" with lines, \
-	sprintf("%s_voi.log", network) using 1:col title "VOI" with lines, \
-	sprintf("%s_rand.log", network) using 1:col title "RAND" with lines, \
-	sprintf("%s_epfl_high.log", network) using 1:col title "MLE + HD" with lines, \
-	sprintf("%s_epfl_ec2.log", network) using 1:col title "MLE + EC2" with lines
+	sprintf("%s_gbs.log", network) using 1:col title "GBS" with lines lc 1, \
+	sprintf("%s_ec2.log", network) using 1:col title "EC2" with lines lc 3, \
+	sprintf("%s_ec2_high.log", network) using 1:col title "HD" with lines lc 9, \
+	sprintf("%s_voi.log", network) using 1:col title "VOI" with lines lc 4, \
+	sprintf("%s_rand.log", network) using 1:col title "RAND" with lines lc 2, \
+	sprintf("%s_epfl_high.log", network) using 1:col title "MLE + HD" with lines lc 6, \
+	sprintf("%s_epfl_ec2.log", network) using 1:col title "MLE + EC2" with lines lc 7

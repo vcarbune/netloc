@@ -40,6 +40,7 @@ class WorkerNode : public MPINode {
     std::pair<int, int> m_nodeRange;
 
     /* List of infection times to be considered per node */
+    std::vector<std::vector<double>> m_histogramInfo;
     std::vector<std::vector<double>> m_nodeInfectionTimes;
 };
 

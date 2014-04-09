@@ -36,7 +36,7 @@ bool GraphHypothesis::isConsistentWithTest(
   // If there's no exact time information available about the node.
   if (infectionTime == INFECTED_FALSE || infectionTime == INFECTED_TRUE) {
     return (localInfectionTime == INFECTED_FALSE) ==
-      (infectionTime == INFECTED_FALSE);
+        (infectionTime == INFECTED_FALSE);
   }
 
   // If the node was infected, but not in this hypothesis, there two ways:
@@ -264,7 +264,8 @@ void GraphHypothesisCluster::updateMassWithTest(const double eps,
 
 pair<double, double> GraphHypothesisCluster::computeMassWithTest(
     const double eps, const GraphTest& test, bool ignoreTime,
-    const vector<pair<double, int>>& prevTests) const
+    const vector<pair<double, int>>& prevTests,
+    const vector<double>& nodeHistogramInfo) const
 {
   double mass = 0.0;
   double prior = 0.0;
@@ -275,7 +276,12 @@ pair<double, double> GraphHypothesisCluster::computeMassWithTest(
       if(isConsistent)
         prior += h.weight;
     } else {
-      if (h.getInfectionTime(test.getNodeId()) == test.getInfectionTime())
+      int hypothesisTimeBin = getHistogramBin(
+          h.getInfectionTime(test.getNodeId()), nodeHistogramInfo);
+      int testTimeBin = getHistogramBin(
+          test.getInfectionTime(), nodeHistogramInfo);
+
+      if (hypothesisTimeBin == testTimeBin)
         prior += h.weight;
     }
   }

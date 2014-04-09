@@ -29,6 +29,73 @@ const char* algorithmTypeToString(AlgorithmType obj) {
   return "huh";
 }
 
+vector<double> createHistograms(const vector<double>& uniqueInfectionTimes)
+{
+  vector<double> histogramInfo;
+
+  double minTime = uniqueInfectionTimes[0];
+  double maxTime = uniqueInfectionTimes[uniqueInfectionTimes.size() - 1];
+  if (maxTime == INFECTED_FALSE) {
+    if (uniqueInfectionTimes.size() > 2)
+      maxTime = uniqueInfectionTimes[uniqueInfectionTimes.size() - 2];
+    else
+      maxTime = minTime + 0.1;
+  }
+
+  int totalBins = sqrt(uniqueInfectionTimes.size() - 1);
+  histogramInfo.push_back(totalBins);
+
+  for (int bin = 0; bin <= totalBins; ++bin) {
+    double binMinTime = ((double) bin / totalBins) * (maxTime - minTime);
+    histogramInfo.push_back(binMinTime);
+  }
+
+  // We always consider the non-infected case too, but in the getHistogramBin()
+
+  return histogramInfo;
+}
+
+vector<double> createDiscreteTimeValuesFromHistogramBounds(
+    const std::vector<double>& histogramInfo)
+{
+  // Always use the left-most value of the bin.
+  vector<double> times;
+  int bins = histogramInfo[0];
+
+  // Maybe we consider just boolean values.
+  if (bins == INFECTED_TRUE)
+    times.push_back(INFECTED_TRUE);
+
+  for (int bin = 1; bin <= bins; ++bin)
+    times.push_back((double) (histogramInfo[bin] + histogramInfo[bin+1]) / 2);
+  times.push_back(INFECTED_FALSE);
+
+  return times;
+}
+
+int getHistogramBin(double time, const vector<double>& histogramInfo)
+{
+  int totalBins = histogramInfo[0];
+  if (time == INFECTED_FALSE)
+    return totalBins + 1;
+
+  for (int bin = 1; bin <= totalBins; ++bin)
+    if (time >= histogramInfo[bin] && time < histogramInfo[bin+1])
+      return bin;
+
+  // If it's in the last bin, the upper limit.
+  if (histogramInfo[totalBins+1] == time)
+    return totalBins;
+
+  // Just warn...
+  cout << "This shouldn't happen " << time << endl;
+  for (size_t i = 0; i < histogramInfo.size(); ++i)
+    cout << histogramInfo[i] << " ";
+  cout << endl;
+
+  return totalBins + 1;
+}
+
 SimConfig& SimConfig::operator++() {
   cluster.size *= 2;
   return *this;
@@ -133,7 +200,8 @@ void MPINode::readNetwork()
   TFIn FIn(m_config.netinFile);
   m_network = TUNGraph::Load(FIn);
   m_network->GetNIdV(m_nid);
-
+  cout << "Fraction of nodes in largest WCC: " <<
+      TSnap::GetMxWccSz(m_network) << endl;
   m_config.nodes = m_network->GetNodes();
   m_config.ndcgN = static_cast<int>(0.05 * m_network->GetNodes());
 }

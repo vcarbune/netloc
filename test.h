@@ -63,6 +63,9 @@ class GraphTest : public Test {
       return m_nodeId == o.m_nodeId;
     }
 
+    double minInfectionTime;
+    double maxInfectionTime;
+
   private:
     int m_nodeId;
     double m_infectionTime;

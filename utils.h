@@ -52,6 +52,11 @@ enum InfectionType {
 
 const char* algorithmTypeToString(AlgorithmType);
 
+std::vector<double> createHistograms(const std::vector<double>&);
+std::vector<double> createDiscreteTimeValuesFromHistogramBounds(
+    const std::vector<double>&);
+int getHistogramBin(double time, const std::vector<double>&);
+
 class SimConfig {
   public:
     static SimConfig getSimConfigFromEnv(int argc, char *argv[], bool = true);

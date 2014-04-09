@@ -59,6 +59,7 @@ class MasterNode : public MPINode {
 
     /* m_ec2observers[TRUTH][PCNT]; */
     std::vector<std::vector<int>> m_ec2observers;
+    std::vector<std::vector<double>> m_histogramInfo;
     std::vector<std::vector<double>> m_nodeInfectionTimes;
 };
 

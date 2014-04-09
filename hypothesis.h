@@ -65,7 +65,8 @@ class GraphHypothesisCluster {
         const GraphTest&, const std::vector<std::pair<double, int>>&);
     std::pair<double, double> computeMassWithTest(
         const double, const GraphTest&, bool,
-        const std::vector<std::pair<double, int>>&) const;
+        const std::vector<std::pair<double, int>>&,
+        const std::vector<double>&) const;
 
     /* Properties */
     int getSource() const { return m_sourceId; }
