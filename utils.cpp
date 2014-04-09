@@ -218,20 +218,22 @@ void MPINode::run()
     objectives.push_back(EC2);
     // Then run EPFL approach using the stored EC2 observers.
     objectives.push_back(EPFL_EC2);
-  } else if (m_config.objType == -1) {
+  } else if (m_config.objType == -1 || m_config.objType == -2) {
     // Run with all the objectives and compare everything.
-    objectives.push_back(VOI);
     objectives.push_back(GBS);
     objectives.push_back(RANDOM);
     objectives.push_back(EC2);
     objectives.push_back(EC2_HIGH);
     objectives.push_back(EPFL_ML);
     objectives.push_back(EPFL_EC2);
-    objectives.push_back(VOI);
   } else {
     // Run only with the specified objective.
     objectives.push_back(static_cast<AlgorithmType>(m_config.objType));
   }
+
+  // All with VOI (which is slow...)
+  if (m_config.objType == -2)
+    objectives.push_back(VOI);
 
   for (size_t i = 0; i < objectives.size(); ++i) {
     // Reset configuration.
