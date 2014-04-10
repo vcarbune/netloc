@@ -239,19 +239,18 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
   HypothesisClusterConfig newClusterConfig = config.cluster;
 
   mt19937 eng((random_device())());
-  // Sample beta on the fly, using specified beta as maximum.
-  normal_distribution<double> beta_dist(config.cluster.beta, 0.08);
-  // uniform_real_distribution<> beta_dist(0.05, config.cluster.beta);
 
+  // Sample beta on the fly, using specified beta as maximum.
+  uniform_real_distribution<> beta_dist(config.cluster.beta - 0.08,
+                                        config.cluster.beta + 0.08);
   // Sample size on the fly, using specified size as maximum.
-  normal_distribution<double> size_dist(config.cluster.cbound, 0.08);
-  //uniform_real_distribution<> size_dist(0.02, config.cluster.cbound);
+  uniform_real_distribution<> size_dist(config.cluster.cbound - 0.05,
+                                        config.cluster.cbound + 0.05);
 
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
     newClusterConfig.beta = beta_dist(eng);
     newClusterConfig.cbound = size_dist(eng);
-
     cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
           network, source, newClusterConfig, false));
     cluster.m_hypothesis[h].weight = weight / config.cluster.size;
