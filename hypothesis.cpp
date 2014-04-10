@@ -240,7 +240,8 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
 
   mt19937 eng((random_device())());
   // Sample beta on the fly, using specified beta as maximum.
-  uniform_real_distribution<> beta_dist(0.05, config.cluster.beta);
+  normal_distribution<double> beta_dist(config.cluster.beta, 0.08);
+  // uniform_real_distribution<> beta_dist(0.05, config.cluster.beta);
 
   // Sample size on the fly, using specified size as maximum.
   uniform_real_distribution<> size_dist(0.02, config.cluster.cbound);
