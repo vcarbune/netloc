@@ -244,7 +244,8 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
   // uniform_real_distribution<> beta_dist(0.05, config.cluster.beta);
 
   // Sample size on the fly, using specified size as maximum.
-  uniform_real_distribution<> size_dist(0.02, config.cluster.cbound);
+  normal_distribution<double> size_dist(config.cluster.cbound, 0.08);
+  //uniform_real_distribution<> size_dist(0.02, config.cluster.cbound);
 
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
