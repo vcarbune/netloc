@@ -251,7 +251,9 @@ vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
   vector<result_t> results;
   double maxPcnt = (double) m_config.maxObservers / m_network->GetNodes();
-  for (double pcnt = m_config.sampling; pcnt < maxPcnt; pcnt += m_config.sampling) {
+  for (double pcnt = m_config.sampling;
+       pcnt <= min(1.00, maxPcnt + m_config.sampling);
+       pcnt += m_config.sampling) {
     cout << "Running MLE approach with " << pcnt << "\% observers" << endl;
     m_epflSolver = EPFLSolver(m_network, m_config, pcnt);
     if (m_config.objType == EPFL_EC2)
