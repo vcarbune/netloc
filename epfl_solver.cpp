@@ -20,13 +20,17 @@ EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config, double pcnt)
   : m_network(network)
   , m_config(config)
 {
+  TIntV nid;
+  m_network->GetNIdV(nid);
+
   // Keep top % of nodes as observers based on highest-degree policy.
   int observers = pcnt * m_network->GetNodes();
 
   // Sort by degree (using default pair comparator).
   vector<pair<int, int>> degrees;
   for (int node = 0; node < m_network->GetNodes(); ++node)
-    degrees.push_back(pair<int, int>(m_network->GetNI(node).GetOutDeg(), node));
+    degrees.push_back(pair<int, int>(m_network->GetNI(nid[node]).GetOutDeg(),
+                                     nid[node]));
   sort(degrees.begin(), degrees.end(), greater<pair<int, int>>());
 
   // Store observer nodes locally.
@@ -36,13 +40,14 @@ EPFLSolver::EPFLSolver(PUNGraph network, SimConfig config, double pcnt)
 
 void EPFLSolver::setObserverList(const vector<int>& observers, double pcnt)
 {
-  int observersCount = pcnt * m_network->GetNodes();
+  TIntV nid;
+  m_network->GetNIdV(nid);
+
+  double observersCount = observers.size();
+  int observersAvailable = min(pcnt * m_network->GetNodes(), observersCount);
   m_observerNodes.clear();
-  for (int node = 0; node < observersCount; ++node) {
-    m_observerNodes.push_back(observers[node]);
-    // cout << observers[node] << " ";
-  }
-  // cout << endl;
+  for (int node = 0; node < observersAvailable; ++node)
+    m_observerNodes.push_back(nid[observers[node]]);
 }
 
 result_t EPFLSolver::solve(const GraphHypothesis& realization,
@@ -82,18 +87,23 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   if (m_config.infType == BETA) {
     double beta = m_config.cluster.beta;
     moments = make_pair(1.00/beta, sqrt((1.00 - beta)/(beta*beta)));
-    cout << moments.first << " -- " << moments.second << endl;
   } else {
     moments = make_pair(m_config.cluster.miu, m_config.cluster.beta);
-    // moments = computeGaussianMoments(observers);
   }
 
   TIntH idToShortestPathsFromReference;
   TSnap::GetShortPath(m_network, referenceObserver, idToShortestPathsFromReference);
 
   // BFS tree from reference observer. Compute LCA w.r.t. to ref. observer.
-  PNGraph bfsTree = TSnap::GetBfsTree(m_network, referenceObserver, true, true);
-  int lca[observers.size()][observers.size()];
+  PNGraph bfsTree = TSnap::GetBfsTree<PUNGraph>(
+      m_network, referenceObserver, true, true);
+
+  // The method below smartly identifies the lowest common ancestor
+  // between two nodes, but wastes quite some memory. Note that because
+  // of using unsigned short ints, one shouldn't have nodes with id > 65535
+
+  // TODO(vcarbune): use half of the memory.
+  unsigned short int lca[observers.size()][observers.size()];
   for (size_t k = 1; k < observers.size(); ++k) {
     for (size_t i = k + 1; i < observers.size(); ++i) {
       int Ni = observers[i].second;
@@ -102,12 +112,10 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
       int heightNk = idToShortestPathsFromReference.GetDat(Nk);
 
       while (heightNi > heightNk && Ni != referenceObserver) {
-        // Note: fingers crossed that the same values are in GetInNId array.
         Ni = bfsTree->GetNI(Ni).GetInNId(0);
         heightNi = idToShortestPathsFromReference.GetDat(Ni);
       }
-      while (heightNk > heightNi) {
-        // Note: fingers crossed that the same values are in GetInNId array.
+      while (heightNk > heightNi && Nk != referenceObserver) {
         Nk = bfsTree->GetNI(Nk).GetInNId(0);
         heightNk = idToShortestPathsFromReference.GetDat(Nk);
       }
@@ -142,9 +150,11 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   for (size_t o = 0; o < observers.size() - 1; ++o)
     d[o] = observers[o+1].first - observers[0].first;
 
+  TIntV nid;
+  m_network->GetNIdV(nid);
   for (int s = 0; s < m_network->GetNodes(); ++s) {
     TIntH idToShortestPathsFromSource;
-    TSnap::GetShortPath(m_network, s, idToShortestPathsFromSource);
+    TSnap::GetShortPath(m_network, nid[s], idToShortestPathsFromSource);
 
     // Deterministic Delay
     Eigen::VectorXf miu_s(observers.size() - 1);
@@ -156,7 +166,7 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
 
     // Estimator value.
     double estimator = miu_s.transpose() * invLambda * (d - 0.5 * miu_s);
-    clusterSortedScores.push_back(pair<double, int>(estimator, s));
+    clusterSortedScores.push_back(pair<double, int>(estimator, nid[s]));
   }
   sort(clusterSortedScores.begin(), clusterSortedScores.end(),
        std::greater<pair<double, int>>());
@@ -168,8 +178,9 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   }
 
   result_t result;
-  result.first = clusterSortedScores[0].second;          // identified solution
-  result.second.push_back(clusterSortedScores[0].first); // solution score?
+  result.first = clusterSortedScores[0].second;
+  // solution score?
+  result.second.push_back(clusterSortedScores[realSourceIdx].first);
   result.second.push_back(clusterSortedScores[0].first -
       clusterSortedScores[realSourceIdx].first);
   result.second.push_back(realSourceIdx);                // rank
@@ -177,25 +188,23 @@ result_t EPFLSolver::solve(const GraphHypothesis& realization,
   return result;
 }
 
+// Note: not used currently.
 gaussian_t EPFLSolver::computeGaussianMoments(
     const vector<pair<double, int>>& observers)
 {
   gaussian_t moments(0.0, 0.0);
   vector<double> data;
 
-  // Mean
   for (size_t i = 1; i < observers.size(); ++i) {
     data.push_back(observers[i].first - observers[0].first);
     moments.first += data[i-1];
   }
   moments.first /= data.size();
 
-  // Standard Deviation
   for (size_t i = 0; i < data.size(); ++i)
     moments.second += (data[i] - moments.first) * (data[i] - moments.first);
   moments.second = sqrt(moments.second / (data.size() - 1));
 
-  // cout << "Gaussian(" << moments.first << ", " << moments.second << ")\n";
   return moments;
 }
 

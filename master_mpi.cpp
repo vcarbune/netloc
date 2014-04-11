@@ -250,12 +250,12 @@ vector<result_t> MasterNode::simulate(int realizationIdx)
 vector<result_t> MasterNode::simulateEPFLPolicy(int realizationIdx)
 {
   vector<result_t> results;
-  for (double pcnt = m_config.sampling; pcnt < (1.00 + m_config.sampling);
-       pcnt += m_config.sampling) {
+  double maxPcnt = (double) m_config.maxObservers / m_network->GetNodes();
+  for (double pcnt = m_config.sampling; pcnt < maxPcnt; pcnt += m_config.sampling) {
+    cout << "Running MLE approach with " << pcnt << "\% observers" << endl;
     m_epflSolver = EPFLSolver(m_network, m_config, pcnt);
-    if (m_config.objType == EPFL_EC2) {
+    if (m_config.objType == EPFL_EC2)
       m_epflSolver.setObserverList(m_ec2observers[realizationIdx], pcnt);
-    }
 
     vector<pair<double, int>> clusterSortedScores;
     result_t result =
@@ -277,7 +277,7 @@ vector<result_t> MasterNode::simulateAdaptivePolicy(int realizationIdx)
 
   // Request scores for each of the tests.
   double nextPcnt = m_config.sampling;
-  for (int count = 0; count < m_config.nodes; ++count) {
+  for (int count = 0; count < m_config.maxObservers; ++count) {
     GraphTest nextTest = selectNextTest(tests);
 #if DBG
     cout << count << ". " << m_nid[nextTest.getNodeId()] << " " << nextTest.getScore() << endl;
@@ -494,7 +494,7 @@ double MasterNode::computeNDCG(
 
   int maxDistance = 0;
   for (int i = 0; i < m_config.nodes; ++i)
-    maxDistance = max(nodeRelevance.GetDat(i).Val, maxDistance);
+    maxDistance = max(nodeRelevance.GetDat(m_nid[i]).Val, maxDistance);
 
   double dcg = maxDistance - nodeRelevance.GetDat(clusterSortedScores[0].second);
   for (int i = 1; i < m_config.ndcgN; ++i)
@@ -503,7 +503,8 @@ double MasterNode::computeNDCG(
 
   vector<int> idealRelevanceOrdering;
   for (int i = 0; i < m_config.nodes; ++i)
-    idealRelevanceOrdering.push_back(maxDistance - nodeRelevance.GetDat(i).Val);
+    idealRelevanceOrdering.push_back(
+        maxDistance - nodeRelevance.GetDat(m_nid[i]).Val);
   sort(idealRelevanceOrdering.begin(), idealRelevanceOrdering.end(),
        greater<int>());
 

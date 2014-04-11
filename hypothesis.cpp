@@ -249,8 +249,8 @@ GraphHypothesisCluster GraphHypothesisCluster::generateHypothesisCluster(
 
   GraphHypothesisCluster cluster(network, source, weight);
   for (int h = 0; h < config.cluster.size; h++) {
-    newClusterConfig.beta = beta_dist(eng);
-    newClusterConfig.cbound = size_dist(eng);
+    // newClusterConfig.beta = beta_dist(eng);
+    // newClusterConfig.cbound = size_dist(eng);
     cluster.m_hypothesis.push_back(GraphHypothesis::generateHypothesis(
           network, source, newClusterConfig, false));
     cluster.m_hypothesis[h].weight = weight / config.cluster.size;

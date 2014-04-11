@@ -127,7 +127,7 @@ void WorkerNode::simulate()
   m_previousTests.clear();
 
   double nextPcnt = m_config.sampling;
-  for (int count = 0; count < m_config.nodes; ++count) {
+  for (int count = 0; count < m_config.maxObservers; ++count) {
     recomputePartialTestScores();
 
     // Receive from the master node the testNode that was selected to run.

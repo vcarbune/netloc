@@ -16,7 +16,7 @@
 #define UTILS_H_
 
 #define MPI_MASTER 0
-#define DBG 0
+#define DBG 1
 
 typedef std::pair<int, std::vector<double>> result_t;
 
@@ -74,13 +74,18 @@ class SimConfig {
     TStr groundTruthFile;
     int groundTruths;
 
-    // Noisy Model Re-weighing (tolerance to noisy measurements).
+    // noisy model re-weighing parameter.
     double eps;
+
+    // how often do we evaluate?
     double sampling = 0.04;
     int ndcgN;
 
     // Ignore precise time?
     bool ignoreTime;
+
+    // Maximum number of observers?
+    int maxObservers;
 
     MPIClusterConfig mpi;
     HypothesisClusterConfig cluster;

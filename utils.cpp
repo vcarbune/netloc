@@ -138,6 +138,8 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   /* The infection model of the ground truth */
   const TInt paramInfectionType = Env.GetIfArgPrefixInt(
       "-inf=", 0, "Infection Type: 0 - Default, 1 - Gaussian");
+  const TInt paramMaxObservers = Env.GetIfArgPrefixInt(
+      "-tests=", 100, "Max Observers (Tests)");
 
   /* Logging and Input */
   const TStr paramOutputLog = Env.GetIfArgPrefixStr(
@@ -157,6 +159,7 @@ SimConfig SimConfig::getSimConfigFromEnv(int argc, char *argv[], bool silent)
   config.cluster.cbound = paramArtifCascadeSize;
 
   config.eps = paramEps;
+  config.maxObservers = paramMaxObservers;
 
   config.steps = paramSteps.Val;
   config.logfile = paramOutputLog;
@@ -200,8 +203,9 @@ void MPINode::readNetwork()
   TFIn FIn(m_config.netinFile);
   m_network = TUNGraph::Load(FIn);
   m_network->GetNIdV(m_nid);
-  cout << "Fraction of nodes in largest WCC: " <<
-      TSnap::GetMxWccSz(m_network) << endl;
+  if (m_config.mpi.rank == MPI_MASTER)
+    cout << "Fraction of nodes in largest WCC: " <<
+        TSnap::GetMxWccSz(m_network) << endl;
   m_config.nodes = m_network->GetNodes();
   m_config.ndcgN = static_cast<int>(0.05 * m_network->GetNodes());
 }
