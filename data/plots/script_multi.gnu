@@ -1,7 +1,7 @@
 set title sprintf("%s", plottitle)
 set terminal png
 set output sprintf("%s.png", outfile)
-set xlabel "ln(cluster size)"
+set xlabel "Observers (%)"
 set ylabel sprintf("%s", yl)
 set key left top
 set xrange [2.8:9.5]
