@@ -1,12 +1,15 @@
-set title sprintf("%s", plottitle)
-set terminal png enhanced size 1024,768 dashlength 0.5
-set output sprintf("%s/%s_%s.png", dir, network, var)
+set title sprintf("%s", plottitle) font "arial,25"
+set terminal svg enhanced size 1024,768
+set output sprintf("%s/%s_%s.svg", dir, network, var)
 
-set xlabel "Observers (%)"
-set ylabel sprintf("%s", var)
+set xlabel "Observers (%)" font "arial,25"
+set ylabel sprintf("%s", var) font "arial,25"
 
-set key right center
+set key right center font "arial, 20"
 set xrange [-0.05:1.05]
+
+set xtics font "arial, 25"
+set ytics font "arial, 25"
 
 plot \
 	sprintf("%s/%s_gbs.log", dir, network) using 1:col title "GBS" with lines lc 1, \

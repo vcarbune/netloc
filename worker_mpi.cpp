@@ -38,6 +38,11 @@ void WorkerNode::runWithCurrentConfig()
     return;
   }
 
+  cout << m_config.mpi.rank << ": " <<
+      GraphHypothesis::GetConsumedBytes() << " bytes" << endl;
+  cout << m_config.mpi.rank << ": " <<
+      GraphHypothesisCluster::GetConsumedBytes() << " bytes" << endl;
+
   for (int step = 0; step < m_config.steps; ++step, ++m_config) {
     reset();
     for (int truth = 0; truth < m_config.groundTruths; ++truth) {

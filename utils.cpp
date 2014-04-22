@@ -42,7 +42,7 @@ vector<double> createHistograms(const vector<double>& uniqueInfectionTimes)
       maxTime = minTime + 0.1;
   }
 
-  int totalBins = sqrt(uniqueInfectionTimes.size() - 1);
+  int totalBins = min(10.00, sqrt(uniqueInfectionTimes.size() - 1));
   histogramInfo.push_back(totalBins);
 
   for (int bin = 0; bin <= totalBins; ++bin) {
@@ -62,12 +62,14 @@ vector<double> createDiscreteTimeValuesFromHistogramBounds(
   vector<double> times;
   int bins = histogramInfo[0];
 
-  // Maybe we consider just boolean values.
+  // We consider just boolean values.
   if (bins == INFECTED_TRUE)
     times.push_back(INFECTED_TRUE);
 
   for (int bin = 1; bin <= bins; ++bin)
     times.push_back((double) (histogramInfo[bin] + histogramInfo[bin+1]) / 2);
+
+  // The uninfected case is always here
   times.push_back(INFECTED_FALSE);
 
   return times;
@@ -78,6 +80,10 @@ int getHistogramBin(double time, const vector<double>& histogramInfo)
   int totalBins = histogramInfo[0];
   if (time == INFECTED_FALSE)
     return totalBins + 1;
+
+  // For negative times(!?) return first bin.
+  if (time < 0 && time != INFECTED_TRUE)
+    return 1;
 
   for (int bin = 1; bin <= totalBins; ++bin)
     if (time >= histogramInfo[bin] && time < histogramInfo[bin+1])

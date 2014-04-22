@@ -1,5 +1,5 @@
 /**
- * Memetracker Converter. Original data is taken from the MemeTracker project.
+ * Codered Converted.
  * Author: Victor Carbune (vcarbune@ethz.ch)
  */
 #include <ctime>

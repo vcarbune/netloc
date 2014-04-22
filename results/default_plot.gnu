@@ -1,6 +1,6 @@
-set title sprintf("%s", plottitle)
-set terminal png enhanced size 1024,768
-set output sprintf("%s/%s_%s.png", dir, network, var)
+set title sprintf("%s", plottitle) font "arial,22"
+set terminal svg enhanced size 1024,768
+set output sprintf("%s/%s_%s.svg", dir, network, var)
 
 set xlabel "Observers (%)"
 set ylabel sprintf("%s", var)

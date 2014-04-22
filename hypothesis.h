@@ -17,17 +17,14 @@
 #undef min
 #undef max
 
-class GraphHypothesis {
+
+class GraphHypothesis : public Counter<GraphHypothesis> {
   public:
     /* Generators */
     static GraphHypothesis generateHypothesis(
         PUNGraph, int, const HypothesisClusterConfig, bool = true);
     static GraphHypothesis generateHypothesisUsingGaussianModel(
         PUNGraph, int, const HypothesisClusterConfig, bool = true);
-    /*
-    static GraphHypothesis generateHypothesisUsingWeightedGraph(
-        const TNodeEDatNet<int, double>&, int, const HypothesisClusterConfig);
-    */
 
     /* Input/Output */
     static GraphHypothesis readHypothesisFromFile(PUNGraph, const char*);
@@ -55,7 +52,7 @@ class GraphHypothesis {
     double m_maxInfectionTime;
 };
 
-class GraphHypothesisCluster {
+class GraphHypothesisCluster : public Counter<GraphHypothesisCluster>{
   public:
     static GraphHypothesisCluster generateHypothesisCluster(
         PUNGraph, int, double, const SimConfig& config);
@@ -92,5 +89,8 @@ class GraphHypothesisCluster {
 
     std::vector<GraphHypothesis> m_hypothesis;
 };
+
+template<class T>
+int Counter<T>::count = 0;
 
 #endif

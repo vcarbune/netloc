@@ -16,7 +16,7 @@
 #define UTILS_H_
 
 #define MPI_MASTER 0
-#define DBG 0
+#define DBG 1
 
 typedef std::pair<int, std::vector<double>> result_t;
 
@@ -113,6 +113,20 @@ class MPINode {
 
     std::vector<double> m_testsPrior;
     TIntV m_nid;
+};
+
+// Debugging
+template<typename T> class Counter {
+  public:
+    static int count;
+    Counter() { count++; }
+    Counter(const Counter&) { count++; }
+    Counter& operator=(const Counter&) {}
+    ~Counter() { count--; }
+
+    static int GetConsumedBytes() {
+        return sizeof(T) * count;
+    }
 };
 
 #endif // UTILS_H_
